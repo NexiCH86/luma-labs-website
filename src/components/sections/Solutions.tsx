@@ -33,6 +33,7 @@ export function Solutions() {
               Eine Plattform. Acht spezialisierte Produktlinien.
             </h2>
           </div>
+
           <p className="max-w-lg leading-7 text-slate-400">
             Jede Lösung deckt einen klaren Bereich ab. Gemeinsam verbinden sie
             Engineering, Software, BIM und Smart Infrastructure.
@@ -43,17 +44,24 @@ export function Solutions() {
           {solutions.map(([name, description, Icon]) => (
             <article
               key={name as string}
-              className="group min-h-64 rounded-xl border border-white/10 bg-[#0A1924] p-7 transition duration-300 hover:-translate-y-1 hover:border-[#00A99D]/50 hover:bg-[#0D202B]"
+              className="group min-h-64 rounded-xl border border-white/10 bg-[#0A1924] p-7 shadow-[0_10px_35px_rgba(0,0,0,0.14)] transition duration-300 hover:-translate-y-2 hover:border-[#00A99D]/60 hover:bg-[#0D202B] hover:shadow-[0_20px_50px_rgba(0,169,157,0.12)]"
             >
-              <Icon className="h-8 w-8 text-[#00A99D]" />
-              <h3 className="mt-8 text-2xl font-medium text-white">
+              <div className="inline-flex rounded-lg border border-[#00A99D]/15 bg-[#00A99D]/5 p-3 transition duration-300 group-hover:border-[#00A99D]/35 group-hover:bg-[#00A99D]/10">
+                <Icon className="h-8 w-8 text-[#00A99D]" />
+              </div>
+
+              <h3 className="mt-7 text-2xl font-medium text-white">
                 {(name as string).split(" ")[0]}{" "}
                 <span className="text-[#00A99D]">
                   {(name as string).split(" ").slice(1).join(" ")}
                 </span>
               </h3>
-              <p className="mt-4 leading-7 text-slate-400">{description as string}</p>
-              <div className="mt-7 text-xs font-semibold uppercase tracking-[0.16em] text-[#00D7D5]">
+
+              <p className="mt-4 leading-7 text-slate-400">
+                {description as string}
+              </p>
+
+              <div className="mt-7 text-xs font-semibold uppercase tracking-[0.16em] text-[#00D7D5] transition group-hover:translate-x-1">
                 Mehr erfahren →
               </div>
             </article>

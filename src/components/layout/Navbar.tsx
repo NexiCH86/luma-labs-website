@@ -27,7 +27,7 @@ export function Navbar() {
             href="https://github.com/NexiCH86"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-[#00A99D]/40 px-4 py-2.5 text-[#00D7D5] transition hover:bg-[#00A99D]/10"
+            className="inline-flex items-center gap-2 rounded-md border border-[#00A99D]/55 bg-gradient-to-r from-[#007D75] to-[#00A99D] px-4 py-2.5 font-semibold text-white shadow-[0_10px_30px_rgba(0,169,157,0.14)] transition hover:-translate-y-0.5 hover:from-[#008E84] hover:to-[#00B7AA] hover:shadow-[0_14px_34px_rgba(0,215,213,0.18)]"
           >
             GitHub
             <ExternalLink className="h-4 w-4" />
