@@ -10,7 +10,7 @@ const links = [
 
 export function Navbar() {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#061019]/85 backdrop-blur-xl">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#061019]/80 backdrop-blur-xl">
       <nav className="mx-auto flex h-20 max-w-[1480px] items-center justify-between px-6 lg:px-10">
         <a href="#" aria-label="LuMa Labs Startseite">
           <Logo />
@@ -18,10 +18,21 @@ export function Navbar() {
 
         <div className="hidden items-center gap-8 text-sm uppercase tracking-[0.12em] text-slate-300 lg:flex">
           {links.map(([label, href]) => (
-            <a key={href} href={href} className="transition hover:text-[#00D7D5]">
+            <a
+              key={href}
+              href={href}
+              className="transition hover:text-[#00D7D5]"
+            >
               {label}
             </a>
           ))}
+
+          <a
+            href="/portal"
+            className="transition hover:text-[#00D7D5]"
+          >
+            Intern
+          </a>
 
           <a
             href="https://github.com/NexiCH86"

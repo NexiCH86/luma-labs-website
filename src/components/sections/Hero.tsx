@@ -1,4 +1,4 @@
-import { ArrowRight, ExternalLink, MapPin } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 export function Hero() {
   return (
@@ -19,18 +19,6 @@ export function Hero() {
         {/* Leichte Tiefenabdunklung unten */}
         <div className="absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-[#061019] via-[#061019]/60 to-transparent" />
       </div>
-
-      <a
-        href="https://www.abicht-gruppe.ch/"
-        target="_blank"
-        rel="noreferrer"
-        title="Abicht Gruppe öffnen"
-        className="absolute right-6 top-28 z-20 hidden items-center gap-3 rounded-md border border-[#00A99D]/50 bg-[#07131d]/75 px-4 py-3 text-sm text-slate-200 backdrop-blur-md transition hover:border-[#00D7D5] hover:text-white lg:flex"
-      >
-        <MapPin className="h-5 w-5 text-[#00D7D5]" />
-        <span>47.4010° N, 8.4455° E</span>
-        <ExternalLink className="h-4 w-4 text-[#00D7D5]" />
-      </a>
 
       <div className="relative z-10 mx-auto flex min-h-[820px] max-w-[1480px] items-center px-6 py-20 lg:px-10">
         <div className="max-w-2xl">
