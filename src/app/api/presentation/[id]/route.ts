@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { readFile } from "fs/promises";
-import path from "path";
+import { get } from "@vercel/blob";
 
 const presentationFiles: Record<string, string> = {
     "1": "Präsentation 1.png",
@@ -36,20 +35,23 @@ export async function GET(
         );
     }
 
-    const filePath = path.join(
-        process.cwd(),
-        "private",
-        "presentations",
-        fileName
-    );
-
     try {
-        const file = await readFile(filePath);
+        const result = await get(fileName, {
+            access: "private",
+        });
 
-        return new Response(file, {
+        if (!result || result.statusCode !== 200) {
+            return NextResponse.json(
+                { error: "Präsentation nicht gefunden." },
+                { status: 404 }
+            );
+        }
+
+        return new Response(result.stream, {
             headers: {
-                "Content-Type": "image/png",
+                "Content-Type": result.blob.contentType ?? "image/png",
                 "Cache-Control": "private, no-store",
+                "X-Content-Type-Options": "nosniff",
             },
         });
     } catch {

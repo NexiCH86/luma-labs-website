@@ -42,3 +42,5 @@ next-env.d.ts
 
 # Private presentation files
 /private/
+.vercel
+.env*
