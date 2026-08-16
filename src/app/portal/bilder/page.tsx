@@ -2,17 +2,10 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
     ArrowLeft,
-    Folder,
     ShieldCheck,
 } from "lucide-react";
 import ImageUploadControls from "./ImageUploadControls";
-
-const folders = [
-    {
-        name: "Büro Home",
-        description: "Bilder für den Bereich Büro Home",
-    },
-];
+import ImageGallery from "./ImageGallery";
 
 export default async function BilderPage() {
     const cookieStore = await cookies();
@@ -25,6 +18,8 @@ export default async function BilderPage() {
     return (
         <main className="min-h-screen bg-[#071315] px-6 py-16 text-white">
             <div className="mx-auto max-w-6xl">
+
+                {/* HEADER */}
                 <header className="mb-14">
                     <a
                         href="/portal"
@@ -57,50 +52,50 @@ export default async function BilderPage() {
                     </div>
                 </header>
 
-                <section className="mb-12">
-                    <ImageUploadControls />
-                </section>
-
-                <section>
-                    <div className="mb-7">
+                {/* UPLOAD */}
+                <section className="mb-14">
+                    <div className="mb-6">
                         <p className="text-xs font-medium uppercase tracking-[0.25em] text-white/40">
-                            Hauptordner
+                            Upload
                         </p>
 
                         <h2 className="mt-3 text-2xl font-medium">
-                            Bilder
+                            Bilder hinzufügen
                         </h2>
 
                         <p className="mt-2 text-sm text-white/40">
-                            Unterordner und Bildsammlungen
+                            Einzelne Bilder, mehrere Dateien oder komplette Ordner
+                            in das private Medienarchiv hochladen.
                         </p>
                     </div>
 
-                    <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-                        {folders.map((folder) => (
-                            <div
-                                key={folder.name}
-                                className="group cursor-pointer rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-cyan-300/30 hover:bg-white/[0.05]"
-                            >
-                                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/5">
-                                    <Folder className="h-5 w-5 text-cyan-300" />
-                                </div>
-
-                                <h3 className="font-medium">
-                                    {folder.name}
-                                </h3>
-
-                                <p className="mt-2 text-sm leading-6 text-white/35">
-                                    {folder.description}
-                                </p>
-                            </div>
-                        ))}
-                    </div>
+                    <ImageUploadControls />
                 </section>
 
+                {/* GALERIE */}
+                <section>
+                    <div className="mb-7">
+                        <p className="text-xs font-medium uppercase tracking-[0.25em] text-white/40">
+                            Galerie
+                        </p>
+
+                        <h2 className="mt-3 text-2xl font-medium">
+                            Hochgeladene Bilder
+                        </h2>
+
+                        <p className="mt-2 text-sm text-white/40">
+                            Bilder aus dem privaten LuMa Labs Medienarchiv.
+                        </p>
+                    </div>
+
+                    <ImageGallery />
+                </section>
+
+                {/* FOOTER */}
                 <footer className="mt-16 border-t border-white/10 pt-6 text-xs text-white/30">
                     LuMa Labs. · Internal Image Archive
                 </footer>
+
             </div>
         </main>
     );
