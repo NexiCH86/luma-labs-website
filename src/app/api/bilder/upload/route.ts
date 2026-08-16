@@ -58,6 +58,7 @@ export async function POST(request: Request): Promise<NextResponse> {
                         "image/svg+xml",
                     ],
                     addRandomSuffix: false,
+                    allowOverwrite: true,
                 };
             },
 
