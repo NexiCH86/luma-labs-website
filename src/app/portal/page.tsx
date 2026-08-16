@@ -5,6 +5,7 @@ import {
     Presentation,
     ExternalLink,
     FileText,
+    Images,
 } from "lucide-react";
 
 const presentations = [
@@ -37,7 +38,6 @@ export default async function PortalPage() {
     return (
         <main className="min-h-screen bg-[#071315] px-6 py-16 text-white">
             <div className="mx-auto max-w-6xl">
-
                 {/* HEADER */}
                 <header className="mb-14 flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
                     <div>
@@ -160,6 +160,47 @@ export default async function PortalPage() {
                     </a>
                 </section>
 
+                {/* BILDER */}
+                <section className="mt-16">
+                    <div className="mb-7">
+                        <p className="text-xs font-medium uppercase tracking-[0.25em] text-white/40">
+                            Medien
+                        </p>
+
+                        <h2 className="mt-3 text-2xl font-medium">
+                            Bilder
+                        </h2>
+
+                        <p className="mt-2 text-sm text-white/40">
+                            Interner Bildbereich für Website, Projekte,
+                            Präsentationen und weitere Medien.
+                        </p>
+                    </div>
+
+                    <a
+                        href="/portal/bilder"
+                        className="group flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-cyan-300/30 hover:bg-white/[0.05]"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/5">
+                                <Images className="h-5 w-5 text-cyan-300" />
+                            </div>
+
+                            <div>
+                                <h3 className="font-medium">
+                                    Bilder
+                                </h3>
+
+                                <p className="mt-1 text-sm text-white/40">
+                                    Bilder verwalten, anzeigen und hochladen
+                                </p>
+                            </div>
+                        </div>
+
+                        <ExternalLink className="h-4 w-4 text-white/30 transition group-hover:text-cyan-300" />
+                    </a>
+                </section>
+
                 {/* FOOTER */}
                 <footer className="mt-16 flex items-center justify-between border-t border-white/10 pt-6 text-xs text-white/30">
                     <span>LuMa Labs. Private Portal</span>
@@ -173,7 +214,6 @@ export default async function PortalPage() {
                         </button>
                     </form>
                 </footer>
-
             </div>
         </main>
     );
