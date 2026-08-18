@@ -1,144 +1,62 @@
 import { NextResponse } from "next/server";
+import { Redis } from "@upstash/redis";
 
-const OPENSKY_URL =
-    "https://opensky-network.org/api/states/all";
+function getRedis() {
+    const url =
+        process.env.RADAR_REDIS_KV_REST_API_URL;
 
-const SWITZERLAND = {
-    lamin: 45.7,
-    lomin: 5.7,
-    lamax: 48.0,
-    lomax: 10.8,
-};
+    const token =
+        process.env.RADAR_REDIS_KV_REST_API_TOKEN;
+
+    if (!url || !token) {
+        throw new Error(
+            "Radar Redis environment variables are missing"
+        );
+    }
+
+    return new Redis({
+        url,
+        token,
+    });
+}
 
 export async function GET() {
     try {
-        const params = new URLSearchParams({
-            lamin: SWITZERLAND.lamin.toString(),
-            lomin: SWITZERLAND.lomin.toString(),
-            lamax: SWITZERLAND.lamax.toString(),
-            lomax: SWITZERLAND.lomax.toString(),
-        });
+        const redis =
+            getRedis();
 
-        const url =
-            `${OPENSKY_URL}?${params.toString()}`;
+        const snapshot =
+            await redis.get<{
+                updated: number;
+                receivedAt: number;
+                count: number;
+                aircraft: unknown[];
+            }>(
+                "radar:snapshot"
+            );
 
-        const response =
-            await fetch(url, {
-                cache: "no-store",
-
-                headers: {
-                    "User-Agent":
-                        "LuMa-Radar/1.0",
-                    Accept:
-                        "application/json",
-                },
+        if (!snapshot) {
+            return NextResponse.json({
+                count: 0,
+                aircraft: [],
+                updated: null,
+                source:
+                    "redis",
+                status:
+                    "waiting-for-collector",
             });
-
-        if (!response.ok) {
-            const upstreamText =
-                await response.text();
-
-            console.error(
-                "OpenSky upstream error",
-                {
-                    status:
-                        response.status,
-                    statusText:
-                        response.statusText,
-                    body:
-                        upstreamText,
-                }
-            );
-
-            return NextResponse.json(
-                {
-                    count: 0,
-                    aircraft: [],
-                    error:
-                        "OpenSky upstream error",
-                    upstreamStatus:
-                        response.status,
-                    upstreamStatusText:
-                        response.statusText,
-                    upstreamBody:
-                        upstreamText.slice(
-                            0,
-                            500
-                        ),
-                },
-                {
-                    status: 502,
-                }
-            );
         }
 
-        const data =
-            await response.json();
-
-        const aircraft =
-            data.states
-                ?.filter(
-                    (state: unknown[]) =>
-                        state[5] !== null &&
-                        state[6] !== null
-                )
-                .map(
-                    (
-                        state: unknown[]
-                    ) => ({
-                        icao24:
-                            state[0],
-
-                        callsign:
-                            typeof state[1] ===
-                                "string"
-                                ? state[1].trim()
-                                : "",
-
-                        country:
-                            state[2],
-
-                        longitude:
-                            state[5],
-
-                        latitude:
-                            state[6],
-
-                        altitude:
-                            state[7],
-
-                        onGround:
-                            state[8],
-
-                        velocity:
-                            state[9],
-
-                        heading:
-                            state[10],
-
-                        verticalRate:
-                            state[11],
-
-                        geoAltitude:
-                            state[13],
-
-                        squawk:
-                            state[14],
-                    })
-                ) ?? [];
-
         return NextResponse.json({
-            count:
-                aircraft.length,
-
-            aircraft,
-
-            updated:
-                Date.now(),
+            ...snapshot,
+            source:
+                "redis",
+            status:
+                "live",
         });
     } catch (error) {
         console.error(
-            "LuMa Radar API error:",
+            "Radar API error:",
             error
         );
 
