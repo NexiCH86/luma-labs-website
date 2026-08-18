@@ -1,0 +1,1382 @@
+/* ============================================================
+   LuMa Labs Flight Radar
+   radar.css
+   ============================================================ */
+
+.radar-shell {
+    width: 100vw;
+    height: 100vh;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+
+    background:
+        radial-gradient(circle at 50% 0%,
+            rgba(34, 211, 238, 0.05),
+            transparent 35%),
+        #050b0d;
+
+    color: #ffffff;
+
+    font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+
+.radar-header {
+    position: relative;
+    z-index: 1000;
+
+    height: 76px;
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+
+    gap: 22px;
+
+    padding: 0 24px;
+
+    background:
+        linear-gradient(90deg,
+            rgba(5, 15, 19, 0.98),
+            rgba(7, 24, 29, 0.98));
+
+    border-bottom:
+        1px solid rgba(91, 231, 224, 0.16);
+
+    box-shadow:
+        0 8px 30px rgba(0, 0, 0, 0.25);
+}
+
+/* ============================================================
+   BRAND
+   ============================================================ */
+
+.radar-brand {
+    min-width: 190px;
+
+    text-decoration: none;
+
+    color: #ffffff;
+}
+
+.radar-brand div {
+    font-size: 21px;
+    font-weight: 700;
+
+    letter-spacing: 0.08em;
+}
+
+.radar-brand div span {
+    margin-left: 7px;
+
+    color: #5be7e0;
+
+    text-shadow:
+        0 0 14px rgba(91, 231, 224, 0.35);
+}
+
+.radar-brand small {
+    display: block;
+
+    margin-top: 4px;
+
+    color: rgba(255, 255, 255, 0.35);
+
+    font-size: 8px;
+
+    letter-spacing: 0.35em;
+}
+
+/* ============================================================
+   SEARCH
+   ============================================================ */
+
+.radar-search-wrapper {
+    position: relative;
+
+    flex: 1;
+
+    max-width: 620px;
+}
+
+.radar-search {
+    width: 100%;
+
+    display: flex;
+}
+
+.radar-search input {
+    width: 100%;
+    height: 38px;
+
+    padding: 0 14px;
+
+    background:
+        rgba(255, 255, 255, 0.035);
+
+    border:
+        1px solid rgba(255, 255, 255, 0.09);
+
+    border-right: none;
+
+    border-radius:
+        8px 0 0 8px;
+
+    outline: none;
+
+    color: #ffffff;
+
+    font-size: 12px;
+
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.radar-search input::placeholder {
+    color:
+        rgba(255, 255, 255, 0.28);
+}
+
+.radar-search input:focus {
+    background:
+        rgba(91, 231, 224, 0.035);
+
+    border-color:
+        rgba(91, 231, 224, 0.45);
+
+    box-shadow:
+        0 0 20px rgba(91, 231, 224, 0.05);
+}
+
+.radar-search button {
+    height: 38px;
+
+    padding: 0 18px;
+
+    border:
+        1px solid rgba(91, 231, 224, 0.22);
+
+    border-radius:
+        0 8px 8px 0;
+
+    background:
+        rgba(91, 231, 224, 0.06);
+
+    color: #5be7e0;
+
+    font-size: 10px;
+    font-weight: 600;
+
+    letter-spacing: 0.16em;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.radar-search button:hover {
+    background:
+        rgba(91, 231, 224, 0.12);
+
+    border-color:
+        rgba(91, 231, 224, 0.45);
+
+    box-shadow:
+        0 0 20px rgba(91, 231, 224, 0.08);
+}
+
+/* ============================================================
+   SEARCH ERROR
+   ============================================================ */
+
+.radar-search-error {
+    position: absolute;
+
+    top: 44px;
+    left: 0;
+
+    z-index: 2000;
+
+    padding: 7px 12px;
+
+    border:
+        1px solid rgba(255, 116, 212, 0.25);
+
+    border-radius: 6px;
+
+    background:
+        rgba(20, 8, 18, 0.96);
+
+    color: #ff74d4;
+
+    font-size: 9px;
+    font-weight: 600;
+
+    letter-spacing: 0.14em;
+
+    box-shadow:
+        0 8px 25px rgba(0, 0, 0, 0.35);
+}
+
+/* ============================================================
+   BACK BUTTON
+   ============================================================ */
+
+.back-button {
+    white-space: nowrap;
+
+    color:
+        rgba(255, 255, 255, 0.4);
+
+    text-decoration: none;
+
+    font-size: 9px;
+    font-weight: 600;
+
+    letter-spacing: 0.14em;
+
+    transition:
+        color 0.2s ease,
+        text-shadow 0.2s ease;
+}
+
+.back-button:hover {
+    color: #63ffe3;
+
+    text-shadow:
+        0 0 12px rgba(99, 255, 227, 0.3);
+}
+
+/* ============================================================
+   FULLSCREEN
+   ============================================================ */
+
+.fullscreen-button {
+    height: 38px;
+
+    margin-left: auto;
+
+    padding: 0 18px;
+
+    border:
+        1px solid rgba(91, 231, 224, 0.22);
+
+    border-radius: 8px;
+
+    background:
+        rgba(91, 231, 224, 0.06);
+
+    color: #5be7e0;
+
+    font-size: 10px;
+    font-weight: 600;
+
+    letter-spacing: 0.16em;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.fullscreen-button:hover {
+    background:
+        rgba(91, 231, 224, 0.12);
+
+    border-color:
+        rgba(91, 231, 224, 0.45);
+
+    box-shadow:
+        0 0 20px rgba(91, 231, 224, 0.08);
+}
+
+/* ============================================================
+   MAIN
+   ============================================================ */
+
+.radar-main {
+    flex: 1;
+
+    min-height: 0;
+
+    display: grid;
+
+    grid-template-columns:
+        minmax(0, 1fr) 320px;
+}
+
+/* ============================================================
+   MAP
+   ============================================================ */
+
+.radar-map {
+    position: relative;
+
+    width: 100%;
+    height: 100%;
+
+    min-height: 400px;
+
+    background: #050b0d;
+}
+
+.radar-map .leaflet-container {
+    width: 100%;
+    height: 100%;
+
+    background: #050b0d;
+}
+
+/* ============================================================
+   LEAFLET CONTROLS
+   ============================================================ */
+
+.leaflet-control-zoom {
+    border:
+        1px solid rgba(91, 231, 224, 0.18) !important;
+
+    box-shadow:
+        0 5px 20px rgba(0, 0, 0, 0.3) !important;
+}
+
+.leaflet-control-zoom a {
+    background:
+        rgba(7, 19, 21, 0.95) !important;
+
+    color:
+        #5be7e0 !important;
+
+    border-bottom-color:
+        rgba(91, 231, 224, 0.12) !important;
+}
+
+.leaflet-control-zoom a:hover {
+    background:
+        rgba(15, 40, 43, 0.98) !important;
+}
+
+.leaflet-control-attribution {
+    background:
+        rgba(5, 11, 13, 0.75) !important;
+
+    color:
+        rgba(255, 255, 255, 0.28) !important;
+
+    font-size: 8px !important;
+}
+
+.leaflet-control-attribution a {
+    color:
+        rgba(91, 231, 224, 0.55) !important;
+}
+
+.leaflet-tooltip {
+    background:
+        rgba(7, 19, 21, 0.96) !important;
+
+    border:
+        1px solid rgba(91, 231, 224, 0.22) !important;
+
+    color:
+        #ffffff !important;
+
+    box-shadow:
+        0 8px 30px rgba(0, 0, 0, 0.35) !important;
+
+    font-size: 10px !important;
+}
+
+.leaflet-tooltip-top::before {
+    border-top-color:
+        rgba(91, 231, 224, 0.22) !important;
+}
+
+/* ============================================================
+   SIDE PANEL
+   ============================================================ */
+
+.radar-panel {
+    position: relative;
+    z-index: 500;
+
+    padding: 22px;
+
+    overflow-y: auto;
+
+    background:
+        linear-gradient(180deg,
+            rgba(91, 231, 224, 0.025),
+            transparent 40%),
+        #071315;
+
+    border-left:
+        1px solid rgba(91, 231, 224, 0.14);
+
+    box-shadow:
+        -15px 0 40px rgba(0, 0, 0, 0.16);
+}
+
+/* ============================================================
+   LIVE STATUS
+   ============================================================ */
+
+.live-status {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    color: #63ffe3;
+
+    font-size: 10px;
+    font-weight: 600;
+
+    letter-spacing: 0.2em;
+}
+
+.live-status span {
+    width: 7px;
+    height: 7px;
+
+    border-radius: 999px;
+
+    background: #63ffe3;
+
+    box-shadow:
+        0 0 8px #63ffe3,
+        0 0 18px rgba(99, 255, 227, 0.5);
+
+    animation:
+        radar-live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes radar-live-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.45;
+        transform: scale(0.75);
+    }
+}
+
+/* ============================================================
+   AIRCRAFT COUNT
+   ============================================================ */
+
+.radar-count {
+    margin-top: 22px;
+
+    padding-bottom: 18px;
+
+    border-bottom:
+        1px solid rgba(255, 255, 255, 0.06);
+}
+
+.radar-count small {
+    display: block;
+
+    color:
+        rgba(255, 255, 255, 0.36);
+
+    font-size: 9px;
+
+    letter-spacing: 0.2em;
+}
+
+.radar-count strong {
+    display: block;
+
+    margin-top: 7px;
+
+    color: #63ffe3;
+
+    font-size: 34px;
+    font-weight: 500;
+
+    line-height: 1;
+
+    text-shadow:
+        0 0 18px rgba(99, 255, 227, 0.18);
+}
+
+/* ============================================================
+   AIRCRAFT DETAILS
+   ============================================================ */
+
+.aircraft-details {
+    padding-top: 28px;
+}
+
+.selected-aircraft-header {
+    display: flex;
+
+    align-items: flex-start;
+
+    justify-content: space-between;
+
+    gap: 14px;
+
+    margin-bottom: 20px;
+}
+
+.aircraft-details h2 {
+    margin: 0;
+
+    color: #63ffe3;
+
+    font-size: 26px;
+    font-weight: 600;
+
+    letter-spacing: 0.04em;
+}
+
+.airline-name {
+    margin:
+        5px 0 0 !important;
+
+    color:
+        rgba(99, 255, 227, 0.72) !important;
+
+    font-size:
+        11px !important;
+
+    letter-spacing:
+        0.08em;
+}
+
+.country-name {
+    margin:
+        5px 0 0 !important;
+
+    color:
+        rgba(255, 255, 255, 0.32) !important;
+
+    font-size:
+        10px !important;
+}
+
+.selected-aircraft-icon {
+    width: 42px;
+    height: 42px;
+
+    flex-shrink: 0;
+
+    display: grid;
+    place-items: center;
+
+    border:
+        1px solid rgba(99, 255, 227, 0.16);
+
+    border-radius: 10px;
+
+    background:
+        rgba(99, 255, 227, 0.045);
+
+    color: #63ffe3;
+
+    font-size: 21px;
+
+    box-shadow:
+        0 0 20px rgba(99, 255, 227, 0.05);
+}
+
+/* ============================================================
+   DETAIL ROWS
+   ============================================================ */
+
+.detail-row {
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    gap: 12px;
+
+    padding: 10px 0;
+
+    border-bottom:
+        1px solid rgba(255, 255, 255, 0.05);
+}
+
+.detail-row span {
+    color:
+        rgba(255, 255, 255, 0.35);
+
+    font-size: 10px;
+
+    letter-spacing: 0.12em;
+}
+
+.detail-row strong {
+    color:
+        rgba(255, 255, 255, 0.9);
+
+    font-size: 11px;
+    font-weight: 500;
+
+    text-align: right;
+}
+
+/* ============================================================
+   EMPTY PANEL
+   ============================================================ */
+
+.radar-empty {
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    justify-content: center;
+
+    min-height: 250px;
+
+    color:
+        rgba(255, 255, 255, 0.16);
+}
+
+.radar-empty span {
+    font-size: 36px;
+
+    color:
+        rgba(91, 231, 224, 0.22);
+
+    filter:
+        drop-shadow(0 0 12px rgba(91, 231, 224, 0.15));
+}
+
+.radar-empty p {
+    margin-top: 14px;
+
+    font-size: 10px;
+
+    letter-spacing: 0.25em;
+}
+
+/* ============================================================
+   AIRPORT MARKERS
+   ============================================================ */
+
+.airport-marker-wrapper {
+    background:
+        transparent !important;
+
+    border:
+        none !important;
+}
+
+.airport-marker {
+    min-width: 115px;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    color: #ffffff;
+
+    white-space: nowrap;
+}
+
+.airport-dot {
+    width: 8px;
+    height: 8px;
+
+    flex-shrink: 0;
+
+    border:
+        1px solid #63ffe3;
+
+    border-radius: 50%;
+
+    background:
+        rgba(99, 255, 227, 0.15);
+
+    box-shadow:
+        0 0 8px rgba(99, 255, 227, 0.6);
+}
+
+.airport-marker>div:last-child {
+    display: flex;
+
+    flex-direction: column;
+}
+
+.airport-marker strong {
+    color:
+        rgba(255, 255, 255, 0.9);
+
+    font-size: 10px;
+    font-weight: 700;
+
+    line-height: 1.1;
+
+    letter-spacing:
+        0.08em;
+
+    text-shadow:
+        0 0 8px rgba(91, 231, 224, 0.75);
+}
+
+.airport-marker small {
+    margin-top: 2px;
+
+    color:
+        rgba(255, 255, 255, 0.35);
+
+    font-size: 7px;
+
+    letter-spacing:
+        0.04em;
+}
+
+/* ============================================================
+   AIRCRAFT MARKERS
+   ============================================================ */
+
+.plane-icon-wrapper {
+    background:
+        transparent !important;
+
+    border:
+        none !important;
+}
+
+.plane-marker {
+    position: relative;
+
+    width: 30px;
+    height: 30px;
+
+    display: grid;
+    place-items: center;
+
+    transform-origin: center;
+
+    transition:
+        transform 0.5s linear,
+        filter 0.2s ease;
+
+    cursor: pointer;
+}
+
+.plane-marker svg {
+    display: block;
+}
+
+.plane-marker:hover {
+    filter:
+        brightness(1.4);
+}
+
+.plane-marker-selected::after {
+    content: "";
+
+    position: absolute;
+
+    width: 38px;
+    height: 38px;
+
+    left: 50%;
+    top: 50%;
+
+    transform:
+        translate(-50%, -50%);
+
+    border:
+        1px solid rgba(99, 255, 227, 0.85);
+
+    border-radius: 50%;
+
+    box-shadow:
+        0 0 10px rgba(99, 255, 227, 0.5),
+        inset 0 0 10px rgba(99, 255, 227, 0.15);
+
+    animation:
+        selected-plane-pulse 1.6s ease-in-out infinite;
+
+    pointer-events: none;
+}
+
+@keyframes selected-plane-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+
+        transform:
+            translate(-50%, -50%) scale(0.85);
+    }
+
+    50% {
+        opacity: 0.35;
+
+        transform:
+            translate(-50%, -50%) scale(1.25);
+    }
+}
+
+/* ============================================================
+   FLIGHT ROUTE CARD
+   ============================================================ */
+
+.flight-route-card {
+    margin: 6px 0 20px;
+
+    padding: 16px;
+
+    border:
+        1px solid rgba(99, 255, 227, 0.12);
+
+    border-radius: 10px;
+
+    background:
+        linear-gradient(135deg,
+            rgba(99, 255, 227, 0.055),
+            rgba(99, 255, 227, 0.01));
+
+    box-shadow:
+        inset 0 0 25px rgba(99, 255, 227, 0.015);
+}
+
+.route-airports {
+    display: grid;
+
+    grid-template-columns:
+        auto 1fr auto;
+
+    align-items: center;
+
+    gap: 10px;
+}
+
+.route-airports>div:first-child,
+.route-airports>div:last-child {
+    display: flex;
+
+    flex-direction: column;
+}
+
+.route-airports>div:last-child {
+    align-items: flex-end;
+}
+
+.route-airports strong {
+    color: #63ffe3;
+
+    font-size: 20px;
+    font-weight: 600;
+
+    text-shadow:
+        0 0 12px rgba(99, 255, 227, 0.2);
+}
+
+.route-airports small {
+    margin-top: 3px;
+
+    color:
+        rgba(255, 255, 255, 0.28);
+
+    font-size: 7px;
+
+    letter-spacing: 0.15em;
+}
+
+.route-line-ui {
+    display: flex;
+
+    align-items: center;
+}
+
+.route-line-ui span {
+    height: 1px;
+
+    flex: 1;
+
+    background:
+        repeating-linear-gradient(90deg,
+            rgba(99, 255, 227, 0.65) 0,
+            rgba(99, 255, 227, 0.65) 4px,
+            transparent 4px,
+            transparent 8px);
+}
+
+.route-line-ui b {
+    margin: 0 6px;
+
+    color: #63ffe3;
+
+    font-size: 15px;
+
+    text-shadow:
+        0 0 10px rgba(99, 255, 227, 0.35);
+}
+
+.route-names {
+    display: flex;
+
+    justify-content: space-between;
+
+    gap: 12px;
+
+    margin-top: 10px;
+
+    color:
+        rgba(255, 255, 255, 0.35);
+
+    font-size: 8px;
+}
+
+.route-names span {
+    max-width: 45%;
+}
+
+.route-names span:last-child {
+    text-align: right;
+}
+
+/* ============================================================
+   ROUTE LOADING
+   ============================================================ */
+
+.route-loading {
+    margin-bottom: 20px;
+
+    padding: 12px;
+
+    border:
+        1px solid rgba(99, 255, 227, 0.1);
+
+    border-radius: 8px;
+
+    background:
+        rgba(99, 255, 227, 0.02);
+
+    color:
+        rgba(99, 255, 227, 0.55);
+
+    font-size: 8px;
+    font-weight: 600;
+
+    letter-spacing: 0.16em;
+}
+
+/* ============================================================
+   ROUTE UNAVAILABLE
+   ============================================================ */
+
+.route-unavailable {
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 3px;
+
+    margin-bottom: 20px;
+
+    padding: 13px;
+
+    border:
+        1px solid rgba(255, 255, 255, 0.06);
+
+    border-radius: 8px;
+
+    background:
+        rgba(255, 255, 255, 0.015);
+}
+
+.route-unavailable small {
+    color:
+        rgba(255, 255, 255, 0.28);
+
+    font-size: 7px;
+
+    letter-spacing: 0.16em;
+}
+
+.route-unavailable strong {
+    color:
+        rgba(255, 255, 255, 0.62);
+
+    font-size: 10px;
+}
+
+.route-unavailable span {
+    color:
+        rgba(255, 255, 255, 0.22);
+
+    font-size: 8px;
+}
+
+/* ============================================================
+   ROUTE AIRPORT MARKERS
+   ============================================================ */
+
+.route-airport-wrapper {
+    background:
+        transparent !important;
+
+    border:
+        none !important;
+}
+
+.route-airport-marker {
+    display: flex;
+
+    align-items: center;
+
+    gap: 6px;
+
+    white-space: nowrap;
+}
+
+.route-airport-marker span {
+    width: 9px;
+    height: 9px;
+
+    border:
+        1px solid #63ffe3;
+
+    border-radius: 50%;
+
+    background:
+        rgba(99, 255, 227, 0.12);
+
+    box-shadow:
+        0 0 10px rgba(99, 255, 227, 0.65);
+}
+
+.route-airport-marker strong {
+    color: #63ffe3;
+
+    font-size: 10px;
+    font-weight: 700;
+
+    text-shadow:
+        0 0 8px rgba(99, 255, 227, 0.5);
+}
+
+/* ============================================================
+   TRACK CARD
+   ============================================================ */
+
+.track-card {
+    margin-bottom: 20px;
+
+    padding: 14px;
+
+    border:
+        1px solid rgba(99, 255, 227, 0.1);
+
+    border-radius: 9px;
+
+    background:
+        linear-gradient(135deg,
+            rgba(99, 255, 227, 0.035),
+            rgba(99, 255, 227, 0.01));
+
+    box-shadow:
+        inset 0 0 20px rgba(99, 255, 227, 0.01);
+}
+
+.track-card-header {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    margin-bottom: 12px;
+}
+
+.track-card-header small {
+    color:
+        rgba(255, 255, 255, 0.32);
+
+    font-size: 7px;
+
+    letter-spacing: 0.16em;
+}
+
+.track-card-header span {
+    color: #63ffe3;
+
+    font-size: 7px;
+    font-weight: 700;
+
+    letter-spacing: 0.14em;
+
+    text-shadow:
+        0 0 8px rgba(99, 255, 227, 0.25);
+}
+
+.track-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, 1fr);
+
+    gap: 8px;
+}
+
+.track-grid>div {
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 3px;
+}
+
+.track-grid strong {
+    color: #ffffff;
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.track-grid small {
+    color:
+        rgba(255, 255, 255, 0.25);
+
+    font-size: 6px;
+
+    letter-spacing: 0.1em;
+}
+
+/* ============================================================
+   ALTITUDE LEGEND
+   ============================================================ */
+
+.altitude-legend {
+    margin-top: 30px;
+
+    padding-top: 18px;
+
+    border-top:
+        1px solid rgba(255, 255, 255, 0.05);
+}
+
+.altitude-legend small {
+    color:
+        rgba(255, 255, 255, 0.3);
+
+    font-size: 9px;
+
+    letter-spacing: 0.18em;
+}
+
+.altitude-legend div {
+    display: grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 8px;
+
+    margin-top: 12px;
+
+    font-size: 9px;
+}
+
+.altitude-legend span:nth-child(1) {
+    color: #7cff6b;
+}
+
+.altitude-legend span:nth-child(2) {
+    color: #4fffe0;
+}
+
+.altitude-legend span:nth-child(3) {
+    color: #4ebbff;
+}
+
+.altitude-legend span:nth-child(4) {
+    color: #b88cff;
+}
+
+.altitude-legend span:nth-child(5) {
+    color: #ff74d4;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+.radar-footer {
+    position: relative;
+
+    z-index: 1000;
+
+    height: 30px;
+
+    flex-shrink: 0;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 20px;
+
+    padding: 0 18px;
+
+    background: #071315;
+
+    border-top:
+        1px solid rgba(91, 231, 224, 0.12);
+
+    color:
+        rgba(255, 255, 255, 0.28);
+
+    font-size: 8px;
+
+    letter-spacing: 0.14em;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+
+.radar-panel::-webkit-scrollbar {
+    width: 5px;
+}
+
+.radar-panel::-webkit-scrollbar-track {
+    background:
+        transparent;
+}
+
+.radar-panel::-webkit-scrollbar-thumb {
+    background:
+        rgba(91, 231, 224, 0.18);
+
+    border-radius: 10px;
+}
+
+.radar-panel::-webkit-scrollbar-thumb:hover {
+    background:
+        rgba(91, 231, 224, 0.32);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 1100px) {
+    .radar-header {
+        gap: 14px;
+
+        padding: 0 16px;
+    }
+
+    .radar-brand {
+        min-width: 155px;
+    }
+
+    .back-button {
+        display: none;
+    }
+
+    .radar-main {
+        grid-template-columns:
+            minmax(0, 1fr) 290px;
+    }
+}
+
+@media (max-width: 800px) {
+    .radar-header {
+        height: 66px;
+    }
+
+    .radar-brand {
+        min-width: auto;
+    }
+
+    .radar-brand small {
+        display: none;
+    }
+
+    .radar-search-wrapper {
+        max-width: none;
+    }
+
+    .radar-search button {
+        padding: 0 12px;
+    }
+
+    .fullscreen-button {
+        display: none;
+    }
+
+    .radar-main {
+        grid-template-columns: 1fr;
+    }
+
+    .radar-panel {
+        display: none;
+    }
+
+    .radar-footer span:nth-child(2) {
+        display: none;
+    }
+}
+
+@media (max-width: 560px) {
+    .radar-header {
+        gap: 10px;
+
+        padding: 0 10px;
+    }
+
+    .radar-brand div {
+        font-size: 16px;
+    }
+
+    .radar-search input {
+        min-width: 0;
+
+        font-size: 10px;
+    }
+
+    .radar-search button {
+        font-size: 8px;
+
+        letter-spacing: 0.08em;
+    }
+
+    .radar-footer {
+        padding: 0 10px;
+
+        font-size: 7px;
+    }
+}
