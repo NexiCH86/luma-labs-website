@@ -7,6 +7,7 @@ import AirportExplorer from "./AirportExplorer";
 import AirFilters from "./AirFilters";
 import SquawkAlerts from "./SquawkAlerts";
 import TrailControls from "./TrailControls";
+import TrafficDensity from "./TrafficDensity";
 import "./radar.css";
 import "./airport-markers.css";
 
@@ -21,6 +22,7 @@ export default function RadarPage() {
             <AirportExplorer />
             <AirFilters />
             <TrailControls />
+            <TrafficDensity />
             <SquawkAlerts />
         </>
     );
