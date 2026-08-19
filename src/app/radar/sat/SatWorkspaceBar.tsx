@@ -49,6 +49,7 @@ export default function SatWorkspaceBar() {
             "luma-radar-sat-v1-panel-position",
             "luma-radar-sat-phase3-position",
             "luma-radar-sat-network-position",
+            "luma-radar-sat-final-center-position",
         ].forEach((key) => localStorage.removeItem(key));
         window.location.reload();
     }
