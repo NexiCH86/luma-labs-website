@@ -142,7 +142,7 @@ export default function AirportLiveOperations() {
                     <div style={{ height: 10 }} />
                     <OperationSection title="DEPARTURES" items={operations.departures} />
                     <div style={noticeStyle}>
-                        Live classification is estimated from LuMa radar position, heading, altitude and vertical rate. It is not an official airport movement list.
+                        Live classification is estimated from LuMa radar position, heading, altitude and vertical rate. Click a movement to focus and open its aircraft intelligence.
                     </div>
                 </div>
             </section>
@@ -167,9 +167,25 @@ function OperationRow({ item, arrival }: { item: Operation; arrival: boolean }) 
     const altitudeFt = item.altitude == null ? null : Math.round(item.altitude * 3.28084);
     const verticalFpm = Math.round((item.verticalRate ?? 0) * 196.85);
     const speedKt = item.velocity == null ? null : Math.round(item.velocity * 1.94384);
+
+    function selectAircraft() {
+        window.dispatchEvent(new CustomEvent("luma:aircraft-select", {
+            detail: {
+                icao24: item.icao24,
+                latitude: item.latitude,
+                longitude: item.longitude,
+            },
+        }));
+    }
+
     return (
-        <div style={rowStyle}>
-            <div style={{ minWidth: 0 }}>
+        <button
+            type="button"
+            onClick={selectAircraft}
+            title="Flugzeug auf der Karte auswählen"
+            style={rowStyle}
+        >
+            <div style={{ minWidth: 0, textAlign: "left" }}>
                 <strong style={{ display: "block", color: arrival ? "#63ffe3" : "#b88cff", fontSize: 10 }}>{item.callsign?.trim() || item.icao24.toUpperCase()}</strong>
                 <small style={{ color: "rgba(255,255,255,0.34)", fontSize: 8 }}>{item.distanceKm.toFixed(1)} km · {speedKt != null ? `${speedKt} kt` : "--- kt"}</small>
             </div>
@@ -177,7 +193,8 @@ function OperationRow({ item, arrival }: { item: Operation; arrival: boolean }) 
                 <strong style={{ display: "block", color: "rgba(255,255,255,0.78)", fontSize: 9 }}>{altitudeFt != null ? `${altitudeFt.toLocaleString("de-CH")} ft` : "--- ft"}</strong>
                 <small style={{ color: verticalFpm > 150 ? "rgba(99,255,227,0.66)" : verticalFpm < -150 ? "rgba(255,116,212,0.72)" : "rgba(255,255,255,0.30)", fontSize: 8 }}>{verticalFpm > 0 ? "+" : ""}{verticalFpm.toLocaleString("de-CH")} fpm</small>
             </div>
-        </div>
+            <span style={selectArrowStyle}>→</span>
+        </button>
     );
 }
 
@@ -191,6 +208,7 @@ const eyebrowStyle: React.CSSProperties = { display: "block", color: "rgba(99,25
 const countStyle: React.CSSProperties = { minWidth: 28, height: 28, display: "grid", placeItems: "center", borderRadius: 999, background: "rgba(99,255,227,0.08)", border: "1px solid rgba(99,255,227,0.18)", color: "rgba(99,255,227,0.88)", fontSize: 9 };
 const closeStyle: React.CSSProperties = { width: 32, height: 32, flex: "0 0 32px", display: "grid", placeItems: "center", borderRadius: 9, border: "1px solid rgba(99,255,227,0.34)", background: "rgba(99,255,227,0.06)", color: "rgba(255,255,255,0.86)", boxShadow: "0 0 14px rgba(99,255,227,0.08)", cursor: "pointer", fontSize: 21, lineHeight: 1, padding: 0 };
 const sectionHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", marginBottom: 6, color: "rgba(255,255,255,0.48)", fontSize: 8, letterSpacing: "0.12em" };
-const rowStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 9px", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 9, background: "rgba(255,255,255,0.025)" };
+const rowStyle: React.CSSProperties = { width: "100%", display: "grid", gridTemplateColumns: "minmax(0,1fr) auto auto", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 9px", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 9, background: "rgba(255,255,255,0.025)", color: "inherit", cursor: "pointer", fontFamily: "inherit" };
+const selectArrowStyle: React.CSSProperties = { color: "rgba(99,255,227,0.45)", fontSize: 12 };
 const emptyStyle: React.CSSProperties = { padding: "9px 10px", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 9, color: "rgba(255,255,255,0.30)", fontSize: 8, lineHeight: 1.45 };
 const noticeStyle: React.CSSProperties = { marginTop: 12, padding: "9px 10px", borderRadius: 9, background: "rgba(255,190,80,0.05)", border: "1px solid rgba(255,190,80,0.10)", color: "rgba(255,220,155,0.50)", fontSize: 8, lineHeight: 1.45 };
