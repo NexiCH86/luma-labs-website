@@ -66,13 +66,11 @@ export async function POST(
 
         if (
             !providedSecret ||
-            providedSecret !==
-            expectedSecret
+            providedSecret !== expectedSecret
         ) {
             return NextResponse.json(
                 {
-                    error:
-                        "Unauthorized",
+                    error: "Unauthorized",
                 },
                 {
                     status: 401,
@@ -109,8 +107,7 @@ export async function POST(
         const aircraft =
             payload.aircraft.filter(
                 (item) =>
-                    typeof item.icao24 ===
-                    "string" &&
+                    typeof item.icao24 === "string" &&
                     Number.isFinite(
                         item.latitude
                     ) &&
@@ -119,6 +116,11 @@ export async function POST(
                     )
             );
 
+        /*
+         * 1. LIVE SNAPSHOT
+         * Dieser Teil ist das Wichtigste.
+         * Er sorgt dafür, dass das Radar sofort Flugzeuge sieht.
+         */
         const snapshot = {
             updated:
                 payload.updated ??
@@ -142,65 +144,118 @@ export async function POST(
         );
 
         /*
-         * Für persistente Tracks:
-         * pro Flugzeug einen Track speichern.
+         * 2. TRACKS
+         * Nicht mehr alle ~100 Flugzeuge gleichzeitig.
+         * Pro Ingest nur maximal 15 Aircraft.
+         *
+         * Bei 5 Sekunden Refresh werden dadurch nach und nach
+         * alle Flugzeuge aktualisiert, ohne die Vercel Function
+         * zu überlasten.
          */
-        for (
-            const item of aircraft
+        const TRACK_BATCH_SIZE = 15;
+
+        const cursorKey =
+            "radar:track-batch-cursor";
+
+        const previousCursor =
+            (await redis.get<number>(
+                cursorKey
+            )) ?? 0;
+
+        const start =
+            previousCursor %
+            Math.max(
+                aircraft.length,
+                1
+            );
+
+        const trackAircraft =
+            aircraft
+                .concat(aircraft)
+                .slice(
+                    start,
+                    start +
+                    Math.min(
+                        TRACK_BATCH_SIZE,
+                        aircraft.length
+                    )
+                );
+
+        if (
+            trackAircraft.length >
+            0
         ) {
-            const key =
-                `radar:track:${item.icao24}`;
+            const pipeline =
+                redis.pipeline();
 
-            const point = {
-                latitude:
-                    item.latitude,
+            for (
+                const item of
+                trackAircraft
+            ) {
+                const key =
+                    `radar:track:${item.icao24}`;
 
-                longitude:
-                    item.longitude,
+                const point = {
+                    latitude:
+                        item.latitude,
 
-                altitude:
-                    item.altitude,
+                    longitude:
+                        item.longitude,
 
-                heading:
-                    item.heading,
+                    altitude:
+                        item.altitude,
 
-                velocity:
-                    item.velocity,
+                    heading:
+                        item.heading,
 
-                timestamp:
-                    now,
-            };
+                    velocity:
+                        item.velocity,
 
-            await redis.rpush(
-                key,
-                point
-            );
+                    timestamp:
+                        now,
+                };
 
-            /*
-             * Maximal 2'000 Punkte
-             */
-            await redis.ltrim(
-                key,
-                -2000,
-                -1
-            );
+                pipeline.rpush(
+                    key,
+                    point
+                );
 
-            /*
-             * Track nach 12 Stunden automatisch löschen,
-             * wenn kein neues Signal mehr kommt.
-             */
-            await redis.expire(
-                key,
-                12 * 60 * 60
+                pipeline.ltrim(
+                    key,
+                    -2000,
+                    -1
+                );
+
+                pipeline.expire(
+                    key,
+                    12 * 60 * 60
+                );
+            }
+
+            await pipeline.exec();
+
+            await redis.set(
+                cursorKey,
+                start +
+                trackAircraft.length,
+                {
+                    ex:
+                        12 * 60 * 60,
+                }
             );
         }
 
         return NextResponse.json({
             ok: true,
+
             count:
                 aircraft.length,
+
             updated:
                 snapshot.updated,
+
+            tracksUpdated:
+                trackAircraft.length,
         });
     } catch (error) {
         console.error(
@@ -216,9 +271,7 @@ export async function POST(
                 details:
                     error instanceof Error
                         ? error.message
-                        : String(
-                            error
-                        ),
+                        : String(error),
             },
             {
                 status: 500,
