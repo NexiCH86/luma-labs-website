@@ -15,6 +15,7 @@ import TrafficDensity from "./TrafficDensity";
 import AirspaceLayers from "./AirspaceLayers";
 import RadarToolsPanel from "./RadarToolsPanel";
 import RadarPanelWindowManager from "./RadarPanelWindowManager";
+import AirModeStatus from "./AirModeStatus";
 import "./radar.css";
 import "./airport-markers.css";
 
@@ -38,6 +39,7 @@ export default function RadarPage() {
             <AirspaceLayers />
             <RadarToolsPanel />
             <SquawkAlerts />
+            <AirModeStatus />
         </>
     );
 }
