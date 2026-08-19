@@ -12,6 +12,7 @@ import TrailControls from "./TrailControls";
 import TrafficDensity from "./TrafficDensity";
 import AirspaceLayers from "./AirspaceLayers";
 import RadarToolsPanel from "./RadarToolsPanel";
+import RadarPanelWindowManager from "./RadarPanelWindowManager";
 import "./radar.css";
 import "./airport-markers.css";
 
@@ -19,6 +20,7 @@ export default function RadarPage() {
     return (
         <>
             <RadarMapBridge />
+            <RadarPanelWindowManager />
             <RadarClient />
             <DynamicAirportLayer />
             <AirportRunwayLayer />
