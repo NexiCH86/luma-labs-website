@@ -8,12 +8,16 @@ const API =
 
 type AirportResult = {
     found: boolean;
-    icao?: string;
+    icao?: string | null;
     iata?: string | null;
     name?: string | null;
     latitude?: number;
     longitude?: number;
     country?: string | null;
+    city?: string | null;
+    timezone?: string | null;
+    gmt?: string | null;
+    source?: "aviationstack";
 };
 
 type CacheEntry = {
@@ -35,34 +39,43 @@ const cache =
 globalForRadar.lumaAirportCache =
     cache;
 
-/*
- * Airport-Koordinaten ändern sich praktisch nie.
- * Deshalb 7 Tage cachen.
- */
 const CACHE_TIME =
     7 * 24 * 60 * 60 * 1000;
 
 export async function GET(
     request: NextRequest
 ) {
-    const icao =
+    const legacyIcao =
         request.nextUrl.searchParams
             .get("icao")
             ?.trim()
             .toUpperCase();
 
-    if (!icao) {
+    const code =
+        request.nextUrl.searchParams
+            .get("code")
+            ?.trim()
+            .toUpperCase() ??
+        legacyIcao;
+
+    if (
+        !code ||
+        !/^[A-Z0-9]{3,4}$/.test(code)
+    ) {
         return NextResponse.json(
             {
                 error:
-                    "Missing airport ICAO",
+                    "Missing or invalid airport code",
             },
             { status: 400 }
         );
     }
 
+    const cacheKey =
+        code;
+
     const cached =
-        cache.get(icao);
+        cache.get(cacheKey);
 
     if (
         cached &&
@@ -91,8 +104,19 @@ export async function GET(
         const params =
             new URLSearchParams({
                 access_key: apiKey,
-                icao_code: icao,
             });
+
+        if (code.length === 3) {
+            params.set(
+                "iata_code",
+                code
+            );
+        } else {
+            params.set(
+                "icao_code",
+                code
+            );
+        }
 
         const response =
             await fetch(
@@ -118,24 +142,44 @@ export async function GET(
         const json =
             await response.json();
 
-        const airport =
+        const airports =
             Array.isArray(json.data)
-                ? json.data[0]
-                : null;
+                ? json.data
+                : [];
+
+        const airport =
+            airports.find(
+                (candidate: any) =>
+                    code.length === 3
+                        ? candidate.iata_code
+                            ?.trim()
+                            .toUpperCase() ===
+                            code
+                        : candidate.icao_code
+                            ?.trim()
+                            .toUpperCase() ===
+                            code
+            ) ??
+            airports[0] ??
+            null;
 
         if (!airport) {
-            const result: AirportResult =
-            {
+            const result: AirportResult = {
                 found: false,
-                icao,
+                ...(code.length === 3
+                    ? { iata: code }
+                    : { icao: code }),
             };
 
-            cache.set(icao, {
-                expires:
-                    Date.now() +
-                    CACHE_TIME,
-                value: result,
-            });
+            cache.set(
+                cacheKey,
+                {
+                    expires:
+                        Date.now() +
+                        CACHE_TIME,
+                    value: result,
+                }
+            );
 
             return NextResponse.json(
                 result
@@ -154,7 +198,9 @@ export async function GET(
         ) {
             return NextResponse.json({
                 found: false,
-                icao,
+                ...(code.length === 3
+                    ? { iata: code }
+                    : { icao: code }),
             });
         }
 
@@ -162,7 +208,7 @@ export async function GET(
             found: true,
             icao:
                 airport.icao_code ??
-                icao,
+                null,
             iata:
                 airport.iata_code ??
                 null,
@@ -174,14 +220,28 @@ export async function GET(
             country:
                 airport.country_name ??
                 null,
+            city:
+                airport.city_iata_code ??
+                null,
+            timezone:
+                airport.timezone ??
+                null,
+            gmt:
+                airport.gmt ??
+                null,
+            source:
+                "aviationstack",
         };
 
-        cache.set(icao, {
-            expires:
-                Date.now() +
-                CACHE_TIME,
-            value: result,
-        });
+        cache.set(
+            cacheKey,
+            {
+                expires:
+                    Date.now() +
+                    CACHE_TIME,
+                value: result,
+            }
+        );
 
         return NextResponse.json(
             result
