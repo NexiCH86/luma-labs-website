@@ -5,6 +5,7 @@ import AircraftCard from "./AircraftCard";
 import LiveFlightIntelligence from "./LiveFlightIntelligence";
 import AirportExplorer from "./AirportExplorer";
 import "./radar.css";
+import "./airport-markers.css";
 
 export default function RadarPage() {
     return (
