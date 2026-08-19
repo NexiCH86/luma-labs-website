@@ -1,4 +1,5 @@
 import RadarModeSwitch from "../RadarModeSwitch";
+import SatOrbitAdapter from "./SatOrbitAdapter";
 import SatClientV2 from "./SatClientV2";
 import SatPhase3ClientOnly from "./SatPhase3ClientOnly";
 import SatWorkspaceEnhancements from "./SatWorkspaceEnhancements";
@@ -24,6 +25,7 @@ import "./sat-final.css";
 export default function SatRadarPage() {
     return (
         <>
+            <SatOrbitAdapter />
             <SatClientV2 />
             <SatPhase3ClientOnly />
             <SatWorkspaceEnhancements />
