@@ -6,6 +6,7 @@ import LiveFlightIntelligence from "./LiveFlightIntelligence";
 import AirportExplorer from "./AirportExplorer";
 import AirFilters from "./AirFilters";
 import SquawkAlerts from "./SquawkAlerts";
+import TrailControls from "./TrailControls";
 import "./radar.css";
 import "./airport-markers.css";
 
@@ -19,6 +20,7 @@ export default function RadarPage() {
             <AircraftCard />
             <AirportExplorer />
             <AirFilters />
+            <TrailControls />
             <SquawkAlerts />
         </>
     );
