@@ -4,6 +4,7 @@ import DynamicAirportLayer from "./DynamicAirportLayer";
 import AircraftCard from "./AircraftCard";
 import LiveFlightIntelligence from "./LiveFlightIntelligence";
 import AirportExplorer from "./AirportExplorer";
+import AirFilters from "./AirFilters";
 import "./radar.css";
 import "./airport-markers.css";
 
@@ -16,6 +17,7 @@ export default function RadarPage() {
             <LiveFlightIntelligence />
             <AircraftCard />
             <AirportExplorer />
+            <AirFilters />
         </>
     );
 }
