@@ -16,12 +16,14 @@ import AirspaceLayers from "./AirspaceLayers";
 import RadarToolsPanel from "./RadarToolsPanel";
 import RadarPanelWindowManager from "./RadarPanelWindowManager";
 import AirModeStatus from "./AirModeStatus";
+import RadarLiveData from "./RadarLiveData";
 import "./radar.css";
 import "./airport-markers.css";
 
 export default function RadarPage() {
     return (
         <>
+            <RadarLiveData />
             <RadarMapBridge />
             <RadarPanelWindowManager />
             <RadarClient />
