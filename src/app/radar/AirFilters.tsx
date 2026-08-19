@@ -20,11 +20,25 @@ type StatusFilter = "ALL" | "AIRBORNE" | "GROUND";
 type PhaseFilter = "ALL" | "CLIMB" | "CRUISE" | "DESCENT" | "APPROACH" | "GROUND";
 type AltitudeFilter = "ALL" | "LOW" | "MID" | "HIGH" | "VERY_HIGH";
 
+type FilterState = {
+    airline: string;
+    status: StatusFilter;
+    phase: PhaseFilter;
+    altitude: AltitudeFilter;
+};
+
 declare global {
     interface Window {
         __lumaRadarMap?: any;
     }
 }
+
+const DEFAULT_FILTERS: FilterState = {
+    airline: "",
+    status: "ALL",
+    phase: "ALL",
+    altitude: "ALL",
+};
 
 export default function AirFilters() {
     const [open, setOpen] = useState(false);
@@ -34,12 +48,25 @@ export default function AirFilters() {
     const [altitude, setAltitude] = useState<AltitudeFilter>("ALL");
     const [visibleCount, setVisibleCount] = useState(0);
     const [totalCount, setTotalCount] = useState(0);
+
     const aircraftRef = useRef<Aircraft[]>([]);
+    const filtersRef = useRef<FilterState>(DEFAULT_FILTERS);
 
     const filtersActive = useMemo(
         () => airline.trim() !== "" || status !== "ALL" || phase !== "ALL" || altitude !== "ALL",
         [airline, status, phase, altitude]
     );
+
+    useEffect(() => {
+        filtersRef.current = {
+            airline,
+            status,
+            phase,
+            altitude,
+        };
+
+        applyFilters();
+    }, [airline, status, phase, altitude]);
 
     useEffect(() => {
         let active = true;
@@ -48,13 +75,15 @@ export default function AirFilters() {
             try {
                 const response = await fetch("/api/radar", { cache: "no-store" });
                 if (!response.ok) return;
+
                 const data = (await response.json()) as RadarResponse;
                 if (!active) return;
+
                 aircraftRef.current = Array.isArray(data.aircraft) ? data.aircraft : [];
                 setTotalCount(aircraftRef.current.length);
                 applyFilters();
             } catch {
-                // RadarClient retries independently; filters simply keep their last snapshot.
+                // RadarClient retries independently; filters keep their latest snapshot.
             }
         }
 
@@ -71,12 +100,9 @@ export default function AirFilters() {
     }, []);
 
     useEffect(() => {
-        applyFilters();
-    }, [airline, status, phase, altitude]);
-
-    useEffect(() => {
         const footer = document.querySelector(".radar-footer");
         if (!footer) return;
+
         const spans = footer.querySelectorAll("span");
         if (spans[0]) spans[0].textContent = "LuMa Labs · Worldwide Airspace";
         if (spans[1]) spans[1].textContent = "GLOBAL AIR · AIRPORTS · LIVE TRACKING";
@@ -87,6 +113,13 @@ export default function AirFilters() {
         if (!map) return;
 
         const snapshot = aircraftRef.current;
+        const currentFilters = filtersRef.current;
+        const activeFilters =
+            currentFilters.airline.trim() !== "" ||
+            currentFilters.status !== "ALL" ||
+            currentFilters.phase !== "ALL" ||
+            currentFilters.altitude !== "ALL";
+
         let shown = 0;
 
         map.eachLayer((layer: any) => {
@@ -97,19 +130,15 @@ export default function AirFilters() {
             if (!latLng) return;
 
             const aircraft = nearestAircraft(snapshot, latLng.lat, latLng.lng);
+
             if (!aircraft) {
-                element.style.display = filtersActive ? "none" : "";
+                element.style.display = activeFilters ? "none" : "";
                 return;
             }
 
-            const visible = matchesAircraft(aircraft, {
-                airline,
-                status,
-                phase,
-                altitude,
-            });
-
+            const visible = matchesAircraft(aircraft, currentFilters);
             element.style.display = visible ? "" : "none";
+
             if (visible) shown++;
         });
 
@@ -117,10 +146,12 @@ export default function AirFilters() {
     }
 
     function resetFilters() {
+        filtersRef.current = DEFAULT_FILTERS;
         setAirline("");
         setStatus("ALL");
         setPhase("ALL");
         setAltitude("ALL");
+        window.setTimeout(applyFilters, 0);
     }
 
     return (
@@ -201,6 +232,7 @@ function nearestAircraft(aircraft: Aircraft[], latitude: number, longitude: numb
         const dy = item.latitude - latitude;
         const dx = item.longitude - longitude;
         const score = dy * dy + dx * dx;
+
         if (score < bestScore) {
             bestScore = score;
             best = item;
@@ -210,16 +242,15 @@ function nearestAircraft(aircraft: Aircraft[], latitude: number, longitude: numb
     return best;
 }
 
-function matchesAircraft(aircraft: Aircraft, filters: {
-    airline: string;
-    status: StatusFilter;
-    phase: PhaseFilter;
-    altitude: AltitudeFilter;
-}) {
+function matchesAircraft(aircraft: Aircraft, filters: FilterState) {
     const callsign = aircraft.callsign?.trim().toUpperCase() ?? "";
     const airlineQuery = filters.airline.trim().toUpperCase();
 
-    if (airlineQuery && !callsign.includes(airlineQuery) && !airlineName(callsign).toUpperCase().includes(airlineQuery)) {
+    if (
+        airlineQuery &&
+        !callsign.includes(airlineQuery) &&
+        !airlineName(callsign).toUpperCase().includes(airlineQuery)
+    ) {
         return false;
     }
 
