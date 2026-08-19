@@ -1,0 +1,230 @@
+.sat-main {
+    grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.sat2-panel.satx-draggable-panel {
+    position: absolute !important;
+    z-index: 1250;
+    top: 16px;
+    right: 16px;
+    bottom: 16px;
+    width: min(390px, calc(100% - 32px));
+    max-height: calc(100% - 32px);
+    border: 1px solid rgba(91, 231, 224, 0.13);
+    border-radius: 12px;
+    background: rgba(3, 14, 18, 0.96);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(14px);
+    overflow: auto;
+}
+
+.sat2-panel.satx-draggable-panel.satx-is-dragged {
+    right: auto !important;
+    bottom: auto !important;
+    max-height: calc(100% - 16px);
+}
+
+.satx-drag-handle {
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    padding: 4px 0 10px;
+}
+
+.satx-drag-handle::after {
+    content: "  ·  DRAG";
+    color: rgba(255, 255, 255, 0.24);
+    font-size: 7px;
+    letter-spacing: 0.14em;
+}
+
+.satx-drag-handle.is-dragging {
+    cursor: grabbing;
+}
+
+.satx-manual-button {
+    height: 38px;
+    padding: 0 14px;
+    border: 1px solid rgba(192, 132, 252, 0.28);
+    border-radius: 8px;
+    background: rgba(192, 132, 252, 0.07);
+    color: #c084fc;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.satx-manual-button:hover {
+    background: rgba(192, 132, 252, 0.14);
+    border-color: rgba(192, 132, 252, 0.52);
+}
+
+.satx-location-panel {
+    position: fixed;
+    z-index: 3300;
+    top: 78px;
+    left: 50%;
+    width: min(430px, calc(100vw - 28px));
+    padding: 16px;
+    transform: translateX(-50%);
+    border: 1px solid rgba(192, 132, 252, 0.28);
+    border-radius: 12px;
+    background: rgba(4, 12, 17, 0.97);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(18px);
+}
+
+.satx-location-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.satx-location-head small,
+.satx-location-head strong {
+    display: block;
+}
+
+.satx-location-head small {
+    color: rgba(255, 255, 255, 0.34);
+    font-size: 7px;
+    letter-spacing: 0.16em;
+}
+
+.satx-location-head strong {
+    margin-top: 4px;
+    color: #c084fc;
+    font-size: 12px;
+    letter-spacing: 0.13em;
+}
+
+.satx-location-head > button {
+    width: 28px;
+    height: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+}
+
+.satx-location-panel > p {
+    margin: 12px 0 14px;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 9px;
+    line-height: 1.5;
+}
+
+.satx-location-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.satx-location-grid label {
+    display: grid;
+    gap: 6px;
+}
+
+.satx-location-grid label > span {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 7px;
+    letter-spacing: 0.12em;
+}
+
+.satx-location-grid input {
+    width: 100%;
+    height: 38px;
+    padding: 0 11px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 7px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.035);
+    color: #fff;
+    font: inherit;
+    font-size: 11px;
+}
+
+.satx-location-grid input:focus {
+    border-color: rgba(192, 132, 252, 0.55);
+    box-shadow: 0 0 0 2px rgba(192, 132, 252, 0.08);
+}
+
+.satx-location-altitude {
+    grid-column: 1 / -1;
+}
+
+.satx-location-hint {
+    display: block;
+    margin-top: 10px;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 7px;
+}
+
+.satx-location-apply {
+    width: 100%;
+    height: 38px;
+    margin-top: 13px;
+    border: 1px solid rgba(192, 132, 252, 0.38);
+    border-radius: 8px;
+    background: rgba(192, 132, 252, 0.10);
+    color: #d6a8ff;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    cursor: pointer;
+}
+
+.satx-location-apply:hover {
+    background: rgba(192, 132, 252, 0.18);
+}
+
+.satx-location-message {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border: 1px solid rgba(91, 231, 224, 0.13);
+    border-radius: 7px;
+    background: rgba(91, 231, 224, 0.035);
+    color: #5be7e0;
+    font-size: 8px;
+    line-height: 1.45;
+}
+
+@media (max-width: 1100px) {
+    .sat2-panel.satx-draggable-panel {
+        width: min(350px, calc(100% - 24px));
+        top: 12px;
+        right: 12px;
+        bottom: 12px;
+    }
+
+    .satx-manual-button {
+        padding: 0 10px;
+        font-size: 8px;
+    }
+}
+
+@media (max-width: 720px) {
+    .sat2-panel.satx-draggable-panel {
+        width: calc(100% - 20px);
+        max-height: 60%;
+        top: auto;
+        right: 10px;
+        bottom: 10px;
+    }
+
+    .sat2-panel.satx-draggable-panel.satx-is-dragged {
+        max-height: 60%;
+    }
+
+    .satx-location-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .satx-location-altitude {
+        grid-column: auto;
+    }
+}
