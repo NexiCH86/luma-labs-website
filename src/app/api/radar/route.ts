@@ -1,6 +1,28 @@
 import { NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
 
+type Aircraft = {
+    icao24: string;
+    callsign: string;
+    country: string;
+    longitude: number;
+    latitude: number;
+    altitude: number | null;
+    onGround: boolean;
+    velocity: number | null;
+    heading: number | null;
+    verticalRate: number | null;
+    geoAltitude: number | null;
+    squawk: string | null;
+};
+
+type RadarSnapshot = {
+    updated: number;
+    receivedAt: number;
+    count: number;
+    aircraft: Aircraft[];
+};
+
 function getRedis() {
     const url =
         process.env.RADAR_REDIS_KV_REST_API_URL;
@@ -26,12 +48,7 @@ export async function GET() {
             getRedis();
 
         const snapshot =
-            await redis.get<{
-                updated: number;
-                receivedAt: number;
-                count: number;
-                aircraft: unknown[];
-            }>(
+            await redis.get<RadarSnapshot>(
                 "radar:snapshot"
             );
 
@@ -40,8 +57,7 @@ export async function GET() {
                 count: 0,
                 aircraft: [],
                 updated: null,
-                source:
-                    "redis",
+                source: "redis",
                 status:
                     "waiting-for-collector",
             });
@@ -49,10 +65,8 @@ export async function GET() {
 
         return NextResponse.json({
             ...snapshot,
-            source:
-                "redis",
-            status:
-                "live",
+            source: "redis",
+            status: "live",
         });
     } catch (error) {
         console.error(
@@ -69,9 +83,7 @@ export async function GET() {
                 details:
                     error instanceof Error
                         ? error.message
-                        : String(
-                            error
-                        ),
+                        : String(error),
             },
             {
                 status: 500,

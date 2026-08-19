@@ -77,6 +77,21 @@ type TrackStats = {
     durationMinutes: number;
 };
 
+type PersistentTrackPoint = {
+    latitude: number;
+    longitude: number;
+    altitude?: number | null;
+    heading?: number | null;
+    velocity?: number | null;
+    timestamp?: number | null;
+};
+
+type PersistentTrackResponse = {
+    icao24: string;
+    count: number;
+    points: PersistentTrackPoint[];
+};
+
 const airports = [
     {
         code: "ZRH",
@@ -350,6 +365,11 @@ export default function RadarClient() {
     const trackStartedAt =
         useRef<
             Record<string, number>
+        >({});
+
+    const persistentTrackLoaded =
+        useRef<
+            Record<string, boolean>
         >({});
 
     const plannedRouteLayer =
@@ -911,15 +931,172 @@ export default function RadarClient() {
                     icao
                 ];
 
-                delete trails.current[
-                    icao
-                ];
-
-                delete trackStartedAt.current[
-                    icao
-                ];
+                // Keep the in-memory trail. If the aircraft reappears during this
+                // browser session, its already loaded Redis history remains available.
             }
         );
+    }
+
+    async function loadPersistentTrack(
+        icao: string
+    ) {
+        if (persistentTrackLoaded.current[icao]) {
+            return;
+        }
+
+        try {
+            const response =
+                await fetch(
+                    `/api/radar/track?icao24=${encodeURIComponent(
+                        icao
+                    )}`,
+                    {
+                        cache: "no-store",
+                    }
+                );
+
+            if (!response.ok) {
+                return;
+            }
+
+            const data:
+                PersistentTrackResponse =
+                await response.json();
+
+            const storedPoints =
+                Array.isArray(data.points)
+                    ? data.points
+                        .filter(
+                            (point) =>
+                                Number.isFinite(point.latitude) &&
+                                Number.isFinite(point.longitude)
+                        )
+                        .map(
+                            (point) =>
+                                [
+                                    point.latitude,
+                                    point.longitude,
+                                ] as [number, number]
+                        )
+                    : [];
+
+            const livePoints =
+                trails.current[icao] ?? [];
+
+            const merged:
+                [number, number][] = [];
+
+            for (
+                const point of
+                [...storedPoints, ...livePoints]
+            ) {
+                const previous =
+                    merged.at(-1);
+
+                if (
+                    !previous ||
+                    previous[0] !== point[0] ||
+                    previous[1] !== point[1]
+                ) {
+                    merged.push(point);
+                }
+            }
+
+            trails.current[icao] =
+                merged.slice(-300);
+
+            const timestamps =
+                (data.points ?? [])
+                    .map(
+                        (point) =>
+                            point.timestamp ?? null
+                    )
+                    .filter(
+                        (timestamp):
+                            timestamp is number =>
+                            typeof timestamp === "number" &&
+                            Number.isFinite(timestamp)
+                    );
+
+            if (timestamps.length > 0) {
+                const oldestTimestamp =
+                    Math.min(...timestamps);
+
+                trackStartedAt.current[icao] =
+                    oldestTimestamp < 10_000_000_000
+                        ? oldestTimestamp * 1000
+                        : oldestTimestamp;
+            }
+
+            const L =
+                await import("leaflet");
+
+            const selectedNow =
+                selectedRef.current ===
+                icao;
+
+            if (
+                trailLayers.current[icao]
+            ) {
+                trailLayers.current[
+                    icao
+                ].setLatLngs(
+                    trails.current[icao]
+                );
+
+                trailLayers.current[
+                    icao
+                ].setStyle({
+                    color:
+                        selectedNow
+                            ? "#63ffe3"
+                            : "#238bd2",
+                    weight:
+                        selectedNow
+                            ? 3
+                            : 1,
+                    opacity:
+                        selectedNow
+                            ? 0.95
+                            : 0.12,
+                });
+            } else if (
+                mapRef.current &&
+                trails.current[icao].length > 0
+            ) {
+                trailLayers.current[icao] =
+                    L.polyline(
+                        trails.current[icao],
+                        {
+                            color:
+                                selectedNow
+                                    ? "#63ffe3"
+                                    : "#238bd2",
+                            weight:
+                                selectedNow
+                                    ? 3
+                                    : 1,
+                            opacity:
+                                selectedNow
+                                    ? 0.95
+                                    : 0.12,
+                        }
+                    ).addTo(
+                        mapRef.current
+                    );
+            }
+
+            persistentTrackLoaded.current[
+                icao
+            ] = true;
+
+            updateTrackStats(icao);
+        } catch (error) {
+            console.error(
+                "Persistent track fetch error:",
+                error
+            );
+        }
     }
 
     function updateTrackStats(
@@ -999,6 +1176,10 @@ export default function RadarClient() {
 
         setSelected(
             aircraft
+        );
+
+        await loadPersistentTrack(
+            icao
         );
 
         updateTrackStats(
