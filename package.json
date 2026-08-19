@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "radar:sync-opensky": "node scripts/sync-opensky-aircraft.mjs",
-    "radar:sync-airports": "node scripts/sync-ourairports.mjs"
+    "radar:sync-airports": "node scripts/sync-ourairports.mjs",
+    "radar:sync-airspace": "node scripts/sync-airspace.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
