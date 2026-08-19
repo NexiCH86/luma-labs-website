@@ -18,8 +18,7 @@ function parseCsv(text) {
         const char = text[i];
         if (quoted) {
             if (char === '"') {
-                if (text[i + 1] === '"') { field += '"'; i++; }
-                else quoted = false;
+                if (text[i + 1] === '"') { field += '"'; i++; } else quoted = false;
             } else field += char;
             continue;
         }
@@ -31,9 +30,7 @@ function parseCsv(text) {
 
     if (field.length > 0 || row.length > 0) { row.push(field.replace(/\r$/, "")); rows.push(row); }
     const [header, ...data] = rows;
-    return data.filter((values) => values.some(Boolean)).map((values) =>
-        Object.fromEntries(header.map((key, index) => [key, values[index] ?? ""]))
-    );
+    return data.filter((values) => values.some(Boolean)).map((values) => Object.fromEntries(header.map((key, index) => [key, values[index] ?? ""])));
 }
 
 async function downloadCsv(url) {
@@ -42,13 +39,9 @@ async function downloadCsv(url) {
     return parseCsv(await response.text());
 }
 
-function shardKey(code) {
-    const first = code[0]?.toUpperCase();
-    return /^[A-Z0-9]$/.test(first ?? "") ? first : "_";
-}
 function clean(value) { const text = String(value ?? "").trim(); return text || null; }
-function numberOrNull(value) { const n = Number(value); return String(value ?? "").trim() !== "" && Number.isFinite(n) ? n : null; }
-function yes(value) { return String(value ?? "").trim().toLowerCase() === "1" || String(value ?? "").trim().toLowerCase() === "yes"; }
+function numberOrNull(value) { const n = Number(value); return String(value ?? "").trim() && Number.isFinite(n) ? n : null; }
+function shardKey(code) { const first = code[0]?.toUpperCase(); return /^[A-Z0-9]$/.test(first ?? "") ? first : "_"; }
 function tileKey(latitude, longitude, size) {
     const lat = Math.max(-90, Math.min(89.999999, latitude));
     const lon = Math.max(-180, Math.min(179.999999, longitude));
@@ -66,75 +59,71 @@ const [airports, countries, runways, frequencies] = await Promise.all([
 ]);
 
 const countryNames = new Map(countries.map((country) => [String(country.code ?? "").toUpperCase(), clean(country.name)]));
-const runwaysByIdent = new Map();
+const runwaysByAirport = new Map();
+const frequenciesByAirport = new Map();
+
 for (const runway of runways) {
-    const airportIdent = clean(runway.airport_ident)?.toUpperCase();
-    if (!airportIdent || yes(runway.closed)) continue;
+    const ident = clean(runway.airport_ident)?.toUpperCase();
+    if (!ident || String(runway.closed ?? "0") === "1") continue;
     const record = {
         id: clean(runway.id),
         lengthFt: numberOrNull(runway.length_ft),
         widthFt: numberOrNull(runway.width_ft),
         surface: clean(runway.surface),
-        lighted: yes(runway.lighted),
+        lighted: String(runway.lighted ?? "0") === "1",
         leIdent: clean(runway.le_ident),
         leHeading: numberOrNull(runway.le_heading_degT),
         leElevationFt: numberOrNull(runway.le_elevation_ft),
         leDisplacedThresholdFt: numberOrNull(runway.le_displaced_threshold_ft),
+        leLatitude: numberOrNull(runway.le_latitude_deg),
+        leLongitude: numberOrNull(runway.le_longitude_deg),
         heIdent: clean(runway.he_ident),
         heHeading: numberOrNull(runway.he_heading_degT),
         heElevationFt: numberOrNull(runway.he_elevation_ft),
         heDisplacedThresholdFt: numberOrNull(runway.he_displaced_threshold_ft),
+        heLatitude: numberOrNull(runway.he_latitude_deg),
+        heLongitude: numberOrNull(runway.he_longitude_deg),
     };
-    if (!runwaysByIdent.has(airportIdent)) runwaysByIdent.set(airportIdent, []);
-    runwaysByIdent.get(airportIdent).push(record);
+    if (!runwaysByAirport.has(ident)) runwaysByAirport.set(ident, []);
+    runwaysByAirport.get(ident).push(record);
 }
 
-const frequenciesByIdent = new Map();
 for (const frequency of frequencies) {
-    const airportIdent = clean(frequency.airport_ident)?.toUpperCase();
-    if (!airportIdent) continue;
+    const ident = clean(frequency.airport_ident)?.toUpperCase();
     const mhz = numberOrNull(frequency.frequency_mhz);
-    if (mhz == null) continue;
+    if (!ident || mhz == null) continue;
     const record = { type: clean(frequency.type), description: clean(frequency.description), frequencyMhz: mhz };
-    if (!frequenciesByIdent.has(airportIdent)) frequenciesByIdent.set(airportIdent, []);
-    frequenciesByIdent.get(airportIdent).push(record);
+    if (!frequenciesByAirport.has(ident)) frequenciesByAirport.set(ident, []);
+    frequenciesByAirport.get(ident).push(record);
 }
 
-const iataShards = {};
-const icaoShards = {};
-const majorAirports = [];
-const regionalTiles = {};
-const localTiles = {};
-let indexed = 0, iataCount = 0, icaoCount = 0, mapCount = 0, airportsWithRunways = 0, airportsWithFrequencies = 0;
+const iataShards = {}; const icaoShards = {}; const majorAirports = []; const regionalTiles = {}; const localTiles = {};
+let indexed = 0, iataCount = 0, icaoCount = 0, mapCount = 0, runwayAirportCount = 0, frequencyAirportCount = 0;
 
 for (const airport of airports) {
     if (airport.type === "closed_airport") continue;
-    const latitude = Number(airport.latitude_deg);
-    const longitude = Number(airport.longitude_deg);
+    const latitude = Number(airport.latitude_deg); const longitude = Number(airport.longitude_deg);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
 
     const iata = clean(airport.iata_code)?.toUpperCase() ?? null;
     const ident = clean(airport.ident)?.toUpperCase() ?? null;
     const gpsCode = clean(airport.gps_code)?.toUpperCase() ?? null;
     const icao = gpsCode && /^[A-Z0-9]{4}$/.test(gpsCode) ? gpsCode : ident && /^[A-Z0-9]{4}$/.test(ident) ? ident : null;
-    const operationsIdent = ident ?? icao;
     const countryIso = clean(airport.iso_country)?.toUpperCase() ?? null;
     const type = clean(airport.type);
     const scheduledService = String(airport.scheduled_service ?? "").toLowerCase() === "yes";
-    const airportRunways = operationsIdent ? (runwaysByIdent.get(operationsIdent) ?? []) : [];
-    const airportFrequencies = operationsIdent ? (frequenciesByIdent.get(operationsIdent) ?? []) : [];
-    if (airportRunways.length) airportsWithRunways++;
-    if (airportFrequencies.length) airportsWithFrequencies++;
+    const airportRunways = ident ? runwaysByAirport.get(ident) ?? [] : [];
+    const airportFrequencies = ident ? frequenciesByAirport.get(ident) ?? [] : [];
+    if (airportRunways.length) runwayAirportCount++;
+    if (airportFrequencies.length) frequencyAirportCount++;
 
     const record = {
-        icao, iata, ident,
-        name: clean(airport.name), latitude, longitude,
+        icao, iata, ident, name: clean(airport.name), latitude, longitude,
         elevationFt: numberOrNull(airport.elevation_ft),
         country: countryIso ? countryNames.get(countryIso) ?? countryIso : null,
         countryIso, city: clean(airport.municipality), region: clean(airport.iso_region), type, scheduledService,
         wikipedia: clean(airport.wikipedia_link), website: clean(airport.home_link),
-        runways: airportRunways,
-        frequencies: airportFrequencies,
+        runways: airportRunways, frequencies: airportFrequencies,
     };
 
     let used = false;
@@ -159,9 +148,9 @@ await writeTiles(path.join(outputRoot, "map", "regional"), regionalTiles);
 await writeTiles(path.join(outputRoot, "map", "local"), localTiles);
 await writeFile(path.join(outputRoot, "manifest.json"), JSON.stringify({
     source: "OurAirports", generatedAt: new Date().toISOString(), airportsDownloaded: airports.length, airportsIndexed: indexed,
-    iataCodes: iataCount, icaoCodes: icaoCount, runwaysDownloaded: runways.length, frequenciesDownloaded: frequencies.length,
-    airportsWithRunways, airportsWithFrequencies, mapMajorAirports: mapCount, regionalTileSizeDegrees: 20, localTileSizeDegrees: 5,
+    iataCodes: iataCount, icaoCodes: icaoCount, airportsWithRunways: runwayAirportCount, airportsWithFrequencies: frequencyAirportCount,
+    mapMajorAirports: mapCount, regionalTileSizeDegrees: 20, localTileSizeDegrees: 5,
     regionalTiles: Object.keys(regionalTiles).length, localTiles: Object.keys(localTiles).length, license: "Public Domain",
 }, null, 2), "utf8");
 
-console.log(`OurAirports ready: ${indexed.toLocaleString("en-US")} airports indexed (${iataCount.toLocaleString("en-US")} IATA, ${icaoCount.toLocaleString("en-US")} ICAO, ${airportsWithRunways.toLocaleString("en-US")} with runways, ${airportsWithFrequencies.toLocaleString("en-US")} with frequencies, ${majorAirports.length.toLocaleString("en-US")} major map airports, ${Object.keys(localTiles).length.toLocaleString("en-US")} local map tiles).`);
+console.log(`OurAirports ready: ${indexed.toLocaleString("en-US")} airports indexed (${iataCount.toLocaleString("en-US")} IATA, ${icaoCount.toLocaleString("en-US")} ICAO, ${runwayAirportCount.toLocaleString("en-US")} with runways, ${frequencyAirportCount.toLocaleString("en-US")} with frequencies, ${majorAirports.length.toLocaleString("en-US")} major map airports, ${Object.keys(localTiles).length.toLocaleString("en-US")} local map tiles).`);
