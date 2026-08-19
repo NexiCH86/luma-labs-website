@@ -1,6 +1,7 @@
 import RadarClient from "./RadarClient";
 import AircraftCard from "./AircraftCard";
 import LiveFlightIntelligence from "./LiveFlightIntelligence";
+import AirportExplorer from "./AirportExplorer";
 import "./radar.css";
 
 export default function RadarPage() {
@@ -9,6 +10,7 @@ export default function RadarPage() {
             <RadarClient />
             <LiveFlightIntelligence />
             <AircraftCard />
+            <AirportExplorer />
         </>
     );
 }
