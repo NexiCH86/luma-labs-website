@@ -48,11 +48,6 @@ function normalizeOmm(input: Record<string, unknown>) {
     return record;
 }
 
-function pad(value: string | number, length: number, side: "left" | "right" = "left") {
-    const text = String(value);
-    return side === "left" ? text.padStart(length, " ") : text.padEnd(length, " ");
-}
-
 function epochField(value: unknown) {
     const date = new Date(String(value ?? ""));
     if (Number.isNaN(date.getTime())) return "00001.00000000";
@@ -68,7 +63,7 @@ function exponentField(value: unknown) {
     const sign = numeric < 0 ? "-" : " ";
     const abs = Math.abs(numeric);
     const exponent = Math.floor(Math.log10(abs)) + 1;
-    const mantissa = Math.round(abs / 10 ** exponent * 1e5);
+    const mantissa = Math.round((abs / 10 ** exponent) * 1e5);
     const expSign = exponent < 0 ? "-" : "+";
     return `${sign}${String(mantissa).padStart(5, "0").slice(0, 5)}${expSign}${Math.abs(exponent)}`;
 }
@@ -105,64 +100,81 @@ function buildTle(record: Record<string, unknown>): [string, string] | null {
     return [line1, line2];
 }
 
-export default function SatOrbitAdapter() {
-    useEffect(() => {
-        let disposed = false;
-        let timer: number | null = null;
+function patchRuntime(runtime: SatelliteRuntime & Record<string, unknown>) {
+    if (!runtime.json2satrec) return runtime;
 
-        const patch = () => {
-            if (disposed) return true;
-            const runtime = window.satellite;
-            if (!runtime?.json2satrec) return false;
+    const current = runtime.json2satrec as ((record: Record<string, unknown>) => unknown) & {
+        __lumaPatched?: boolean;
+    };
+    if (current.__lumaPatched) return runtime;
 
-            const current = runtime.json2satrec as ((record: Record<string, unknown>) => unknown) & {
-                __lumaPatched?: boolean;
-            };
-            if (current.__lumaPatched) return true;
+    const original = current.bind(runtime);
+    const patched = ((input: Record<string, unknown>) => {
+        const record = normalizeOmm(input);
 
-            const original = current.bind(runtime);
-            const patched = ((input: Record<string, unknown>) => {
-                const record = normalizeOmm(input);
+        try {
+            const satrec = original(record) as { error?: number } | null;
+            if (satrec && (!satrec.error || satrec.error === 0)) return satrec;
+        } catch {
+            // Try TLE path below.
+        }
 
+        if (runtime.twoline2satrec) {
+            const tle = buildTle(record);
+            if (tle) {
                 try {
-                    const satrec = original(record) as { error?: number } | null;
+                    const satrec = runtime.twoline2satrec(tle[0], tle[1]) as { error?: number } | null;
                     if (satrec && (!satrec.error || satrec.error === 0)) return satrec;
                 } catch {
-                    // Fall through to TLE reconstruction.
+                    // Fall through to original behavior.
                 }
+            }
+        }
 
-                if (runtime.twoline2satrec) {
-                    const tle = buildTle(record);
-                    if (tle) {
-                        try {
-                            return runtime.twoline2satrec(tle[0], tle[1]);
-                        } catch {
-                            // Preserve the original behavior below.
-                        }
-                    }
-                }
+        return original(record);
+    }) as typeof current;
 
-                return original(record);
-            }) as typeof current;
+    patched.__lumaPatched = true;
+    runtime.json2satrec = patched;
+    console.info("LuMa SAT orbit adapter active before group loading");
+    return runtime;
+}
 
-            patched.__lumaPatched = true;
-            runtime.json2satrec = patched;
-            console.info("LuMa SAT orbit adapter active (OMM + TLE fallback)");
-            return true;
-        };
+export default function SatOrbitAdapter() {
+    useEffect(() => {
+        let runtimeValue = window.satellite;
 
-        if (!patch()) {
-            timer = window.setInterval(() => {
-                if (patch() && timer != null) {
-                    window.clearInterval(timer);
-                    timer = null;
-                }
-            }, 20);
+        if (runtimeValue) {
+            patchRuntime(runtimeValue);
+            return;
+        }
+
+        const descriptor = Object.getOwnPropertyDescriptor(window, "satellite");
+        if (descriptor && descriptor.configurable === false) return;
+
+        try {
+            Object.defineProperty(window, "satellite", {
+                configurable: true,
+                enumerable: true,
+                get() {
+                    return runtimeValue;
+                },
+                set(value: SatelliteRuntime & Record<string, unknown>) {
+                    runtimeValue = patchRuntime(value);
+                },
+            });
+        } catch {
+            // Very old/cached browser runtimes can reject redefining the property.
         }
 
         return () => {
-            disposed = true;
-            if (timer != null) window.clearInterval(timer);
+            try {
+                const current = runtimeValue;
+                delete (window as Window & { satellite?: SatelliteRuntime }).satellite;
+                if (current) window.satellite = current;
+            } catch {
+                // Nothing to clean up.
+            }
         };
     }, []);
 
