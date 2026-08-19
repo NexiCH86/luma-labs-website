@@ -83,14 +83,11 @@ export async function POST(
 
         if (
             !payload ||
-            !Array.isArray(
-                payload.aircraft
-            )
+            !Array.isArray(payload.aircraft)
         ) {
             return NextResponse.json(
                 {
-                    error:
-                        "Invalid payload",
+                    error: "Invalid payload",
                 },
                 {
                     status: 400,
@@ -107,7 +104,8 @@ export async function POST(
         const aircraft =
             payload.aircraft.filter(
                 (item) =>
-                    typeof item.icao24 === "string" &&
+                    typeof item.icao24 ===
+                    "string" &&
                     Number.isFinite(
                         item.latitude
                     ) &&
@@ -117,10 +115,14 @@ export async function POST(
             );
 
         /*
-         * 1. LIVE SNAPSHOT
-         * Dieser Teil ist das Wichtigste.
-         * Er sorgt dafür, dass das Radar sofort Flugzeuge sieht.
+         * =====================================================
+         * LIVE SNAPSHOT
+         * =====================================================
+         *
+         * Wird bei jedem Collector-Durchlauf komplett ersetzt.
+         * Der Browser liest diesen Snapshot ueber /api/radar.
          */
+
         const snapshot = {
             updated:
                 payload.updated ??
@@ -139,20 +141,35 @@ export async function POST(
             "radar:snapshot",
             snapshot,
             {
-                ex: 60,
+                /*
+                 * Collector laeuft alle 25 Sekunden.
+                 * Nach 90 Sekunden ohne Collector gelten
+                 * die Daten als veraltet.
+                 */
+                ex: 90,
             }
         );
 
         /*
-         * 2. TRACKS
-         * Nicht mehr alle ~100 Flugzeuge gleichzeitig.
-         * Pro Ingest nur maximal 15 Aircraft.
+         * =====================================================
+         * PERSISTENT TRACK HISTORY
+         * =====================================================
          *
-         * Bei 5 Sekunden Refresh werden dadurch nach und nach
-         * alle Flugzeuge aktualisiert, ohne die Vercel Function
-         * zu überlasten.
+         * Wir schreiben nicht mehr nur 15 Aircraft pro Runde,
+         * sondern 100.
+         *
+         * Bei rund 200 Flugzeugen erhaelt damit jedes Aircraft
+         * ungefaehr alle 50 Sekunden einen persistenten Punkt.
+         *
+         * Pro Flugzeug nur:
+         *
+         *   RPUSH
+         *   EXPIRE
+         *
+         * Kein LTRIM mehr notwendig.
          */
-        const TRACK_BATCH_SIZE = 15;
+
+        const TRACK_BATCH_SIZE = 100;
 
         const cursorKey =
             "radar:track-batch-cursor";
@@ -162,24 +179,45 @@ export async function POST(
                 cursorKey
             )) ?? 0;
 
-        const start =
-            previousCursor %
-            Math.max(
-                aircraft.length,
-                1
-            );
+        const aircraftCount =
+            aircraft.length;
 
-        const trackAircraft =
-            aircraft
-                .concat(aircraft)
-                .slice(
-                    start,
-                    start +
-                    Math.min(
-                        TRACK_BATCH_SIZE,
-                        aircraft.length
-                    )
+        let trackAircraft:
+            Aircraft[] = [];
+
+        let nextCursor = 0;
+
+        if (aircraftCount > 0) {
+            const start =
+                previousCursor %
+                aircraftCount;
+
+            const amount =
+                Math.min(
+                    TRACK_BATCH_SIZE,
+                    aircraftCount
                 );
+
+            /*
+             * Array verdoppeln, damit ein Batch sauber
+             * ueber das Ende des Arrays hinauslaufen kann.
+             */
+
+            trackAircraft =
+                aircraft
+                    .concat(aircraft)
+                    .slice(
+                        start,
+                        start + amount
+                    );
+
+            nextCursor =
+                (
+                    start +
+                    amount
+                ) %
+                aircraftCount;
+        }
 
         if (
             trackAircraft.length >
@@ -193,7 +231,7 @@ export async function POST(
                 trackAircraft
             ) {
                 const key =
-                    `radar:track:${item.icao24}`;
+                    `radar:track:${item.icao24.toLowerCase()}`;
 
                 const point = {
                     latitude:
@@ -215,16 +253,19 @@ export async function POST(
                         now,
                 };
 
+                /*
+                 * Neuen Punkt ans Ende des Tracks schreiben.
+                 */
+
                 pipeline.rpush(
                     key,
                     point
                 );
 
-                pipeline.ltrim(
-                    key,
-                    -2000,
-                    -1
-                );
+                /*
+                 * Track verschwindet 12 Stunden nach dem
+                 * letzten empfangenen Punkt automatisch.
+                 */
 
                 pipeline.expire(
                     key,
@@ -232,12 +273,19 @@ export async function POST(
                 );
             }
 
+            /*
+             * Alle Redis-Befehle gemeinsam senden.
+             */
+
             await pipeline.exec();
+
+            /*
+             * Cursor fuer den naechsten Collector-Durchlauf.
+             */
 
             await redis.set(
                 cursorKey,
-                start +
-                trackAircraft.length,
+                nextCursor,
                 {
                     ex:
                         12 * 60 * 60,
@@ -256,6 +304,11 @@ export async function POST(
 
             tracksUpdated:
                 trackAircraft.length,
+
+            trackBatchSize:
+                TRACK_BATCH_SIZE,
+
+            nextCursor,
         });
     } catch (error) {
         console.error(
