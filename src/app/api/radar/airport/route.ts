@@ -12,10 +12,14 @@ type RunwayRecord = {
     leHeading?: number | null;
     leElevationFt?: number | null;
     leDisplacedThresholdFt?: number | null;
+    leLatitude?: number | null;
+    leLongitude?: number | null;
     heIdent?: string | null;
     heHeading?: number | null;
     heElevationFt?: number | null;
     heDisplacedThresholdFt?: number | null;
+    heLatitude?: number | null;
+    heLongitude?: number | null;
 };
 
 type FrequencyRecord = {
