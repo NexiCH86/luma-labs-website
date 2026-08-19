@@ -75,6 +75,10 @@ export default function RadarToolsPanel() {
         setOpen(false);
     }
 
+    function resetLayout() {
+        window.dispatchEvent(new Event("luma:radar-reset-layout"));
+    }
+
     return (
         <div data-luma-tools-panel style={{ position: "fixed", left: 18, bottom: 102, zIndex: 1520, fontFamily: "inherit" }}>
             {!open ? (
@@ -113,8 +117,12 @@ export default function RadarToolsPanel() {
                             ))}
                         </div>
 
+                        <button type="button" onClick={resetLayout} style={resetStyle}>
+                            ↺ RESET WINDOW LAYOUT
+                        </button>
+
                         <div style={hintStyle}>
-                            Central access to LuMa RADAR display and analysis tools. Airport search remains available as a dedicated control.
+                            Panel positions are stored in this browser. Reset Layout restores the original LuMa RADAR window positions.
                         </div>
                     </div>
                 </section>
@@ -133,4 +141,5 @@ const iconStyle: React.CSSProperties = { width: 28, height: 28, display: "grid",
 const toolTitleStyle: React.CSSProperties = { display: "block", color: "rgba(255,255,255,0.88)", fontSize: 10, letterSpacing: "0.05em" };
 const toolDescriptionStyle: React.CSSProperties = { display: "block", marginTop: 2, color: "rgba(255,255,255,0.34)", fontSize: 8, lineHeight: 1.35 };
 const arrowStyle: React.CSSProperties = { color: "rgba(99,255,227,0.52)", fontSize: 13 };
+const resetStyle: React.CSSProperties = { width: "100%", marginTop: 10, padding: "9px 10px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, background: "rgba(255,255,255,0.025)", color: "rgba(255,255,255,0.58)", cursor: "pointer", fontSize: 8, letterSpacing: "0.10em" };
 const hintStyle: React.CSSProperties = { marginTop: 11, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.28)", fontSize: 8, lineHeight: 1.45 };
