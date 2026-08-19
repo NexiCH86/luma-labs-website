@@ -1,0 +1,366 @@
+.sat2-header {
+    gap: 14px;
+}
+
+.sat2-location-button {
+    height: 38px;
+    padding: 0 14px;
+    border: 1px solid rgba(255, 209, 102, 0.28);
+    border-radius: 8px;
+    background: rgba(255, 209, 102, 0.07);
+    color: #ffd166;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+}
+
+.sat2-location-button:hover {
+    background: rgba(255, 209, 102, 0.14);
+    border-color: rgba(255, 209, 102, 0.55);
+}
+
+.sat2-filter-panel {
+    position: absolute;
+    z-index: 800;
+    top: 18px;
+    left: 56px;
+    width: 285px;
+    padding: 13px;
+    border: 1px solid rgba(91, 231, 224, 0.14);
+    border-radius: 12px;
+    background: rgba(4, 14, 18, 0.92);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.38);
+    backdrop-filter: blur(14px);
+}
+
+.sat2-filter-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.sat2-filter-title strong {
+    color: rgba(255,255,255,0.72);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+}
+
+.sat2-filter-title span {
+    color: rgba(255,255,255,0.35);
+    font-size: 8px;
+}
+
+.sat2-filter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+}
+
+.sat2-filter {
+    display: grid;
+    grid-template-columns: 9px 1fr auto;
+    align-items: center;
+    gap: 7px;
+    min-height: 34px;
+    padding: 0 9px;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 7px;
+    background: rgba(255,255,255,0.025);
+    color: rgba(255,255,255,0.48);
+    cursor: pointer;
+    text-align: left;
+}
+
+.sat2-filter:hover,
+.sat2-filter.is-on {
+    border-color: rgba(91, 231, 224, 0.24);
+    background: rgba(91, 231, 224, 0.055);
+    color: #fff;
+}
+
+.sat2-filter:disabled {
+    opacity: 0.55;
+    cursor: wait;
+}
+
+.sat2-filter b {
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.sat2-filter small {
+    color: rgba(255,255,255,0.3);
+    font-size: 7px;
+}
+
+.sat2-filter-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    box-shadow: 0 0 9px currentColor;
+}
+
+.sat2-filter-dot.cat-station { color: #ffd166; background: #ffd166; }
+.sat2-filter-dot.cat-navigation { color: #8fa7ff; background: #8fa7ff; }
+.sat2-filter-dot.cat-constellation { color: #c084fc; background: #c084fc; }
+.sat2-filter-dot.cat-weather { color: #5be7e0; background: #5be7e0; }
+.sat2-filter-dot.cat-earth { color: #7cff6b; background: #7cff6b; }
+
+.sat2-marker-wrapper,
+.sat2-observer-wrapper {
+    background: transparent !important;
+    border: 0 !important;
+}
+
+.sat2-marker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    background: rgba(5, 12, 16, 0.83);
+    font-size: 8px;
+    box-shadow: 0 0 9px currentColor;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.sat2-marker-station { color: #ffd166; }
+.sat2-marker-navigation { color: #8fa7ff; }
+.sat2-marker-constellation { color: #c084fc; }
+.sat2-marker-weather { color: #5be7e0; }
+.sat2-marker-earth { color: #7cff6b; }
+
+.sat2-marker.is-selected {
+    transform: scale(1.45);
+    box-shadow: 0 0 18px currentColor;
+}
+
+.sat2-marker.is-iss {
+    width: 38px;
+    height: 22px;
+    border-radius: 7px;
+    color: #ffd166;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    background: rgba(31, 25, 8, 0.94);
+    animation: sat2IssPulse 2.2s infinite;
+}
+
+@keyframes sat2IssPulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(255,209,102,.55); }
+    50% { box-shadow: 0 0 25px rgba(255,209,102,.95); }
+}
+
+.sat2-observer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #fff;
+    font-size: 8px;
+    letter-spacing: .12em;
+}
+
+.sat2-observer span {
+    width: 10px;
+    height: 10px;
+    border: 2px solid #ff74d4;
+    border-radius: 50%;
+    background: rgba(255,116,212,.25);
+    box-shadow: 0 0 18px #ff74d4;
+}
+
+.sat2-selected-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+}
+
+.sat2-selected-header > div:first-child > span {
+    color: #5be7e0;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+}
+
+.sat2-selected-header h2 {
+    margin: 5px 0 3px;
+    color: #fff;
+    font-size: 18px;
+    line-height: 1.1;
+}
+
+.sat2-selected-header p {
+    margin: 0;
+    color: rgba(255,255,255,.36);
+    font-size: 8px;
+    letter-spacing: .05em;
+}
+
+.sat2-orbit-badge,
+.sat2-iss-badge {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1px solid rgba(91,231,224,.25);
+    color: #5be7e0;
+    background: rgba(91,231,224,.05);
+}
+
+.sat2-iss-badge {
+    border-radius: 8px;
+    border-color: rgba(255,209,102,.4);
+    color: #ffd166;
+    background: rgba(255,209,102,.08);
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.sat2-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.sat2-metrics > div,
+.sat2-look-grid > div,
+.sat2-pass-row > div {
+    padding: 10px;
+    border: 1px solid rgba(255,255,255,.065);
+    border-radius: 8px;
+    background: rgba(255,255,255,.025);
+}
+
+.sat2-metrics small,
+.sat2-look-grid small,
+.sat2-pass-row small {
+    display: block;
+    color: rgba(255,255,255,.3);
+    font-size: 7px;
+    letter-spacing: .13em;
+}
+
+.sat2-metrics strong {
+    display: block;
+    margin-top: 4px;
+    color: #fff;
+    font-size: 13px;
+}
+
+.sat2-orbit-data {
+    margin-top: 12px;
+}
+
+.sat2-orbit-data > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,.045);
+    font-size: 8px;
+}
+
+.sat2-orbit-data span { color: rgba(255,255,255,.34); }
+.sat2-orbit-data b { color: rgba(255,255,255,.78); text-align: right; }
+
+.sat2-visibility {
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 10px;
+    background: rgba(255,255,255,.025);
+}
+
+.sat2-visibility.is-visible {
+    border-color: rgba(124,255,107,.25);
+    background: rgba(124,255,107,.035);
+}
+
+.sat2-visibility.is-below {
+    border-color: rgba(255,255,255,.07);
+}
+
+.sat2-visibility-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.sat2-visibility-head strong {
+    color: rgba(255,255,255,.65);
+    font-size: 8px;
+    letter-spacing: .16em;
+}
+
+.sat2-visibility-head span {
+    color: #7cff6b;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: .1em;
+}
+
+.sat2-visibility.is-below .sat2-visibility-head span {
+    color: rgba(255,255,255,.35);
+}
+
+.sat2-visibility button {
+    width: 100%;
+    height: 32px;
+    border: 1px solid rgba(255,209,102,.24);
+    border-radius: 7px;
+    background: rgba(255,209,102,.06);
+    color: #ffd166;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    cursor: pointer;
+}
+
+.sat2-look-grid,
+.sat2-pass-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+
+.sat2-pass-row { margin-top: 6px; }
+.sat2-look-grid b,
+.sat2-pass-row b {
+    display: block;
+    margin-top: 4px;
+    color: rgba(255,255,255,.8);
+    font-size: 9px;
+}
+
+.sat2-hint {
+    margin-top: 10px !important;
+    color: #ffd166 !important;
+    font-size: 8px !important;
+}
+
+.sat2-panel {
+    overflow-y: auto;
+}
+
+@media (max-width: 1100px) {
+    .sat2-filter-panel {
+        width: 230px;
+    }
+    .sat2-filter-grid {
+        grid-template-columns: 1fr;
+    }
+}
