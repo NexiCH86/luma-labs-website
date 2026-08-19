@@ -87,6 +87,12 @@
 .satv1-phase3-handle:active { cursor:grabbing; }
 .satv1-phase3-handle::after { content:"DRAG · DOUBLE CLICK RESET"; margin-left:auto; color:rgba(255,255,255,.22); font-size:6px; letter-spacing:.12em; }
 
+.sat2-filter-panel.satv1-network-movable { position:fixed !important; z-index:5240 !important; resize:both; min-width:240px; min-height:120px; overflow:auto; }
+.satv1-network-handle { cursor:grab; user-select:none; touch-action:none; display:flex; align-items:center; gap:8px; }
+.satv1-network-handle:active { cursor:grabbing; }
+.satv1-network-close { margin-left:6px; width:24px; height:24px; border:1px solid rgba(255,255,255,.09); border-radius:6px; background:rgba(255,255,255,.03); color:#91b0ad; cursor:pointer; }
+.satv1-network-reopen { position:fixed; left:16px; top:118px; z-index:5290; min-height:34px; padding:0 11px; border:1px solid rgba(93,233,224,.2); border-radius:8px; background:rgba(3,16,22,.94); color:#5ce9df; font-size:8px; letter-spacing:.1em; cursor:pointer; }
+
 /* Workspace harmonisation */
 .sat2-panel.satx-draggable-panel,
 .sat4-tracked-panel,
@@ -95,7 +101,8 @@
 .sat2-panel.satx-draggable-panel::-webkit-resizer,
 .sat4-tracked-panel::-webkit-resizer,
 .sat3-panel.satv1-phase3-movable::-webkit-resizer,
-.satv1-panel::-webkit-resizer { background:rgba(93,233,224,.22); }
+.satv1-panel::-webkit-resizer,
+.sat2-filter-panel.satv1-network-movable::-webkit-resizer { background:rgba(93,233,224,.22); }
 
 @media (max-width: 1280px) {
     .satv1-panel { top:106px; right:12px; width:min(390px, calc(100vw - 24px)); max-height:calc(100vh - 170px); }
@@ -108,4 +115,5 @@
     .satv1-links { grid-template-columns:1fr; }
     .satv1-metrics { grid-template-columns:1fr 1fr; }
     .satv1-score { min-width:66px; }
+    .sat2-filter-panel.satv1-network-movable { max-width:calc(100vw - 20px); max-height:55vh; }
 }
