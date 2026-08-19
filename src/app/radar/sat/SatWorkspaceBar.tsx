@@ -43,8 +43,13 @@ export default function SatWorkspaceBar() {
     }
 
     function resetWorkspace() {
-        localStorage.removeItem("luma-radar-sat-details-position");
-        localStorage.removeItem("luma-radar-sat-tracked-panel-position");
+        [
+            "luma-radar-sat-details-position",
+            "luma-radar-sat-tracked-panel-position",
+            "luma-radar-sat-v1-panel-position",
+            "luma-radar-sat-phase3-position",
+            "luma-radar-sat-network-position",
+        ].forEach((key) => localStorage.removeItem(key));
         window.location.reload();
     }
 
