@@ -1,3 +1,7 @@
+.airport-marker-wrapper {
+    display: none !important;
+}
+
 .luma-world-airport-wrapper {
     background: transparent !important;
     border: 0 !important;
