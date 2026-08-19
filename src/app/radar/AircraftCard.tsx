@@ -15,8 +15,15 @@ type AircraftInfo = {
     manufacturer?: string | null;
     owner?: string | null;
     ownerCountry?: string | null;
+    ownerCountryIso?: string | null;
+    operatorFlagCode?: string | null;
+    modeS?: string | null;
     photo?: string | null;
     thumbnail?: string | null;
+    yearBuilt?: number | null;
+    ageYears?: number | null;
+    isMilitary?: boolean | null;
+    metadataSources?: string[];
 };
 
 type FlightInfo = {
@@ -37,7 +44,7 @@ const cardStyle: React.CSSProperties = {
 const imageStyle: React.CSSProperties = {
     display: "block",
     width: "100%",
-    height: "150px",
+    height: "170px",
     objectFit: "cover",
     background: "rgba(255,255,255,0.03)",
 };
@@ -259,6 +266,12 @@ export default function AircraftCard() {
         aircraft.icaoType ||
         "Aircraft";
 
+    const wikipediaUrl =
+        `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(
+            aircraft.type ||
+            typeName
+        )}`;
+
     return createPortal(
         <section
             style={cardStyle}
@@ -292,7 +305,7 @@ export default function AircraftCard() {
                         <span
                             style={labelStyle}
                         >
-                            AIRCRAFT
+                            AIRFRAME
                         </span>
 
                         <strong
@@ -339,6 +352,13 @@ export default function AircraftCard() {
                     />
 
                     <AircraftValue
+                        label="MODE-S / ICAO24"
+                        value={
+                            aircraft.modeS
+                        }
+                    />
+
+                    <AircraftValue
                         label="MANUFACTURER"
                         value={
                             aircraft.manufacturer
@@ -346,7 +366,34 @@ export default function AircraftCard() {
                     />
 
                     <AircraftValue
-                        label="OPERATOR / OWNER"
+                        label="TYPE / MODEL"
+                        value={
+                            aircraft.type
+                        }
+                    />
+
+                    <AircraftValue
+                        label="YEAR BUILT"
+                        value={
+                            aircraft.yearBuilt != null
+                                ? String(
+                                    aircraft.yearBuilt
+                                )
+                                : null
+                        }
+                    />
+
+                    <AircraftValue
+                        label="AIRFRAME AGE"
+                        value={
+                            aircraft.ageYears != null
+                                ? `${aircraft.ageYears} years`
+                                : null
+                        }
+                    />
+
+                    <AircraftValue
+                        label="REGISTERED OWNER"
                         value={
                             aircraft.owner
                         }
@@ -355,9 +402,73 @@ export default function AircraftCard() {
                     <AircraftValue
                         label="REGISTERED IN"
                         value={
-                            aircraft.ownerCountry
+                            [
+                                aircraft.ownerCountry,
+                                aircraft.ownerCountryIso,
+                            ]
+                                .filter(Boolean)
+                                .join(" · ") ||
+                            null
                         }
                     />
+
+                    <AircraftValue
+                        label="OPERATOR FLAG"
+                        value={
+                            aircraft.operatorFlagCode
+                        }
+                    />
+
+                    <AircraftValue
+                        label="MILITARY"
+                        value={
+                            aircraft.isMilitary == null
+                                ? null
+                                : aircraft.isMilitary
+                                    ? "YES"
+                                    : "NO"
+                        }
+                    />
+                </div>
+
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "10px",
+                        marginTop: "14px",
+                        paddingTop: "12px",
+                        borderTop: "1px solid rgba(255,255,255,0.06)",
+                    }}
+                >
+                    <a
+                        href={wikipediaUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                            color: "rgba(99,255,227,0.82)",
+                            fontSize: "10px",
+                            letterSpacing: "0.08em",
+                            textDecoration: "none",
+                        }}
+                    >
+                        TYPE INFO ↗
+                    </a>
+
+                    {aircraft.metadataSources &&
+                        aircraft.metadataSources.length > 0 && (
+                            <span
+                                style={{
+                                    color: "rgba(255,255,255,0.28)",
+                                    fontSize: "8px",
+                                    letterSpacing: "0.08em",
+                                    textAlign: "right",
+                                }}
+                            >
+                                DATA: {aircraft.metadataSources.join(" + ")}
+                            </span>
+                        )}
                 </div>
             </div>
         </section>,
