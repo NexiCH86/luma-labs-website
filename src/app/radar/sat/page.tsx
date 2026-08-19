@@ -4,6 +4,7 @@ import SatPhase3ClientOnly from "./SatPhase3ClientOnly";
 import SatWorkspaceEnhancements from "./SatWorkspaceEnhancements";
 import SatTrackedPanel from "./SatTrackedPanel";
 import SatWorkspaceBar from "./SatWorkspaceBar";
+import SatWorkspacePolish from "./SatWorkspacePolish";
 import SatV1CompleteClientOnly from "./SatV1CompleteClientOnly";
 import "../radar.css";
 import "../radar-mode-switch.css";
@@ -22,6 +23,7 @@ export default function SatRadarPage() {
             <SatWorkspaceEnhancements />
             <SatTrackedPanel />
             <SatWorkspaceBar />
+            <SatWorkspacePolish />
             <SatV1CompleteClientOnly />
             <RadarModeSwitch />
         </>
