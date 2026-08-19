@@ -30,12 +30,14 @@ export default function RadarMapBridge() {
                 return;
             }
 
-            L.Map.addInitHook(function () {
+            L.Map.addInitHook(function (
+                this: L.Map
+            ) {
                 const container =
-                    this.getContainer?.();
+                    this.getContainer();
 
                 if (
-                    container?.classList?.contains(
+                    container.classList.contains(
                         "radar-map"
                     )
                 ) {
