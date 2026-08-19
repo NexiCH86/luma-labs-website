@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 type CelesTrakRecord = {
     OBJECT_NAME?: string;
@@ -20,33 +20,88 @@ type CelesTrakRecord = {
     MEAN_MOTION_DDOT?: number;
 };
 
-type SatelliteRecord = CelesTrakRecord & {
-    category: "station" | "navigation";
+type SatCategory =
+    | "station"
+    | "navigation"
+    | "constellation"
+    | "weather"
+    | "earth";
+
+type SourceDefinition = {
+    group: string;
+    category: SatCategory;
+    label: string;
 };
 
-const SOURCES = [
-    { group: "STATIONS", category: "station" as const },
-    { group: "GPS-OPS", category: "navigation" as const },
-];
+type SatelliteRecord = CelesTrakRecord & {
+    category: SatCategory;
+    group: string;
+    groupLabel: string;
+};
+
+const SOURCE_DEFINITIONS: Record<string, SourceDefinition> = {
+    STATIONS: {
+        group: "STATIONS",
+        category: "station",
+        label: "Space Stations",
+    },
+    "GPS-OPS": {
+        group: "GPS-OPS",
+        category: "navigation",
+        label: "GPS",
+    },
+    "GLO-OPS": {
+        group: "GLO-OPS",
+        category: "navigation",
+        label: "GLONASS",
+    },
+    GALILEO: {
+        group: "GALILEO",
+        category: "navigation",
+        label: "Galileo",
+    },
+    BEIDOU: {
+        group: "BEIDOU",
+        category: "navigation",
+        label: "BeiDou",
+    },
+    STARLINK: {
+        group: "STARLINK",
+        category: "constellation",
+        label: "Starlink",
+    },
+    WEATHER: {
+        group: "WEATHER",
+        category: "weather",
+        label: "Weather",
+    },
+    RESOURCE: {
+        group: "RESOURCE",
+        category: "earth",
+        label: "Earth Resources",
+    },
+};
+
+const DEFAULT_GROUPS = ["STATIONS", "GPS-OPS"];
+const MAX_GROUPS_PER_REQUEST = 4;
 
 async function loadGroup(
-    group: string,
-    category: SatelliteRecord["category"]
+    source: SourceDefinition
 ): Promise<SatelliteRecord[]> {
     const url =
-        `https://celestrak.org/NORAD/elements/gp.php?GROUP=${encodeURIComponent(group)}&FORMAT=JSON`;
+        `https://celestrak.org/NORAD/elements/gp.php?GROUP=${encodeURIComponent(source.group)}&FORMAT=JSON`;
 
     const response = await fetch(url, {
         next: { revalidate: 7200 },
         headers: {
             Accept: "application/json",
-            "User-Agent": "LuMa-RADAR/1.0 (lumalabs.ch)",
+            "User-Agent": "LuMa-RADAR/2.0 (lumalabs.ch)",
         },
     });
 
     if (!response.ok) {
         throw new Error(
-            `CelesTrak ${group} returned ${response.status}`
+            `CelesTrak ${source.group} returned ${response.status}`
         );
     }
 
@@ -67,40 +122,71 @@ async function loadGroup(
         )
         .map((record) => ({
             ...record,
-            category,
+            category: source.category,
+            group: source.group,
+            groupLabel: source.label,
         }));
 }
 
-export async function GET() {
-    try {
-        const groups = await Promise.all(
-            SOURCES.map((source) =>
-                loadGroup(source.group, source.category)
-            )
+function parseGroups(request: NextRequest) {
+    const raw = request.nextUrl.searchParams.get("groups");
+
+    const requested = (raw ? raw.split(",") : DEFAULT_GROUPS)
+        .map((value) => value.trim().toUpperCase())
+        .filter(Boolean);
+
+    const unique = Array.from(new Set(requested));
+
+    if (unique.length === 0) {
+        return DEFAULT_GROUPS;
+    }
+
+    if (unique.length > MAX_GROUPS_PER_REQUEST) {
+        throw new Error(
+            `Maximum ${MAX_GROUPS_PER_REQUEST} satellite groups per request`
         );
+    }
+
+    for (const group of unique) {
+        if (!SOURCE_DEFINITIONS[group]) {
+            throw new Error(`Unsupported satellite group: ${group}`);
+        }
+    }
+
+    return unique;
+}
+
+export async function GET(request: NextRequest) {
+    try {
+        const groups = parseGroups(request);
+        const sources = groups.map((group) => SOURCE_DEFINITIONS[group]);
+        const loadedGroups = await Promise.all(sources.map(loadGroup));
 
         const byNorad = new Map<number, SatelliteRecord>();
 
-        for (const record of groups.flat()) {
+        for (const record of loadedGroups.flat()) {
             if (record.NORAD_CAT_ID == null) {
                 continue;
             }
 
-            byNorad.set(record.NORAD_CAT_ID, record);
+            const existing = byNorad.get(record.NORAD_CAT_ID);
+
+            if (!existing || record.category === "station") {
+                byNorad.set(record.NORAD_CAT_ID, record);
+            }
         }
 
         const satellites = Array.from(byNorad.values()).sort(
             (a, b) =>
-                (a.OBJECT_NAME ?? "").localeCompare(
-                    b.OBJECT_NAME ?? ""
-                )
+                (a.OBJECT_NAME ?? "").localeCompare(b.OBJECT_NAME ?? "")
         );
 
         return NextResponse.json(
             {
                 ok: true,
                 source: "CelesTrak GP / OMM",
-                groups: SOURCES.map((source) => source.group),
+                groups,
+                availableGroups: Object.values(SOURCE_DEFINITIONS),
                 cacheSeconds: 7200,
                 generatedAt: new Date().toISOString(),
                 count: satellites.length,
@@ -128,7 +214,7 @@ export async function GET() {
                         ? error.message
                         : "Satellite data unavailable",
             },
-            { status: 502 }
+            { status: 400 }
         );
     }
 }
