@@ -6,6 +6,7 @@ import LiveFlightIntelligence from "./LiveFlightIntelligence";
 import AirportExplorer from "./AirportExplorer";
 import AirportRunwayLayer from "./AirportRunwayLayer";
 import AirportLiveOperations from "./AirportLiveOperations";
+import AirportWeather from "./AirportWeather";
 import AircraftSelectionBridge from "./AircraftSelectionBridge";
 import AirFilters from "./AirFilters";
 import SquawkAlerts from "./SquawkAlerts";
@@ -27,6 +28,7 @@ export default function RadarPage() {
             <DynamicAirportLayer />
             <AirportRunwayLayer />
             <AirportLiveOperations />
+            <AirportWeather />
             <LiveFlightIntelligence />
             <AircraftCard />
             <AirportExplorer />
