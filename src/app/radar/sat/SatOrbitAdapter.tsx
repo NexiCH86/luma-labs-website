@@ -2,9 +2,11 @@
 
 import { useEffect } from "react";
 
+type Vec3 = { x: number; y: number; z: number };
 type SatelliteRuntime = {
     json2satrec?: (record: Record<string, unknown>) => unknown;
     twoline2satrec?: (line1: string, line2: string) => unknown;
+    propagate?: (satrec: unknown, date: Date) => { position?: Vec3; velocity?: Vec3 } | null;
 };
 
 declare global {
@@ -77,7 +79,7 @@ function buildTle(record: Record<string, unknown>): [string, string] | null {
     const anomaly = Number(record.MEAN_ANOMALY);
     const motion = Number(record.MEAN_MOTION);
     if (![norad, inc, raan, ecc, arg, anomaly, motion].every(Number.isFinite)) return null;
-    if (norad <= 0 || norad > 99999 || motion <= 0) return null;
+    if (norad <= 0 || norad > 99999 || motion <= 0 || ecc < 0 || ecc >= 1) return null;
 
     const objectId = String(record.OBJECT_ID ?? "").replace(/-/g, "").slice(0, 8).padEnd(8, " ");
     const classification = String(record.CLASSIFICATION_TYPE ?? "U").slice(0, 1) || "U";
@@ -85,19 +87,37 @@ function buildTle(record: Record<string, unknown>): [string, string] | null {
     const rev = Math.max(0, Math.min(99999, Number(record.REV_AT_EPOCH ?? 0) || 0));
     const mmDot = Number(record.MEAN_MOTION_DOT ?? 0);
     const eccentricity = String(Math.round(Math.abs(ecc) * 1e7)).padStart(7, "0").slice(0, 7);
+    const dot = Number.isFinite(mmDot)
+        ? `${mmDot < 0 ? "-" : " "}${Math.abs(mmDot).toFixed(8).replace(/^0/, "")}`.slice(0, 10)
+        : " .00000000";
 
     const line1 =
-        `1 ${String(norad).padStart(5, "0")}${classification} ${objectId} ${epochField(record.EPOCH)} ` +
-        `${Number.isFinite(mmDot) ? mmDot.toFixed(8).padStart(10, " ") : " .00000000"} ` +
-        `${exponentField(record.MEAN_MOTION_DDOT)} ${exponentField(record.BSTAR)} 0 ${String(elementSet).padStart(4, " ")}`;
+        `1 ${String(Math.trunc(norad)).padStart(5, "0")}${classification} ${objectId} ${epochField(record.EPOCH)} ` +
+        `${dot.padStart(10, " ")} ${exponentField(record.MEAN_MOTION_DDOT)} ${exponentField(record.BSTAR)} 0 ${String(elementSet).padStart(4, " ")}`;
 
     const line2 =
-        `2 ${String(norad).padStart(5, "0")} ` +
+        `2 ${String(Math.trunc(norad)).padStart(5, "0")} ` +
         `${inc.toFixed(4).padStart(8, " ")} ${raan.toFixed(4).padStart(8, " ")} ` +
         `${eccentricity} ${arg.toFixed(4).padStart(8, " ")} ${anomaly.toFixed(4).padStart(8, " ")} ` +
         `${motion.toFixed(8).padStart(11, " ")}${String(rev).padStart(5, "0")}`;
 
     return [line1, line2];
+}
+
+function hasFiniteOrbit(runtime: SatelliteRuntime, satrec: unknown) {
+    if (!satrec || !runtime.propagate) return Boolean(satrec);
+    try {
+        const propagated = runtime.propagate(satrec, new Date());
+        const p = propagated?.position;
+        return Boolean(
+            p &&
+            Number.isFinite(p.x) &&
+            Number.isFinite(p.y) &&
+            Number.isFinite(p.z)
+        );
+    } catch {
+        return false;
+    }
 }
 
 function patchRuntime(runtime: SatelliteRuntime & Record<string, unknown>) {
@@ -112,23 +132,25 @@ function patchRuntime(runtime: SatelliteRuntime & Record<string, unknown>) {
     const patched = ((input: Record<string, unknown>) => {
         const record = normalizeOmm(input);
 
-        try {
-            const satrec = original(record) as { error?: number } | null;
-            if (satrec && (!satrec.error || satrec.error === 0)) return satrec;
-        } catch {
-            // Try TLE path below.
-        }
-
+        // LuMa fallback records originate from TLE data. Prefer the TLE parser and
+        // validate that the result can actually be propagated before accepting it.
         if (runtime.twoline2satrec) {
             const tle = buildTle(record);
             if (tle) {
                 try {
-                    const satrec = runtime.twoline2satrec(tle[0], tle[1]) as { error?: number } | null;
-                    if (satrec && (!satrec.error || satrec.error === 0)) return satrec;
+                    const satrec = runtime.twoline2satrec(tle[0], tle[1]);
+                    if (hasFiniteOrbit(runtime, satrec)) return satrec;
                 } catch {
-                    // Fall through to original behavior.
+                    // Try OMM below.
                 }
             }
+        }
+
+        try {
+            const satrec = original(record);
+            if (hasFiniteOrbit(runtime, satrec)) return satrec;
+        } catch {
+            // Preserve original error behavior below.
         }
 
         return original(record);
@@ -136,7 +158,7 @@ function patchRuntime(runtime: SatelliteRuntime & Record<string, unknown>) {
 
     patched.__lumaPatched = true;
     runtime.json2satrec = patched;
-    console.info("LuMa SAT orbit adapter active before group loading");
+    console.info("LuMa SAT orbit adapter active (validated TLE-first propagation)");
     return runtime;
 }
 
@@ -164,7 +186,7 @@ export default function SatOrbitAdapter() {
                 },
             });
         } catch {
-            // Very old/cached browser runtimes can reject redefining the property.
+            // Browser runtime rejected property interception.
         }
 
         return () => {
