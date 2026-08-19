@@ -11,6 +11,7 @@ import SquawkAlerts from "./SquawkAlerts";
 import TrailControls from "./TrailControls";
 import TrafficDensity from "./TrafficDensity";
 import AirspaceLayers from "./AirspaceLayers";
+import RadarToolsPanel from "./RadarToolsPanel";
 import "./radar.css";
 import "./airport-markers.css";
 
@@ -29,6 +30,7 @@ export default function RadarPage() {
             <TrailControls />
             <TrafficDensity />
             <AirspaceLayers />
+            <RadarToolsPanel />
             <SquawkAlerts />
         </>
     );
