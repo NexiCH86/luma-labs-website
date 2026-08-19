@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type AirportInfo = {
     found: boolean;
@@ -21,6 +21,10 @@ type AirportInfo = {
     source?: string | null;
 };
 
+type AirportLayerSelectDetail = {
+    code?: string | null;
+};
+
 export default function AirportExplorer() {
     const [open, setOpen] = useState(false);
     const [code, setCode] = useState("");
@@ -28,8 +32,39 @@ export default function AirportExplorer() {
     const [error, setError] = useState("");
     const [airport, setAirport] = useState<AirportInfo | null>(null);
 
-    async function searchAirport() {
-        const query = code.trim().toUpperCase();
+    useEffect(() => {
+        const onAirportLayerSelect = (event: Event) => {
+            const detail = (
+                event as CustomEvent<AirportLayerSelectDetail>
+            ).detail;
+
+            const nextCode = detail?.code
+                ?.trim()
+                .toUpperCase();
+
+            if (!nextCode) {
+                return;
+            }
+
+            setOpen(true);
+            setCode(nextCode);
+            void loadAirport(nextCode);
+        };
+
+        window.addEventListener(
+            "luma:airport-layer-select",
+            onAirportLayerSelect
+        );
+
+        return () => {
+            window.removeEventListener(
+                "luma:airport-layer-select",
+                onAirportLayerSelect
+            );
+        };
+    }, []);
+
+    async function loadAirport(query: string) {
         setError("");
         setAirport(null);
 
@@ -45,7 +80,9 @@ export default function AirportExplorer() {
                 `/api/radar/airport?code=${encodeURIComponent(query)}`,
                 { cache: "no-store" }
             );
-            const data: AirportInfo & { error?: string } = await response.json();
+
+            const data: AirportInfo & { error?: string } =
+                await response.json();
 
             if (!response.ok) {
                 setError(data.error ?? "Airport lookup failed.");
@@ -63,6 +100,11 @@ export default function AirportExplorer() {
         } finally {
             setLoading(false);
         }
+    }
+
+    function searchAirport() {
+        const query = code.trim().toUpperCase();
+        void loadAirport(query);
     }
 
     function focusAirport() {
@@ -120,7 +162,9 @@ export default function AirportExplorer() {
                             </button>
                         </div>
 
-                        <p style={hintStyle}>Search worldwide by IATA or ICAO airport code.</p>
+                        <p style={hintStyle}>
+                            Search worldwide by IATA / ICAO or click an airport marker on the map.
+                        </p>
 
                         {error && <div style={errorStyle}>{error}</div>}
 
