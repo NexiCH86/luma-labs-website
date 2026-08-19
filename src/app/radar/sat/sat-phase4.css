@@ -1,7 +1,7 @@
 .sat4-tracked-panel {
     position: fixed;
     top: 116px;
-    right: 24px;
+    right: 360px;
     width: min(520px, calc(100vw - 48px));
     max-height: min(620px, calc(100vh - 190px));
     z-index: 5200;
@@ -95,7 +95,7 @@
 .sat4-tracked-reopen {
     position: fixed;
     top: 118px;
-    right: 18px;
+    right: 360px;
     z-index: 5200;
     padding: 10px 13px;
     border: 1px solid rgba(94,228,220,0.25);
@@ -151,8 +151,13 @@
 .sat4-hide-markers .sat2-marker-wrapper { display: none !important; }
 .sat4-hide-orbits .sat-shell .leaflet-overlay-pane path { display: none !important; }
 
+@media (max-width: 1180px) {
+    .sat4-tracked-panel, .sat4-tracked-reopen { right: 18px; }
+}
+
 @media (max-width: 900px) {
     .sat4-tracked-panel { top: 104px; right: 10px; width: min(480px, calc(100vw - 20px)); max-height: 54vh; }
+    .sat4-tracked-reopen { right: 10px; }
     .sat4-workspace-bar { max-width: calc(100vw - 20px); overflow-x: auto; left: 10px; right: 10px; transform: none; }
     .sat4-clock:nth-child(2) { display: none; }
 }
