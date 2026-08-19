@@ -1,0 +1,1 @@
+SAT map now uses stable Leaflet lifecycle and switches to OpenStreetMap tiles if CARTO tile requests fail.
