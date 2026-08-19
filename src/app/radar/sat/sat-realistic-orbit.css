@@ -1,0 +1,153 @@
+.satv1-orbit-card.sat-realistic-mounted {
+    position: relative;
+    overflow: hidden;
+    min-height: 300px;
+    background:
+        radial-gradient(circle at 50% 45%, rgba(17, 49, 63, 0.34), rgba(1, 5, 10, 0.96) 68%),
+        linear-gradient(180deg, rgba(4, 11, 17, 0.98), rgba(1, 4, 8, 0.98));
+}
+
+.satv1-orbit-card.sat-realistic-mounted > svg,
+.satv1-orbit-card.sat-realistic-mounted > .satv1-orbit-caption {
+    display: none;
+}
+
+.sat-realistic-orbit {
+    position: relative;
+    width: 100%;
+    min-height: 300px;
+}
+
+.sat-realistic-orbit > svg {
+    display: block;
+    width: 100%;
+    height: 265px;
+    overflow: visible;
+}
+
+.sat-realistic-stars circle {
+    fill: rgba(220, 242, 255, 0.58);
+}
+
+.sat-realistic-atmo-outer {
+    fill: none;
+    stroke: rgba(82, 210, 255, 0.16);
+    stroke-width: 7;
+    filter: drop-shadow(0 0 9px rgba(58, 190, 255, 0.28));
+}
+
+.sat-realistic-earth-edge {
+    fill: none;
+    stroke: rgba(158, 225, 255, 0.28);
+    stroke-width: 0.8;
+}
+
+.sat-realistic-grid {
+    fill: none;
+    stroke: rgba(161, 230, 236, 0.11);
+    stroke-width: 0.65;
+}
+
+.sat-realistic-orbit-rear,
+.sat-realistic-orbit-front {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.sat-realistic-orbit-rear {
+    stroke: rgba(255, 169, 70, 0.26);
+    stroke-width: 1.25;
+    stroke-dasharray: 3 3;
+}
+
+.sat-realistic-orbit-front {
+    stroke: rgba(255, 177, 72, 0.92);
+    stroke-width: 1.75;
+    filter: drop-shadow(0 0 4px rgba(255, 166, 64, 0.48));
+}
+
+.sat-realistic-current.is-rear {
+    opacity: 0.46;
+}
+
+.sat-realistic-sat-halo {
+    fill: rgba(255, 178, 68, 0.11);
+    stroke: rgba(255, 189, 91, 0.18);
+    stroke-width: 1;
+    filter: url(#sat-soft-glow);
+}
+
+.sat-realistic-sat-dot {
+    fill: #ffb04d;
+    stroke: #fff0ca;
+    stroke-width: 0.9;
+    filter: drop-shadow(0 0 4px rgba(255, 176, 77, 0.85));
+}
+
+.sat-realistic-callout-line {
+    stroke: rgba(255, 210, 145, 0.42);
+    stroke-width: 0.7;
+}
+
+.sat-realistic-callout-text {
+    fill: rgba(235, 246, 244, 0.72);
+    font-size: 6px;
+    letter-spacing: 0.08em;
+}
+
+.sat-realistic-caption {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 0 13px 12px;
+}
+
+.sat-realistic-caption > div:first-child {
+    display: grid;
+    gap: 3px;
+}
+
+.sat-realistic-caption strong {
+    color: #bfe7e4;
+    font-size: 8px;
+    letter-spacing: 0.13em;
+}
+
+.sat-realistic-caption span,
+.sat-realistic-caption small {
+    color: #587471;
+    font-size: 7px;
+    letter-spacing: 0.06em;
+}
+
+.sat-realistic-caption > div:last-child {
+    min-width: 84px;
+    padding-left: 12px;
+    border-left: 1px solid rgba(255,255,255,0.06);
+    text-align: right;
+}
+
+.sat-realistic-caption b {
+    display: block;
+    margin-top: 3px;
+    color: #e6f8f6;
+    font-size: 10px;
+}
+
+@media (max-width: 760px) {
+    .satv1-orbit-card.sat-realistic-mounted,
+    .sat-realistic-orbit {
+        min-height: 258px;
+    }
+
+    .sat-realistic-orbit > svg {
+        height: 224px;
+    }
+
+    .sat-realistic-callout-text,
+    .sat-realistic-callout-line {
+        display: none;
+    }
+}
