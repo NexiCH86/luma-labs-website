@@ -42,6 +42,12 @@
     box-shadow: 0 0 18px rgba(143, 167, 255, 0.22);
 }
 
+.radar-mode-switch a.stars-active {
+    color: #090511;
+    background: #d0b6ff;
+    box-shadow: 0 0 18px rgba(208, 182, 255, 0.24);
+}
+
 @media (max-width: 900px) {
     .radar-mode-switch {
         left: 12px;
