@@ -2,9 +2,25 @@ import {
     NextRequest,
     NextResponse,
 } from "next/server";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 
-const API =
-    "https://api.aviationstack.com/v1/airports";
+type AirportRecord = {
+    icao?: string | null;
+    iata?: string | null;
+    name?: string | null;
+    latitude: number;
+    longitude: number;
+    elevationFt?: number | null;
+    country?: string | null;
+    countryIso?: string | null;
+    city?: string | null;
+    region?: string | null;
+    type?: string | null;
+    scheduledService?: boolean;
+    wikipedia?: string | null;
+    website?: string | null;
+};
 
 type AirportResult = {
     found: boolean;
@@ -13,11 +29,19 @@ type AirportResult = {
     name?: string | null;
     latitude?: number;
     longitude?: number;
+    elevationFt?: number | null;
     country?: string | null;
+    countryIso?: string | null;
     city?: string | null;
+    region?: string | null;
+    type?: string | null;
+    scheduledService?: boolean;
+    wikipedia?: string | null;
+    website?: string | null;
     timezone?: string | null;
     gmt?: string | null;
-    source?: "aviationstack";
+    source?: "OurAirports";
+    reason?: string;
 };
 
 type CacheEntry = {
@@ -26,18 +50,14 @@ type CacheEntry = {
 };
 
 const globalForRadar = globalThis as unknown as {
-    lumaAirportCache?: Map<
-        string,
-        CacheEntry
-    >;
+    lumaAirportCache?: Map<string, CacheEntry>;
 };
 
 const cache =
     globalForRadar.lumaAirportCache ??
     new Map<string, CacheEntry>();
 
-globalForRadar.lumaAirportCache =
-    cache;
+globalForRadar.lumaAirportCache = cache;
 
 const CACHE_TIME =
     7 * 24 * 60 * 60 * 1000;
@@ -71,11 +91,7 @@ export async function GET(
         );
     }
 
-    const cacheKey =
-        code;
-
-    const cached =
-        cache.get(cacheKey);
+    const cached = cache.get(code);
 
     if (
         cached &&
@@ -87,81 +103,37 @@ export async function GET(
         });
     }
 
-    const apiKey =
-        process.env.AVIATIONSTACK_API_KEY;
-
-    if (!apiKey) {
-        return NextResponse.json(
-            {
-                error:
-                    "AVIATIONSTACK_API_KEY missing",
-            },
-            { status: 500 }
-        );
-    }
-
     try {
-        const params =
-            new URLSearchParams({
-                access_key: apiKey,
-            });
+        const kind =
+            code.length === 3
+                ? "iata"
+                : "icao";
 
-        if (code.length === 3) {
-            params.set(
-                "iata_code",
-                code
-            );
-        } else {
-            params.set(
-                "icao_code",
-                code
-            );
-        }
+        const shard =
+            code[0].toUpperCase();
 
-        const response =
-            await fetch(
-                `${API}?${params.toString()}`,
-                {
-                    cache: "no-store",
-                }
-            );
+        const filePath = path.join(
+            process.cwd(),
+            "public",
+            "data",
+            "ourairports",
+            kind,
+            `${shard}.json`
+        );
 
-        if (!response.ok) {
-            return NextResponse.json(
-                {
-                    error:
-                        `Airport lookup returned ${response.status}`,
-                },
-                {
-                    status:
-                        response.status,
-                }
-            );
-        }
+        const raw = await readFile(
+            filePath,
+            "utf8"
+        );
 
-        const json =
-            await response.json();
+        const records = JSON.parse(
+            raw
+        ) as Record<
+            string,
+            AirportRecord
+        >;
 
-        const airports =
-            Array.isArray(json.data)
-                ? json.data
-                : [];
-
-        const airport =
-            airports.find(
-                (candidate: any) =>
-                    code.length === 3
-                        ? candidate.iata_code
-                            ?.trim()
-                            .toUpperCase() ===
-                            code
-                        : candidate.icao_code
-                            ?.trim()
-                            .toUpperCase() ===
-                            code
-            ) ??
-            airports[0] ??
-            null;
+        const airport = records[code];
 
         if (!airport) {
             const result: AirportResult = {
@@ -169,86 +141,82 @@ export async function GET(
                 ...(code.length === 3
                     ? { iata: code }
                     : { icao: code }),
+                source: "OurAirports",
             };
 
-            cache.set(
-                cacheKey,
-                {
-                    expires:
-                        Date.now() +
-                        CACHE_TIME,
-                    value: result,
-                }
-            );
+            cache.set(code, {
+                expires:
+                    Date.now() +
+                    CACHE_TIME,
+                value: result,
+            });
 
             return NextResponse.json(
                 result
             );
         }
 
-        const latitude =
-            Number(airport.latitude);
-
-        const longitude =
-            Number(airport.longitude);
-
-        if (
-            !Number.isFinite(latitude) ||
-            !Number.isFinite(longitude)
-        ) {
-            return NextResponse.json({
-                found: false,
-                ...(code.length === 3
-                    ? { iata: code }
-                    : { icao: code }),
-            });
-        }
-
         const result: AirportResult = {
             found: true,
-            icao:
-                airport.icao_code ??
-                null,
-            iata:
-                airport.iata_code ??
-                null,
-            name:
-                airport.airport_name ??
-                null,
-            latitude,
-            longitude,
+            icao: airport.icao ?? null,
+            iata: airport.iata ?? null,
+            name: airport.name ?? null,
+            latitude: airport.latitude,
+            longitude: airport.longitude,
+            elevationFt:
+                airport.elevationFt ?? null,
             country:
-                airport.country_name ??
-                null,
-            city:
-                airport.city_iata_code ??
-                null,
-            timezone:
-                airport.timezone ??
-                null,
-            gmt:
-                airport.gmt ??
-                null,
-            source:
-                "aviationstack",
+                airport.country ?? null,
+            countryIso:
+                airport.countryIso ?? null,
+            city: airport.city ?? null,
+            region:
+                airport.region ?? null,
+            type: airport.type ?? null,
+            scheduledService:
+                airport.scheduledService ?? false,
+            wikipedia:
+                airport.wikipedia ?? null,
+            website:
+                airport.website ?? null,
+            timezone: null,
+            gmt: null,
+            source: "OurAirports",
         };
 
-        cache.set(
-            cacheKey,
-            {
-                expires:
-                    Date.now() +
-                    CACHE_TIME,
-                value: result,
-            }
-        );
+        cache.set(code, {
+            expires:
+                Date.now() +
+                CACHE_TIME,
+            value: result,
+        });
 
         return NextResponse.json(
             result
         );
     } catch (error) {
+        const codeValue =
+            error &&
+            typeof error === "object" &&
+            "code" in error
+                ? String(error.code)
+                : "";
+
+        if (codeValue === "ENOENT") {
+            return NextResponse.json(
+                {
+                    found: false,
+                    error:
+                        "OurAirports data not synced. Run npm run radar:sync-airports.",
+                    reason:
+                        "OurAirports metadata not synced",
+                },
+                { status: 503 }
+            );
+        }
+
         console.error(
-            "Airport lookup:",
+            "OurAirports lookup:",
             error
         );
 
