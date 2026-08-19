@@ -1,0 +1,50 @@
+.radar-mode-switch {
+    position: fixed;
+    z-index: 2100;
+    left: 24px;
+    bottom: 22px;
+    display: flex;
+    gap: 5px;
+    padding: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 9px;
+    background: rgba(4, 12, 16, 0.88);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+}
+
+.radar-mode-switch a {
+    min-width: 58px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.42);
+    text-align: center;
+    text-decoration: none;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+}
+
+.radar-mode-switch a:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.radar-mode-switch a.is-active {
+    color: #061012;
+    background: #5be7e0;
+    box-shadow: 0 0 18px rgba(91, 231, 224, 0.2);
+}
+
+.radar-mode-switch a.sat-active {
+    color: #060811;
+    background: #8fa7ff;
+    box-shadow: 0 0 18px rgba(143, 167, 255, 0.22);
+}
+
+@media (max-width: 900px) {
+    .radar-mode-switch {
+        left: 12px;
+        bottom: 12px;
+    }
+}
