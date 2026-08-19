@@ -5,8 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 type FocusDetail = { code?: string; name?: string };
 type RunwayRecord = { id?: string | null; leIdent?: string | null; leHeading?: number | null; heIdent?: string | null; heHeading?: number | null };
 type AirportLookup = { found?: boolean; icao?: string | null; runways?: RunwayRecord[] };
-type WeatherInfo = { found: boolean; icao?: string; source?: string; raw?: string | null; observedAt?: string | number | null; temperatureC?: number | null; dewpointC?: number | null; windDirectionDeg?: number | null; windSpeedKt?: number | null; windGustKt?: number | null; visibilitySm?: number | null; altimeterHpa?: number | null; flightCategory?: string | null; weather?: string | null };
+type TafInfo = { raw?: string | null; issuedAt?: string | number | null; validFrom?: string | number | null; validTo?: string | number | null; forecasts?: unknown[] } | null;
+type WeatherInfo = { found: boolean; icao?: string; source?: string; raw?: string | null; observedAt?: string | number | null; temperatureC?: number | null; dewpointC?: number | null; windDirectionDeg?: number | null; windSpeedKt?: number | null; windGustKt?: number | null; visibilitySm?: number | null; altimeterHpa?: number | null; flightCategory?: string | null; weather?: string | null; taf?: TafInfo };
 type RunwayWind = { ident: string; heading: number; headwind: number; crosswind: number };
+type WeatherAlert = { label: string; text: string; level: "info" | "warn" | "high" };
 
 export default function AirportWeather() {
     const [airport, setAirport] = useState<FocusDetail | null>(null);
@@ -15,6 +17,7 @@ export default function AirportWeather() {
     const [runways, setRunways] = useState<RunwayRecord[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [, setClock] = useState(0);
 
     useEffect(() => {
         const onFocus = (event: Event) => {
@@ -25,6 +28,11 @@ export default function AirportWeather() {
         };
         window.addEventListener("luma:airport-focus", onFocus);
         return () => window.removeEventListener("luma:airport-focus", onFocus);
+    }, []);
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setClock((value) => value + 1), 30_000);
+        return () => window.clearInterval(timer);
     }, []);
 
     async function resolveAndLoad(code: string) {
@@ -39,27 +47,32 @@ export default function AirportWeather() {
             setIcao(airportIcao);
             const response = await fetch(`/api/radar/weather?icao=${encodeURIComponent(airportIcao)}`, { cache: "no-store" });
             const data = (await response.json()) as WeatherInfo & { error?: string };
-            if (!response.ok) { setError(data.error ?? "METAR lookup failed."); return; }
+            if (!response.ok) { setError(data.error ?? "Weather lookup failed."); return; }
             if (!data.found) { setError("No current METAR available for this airport."); return; }
             setWeather(data);
-        } catch { setError("METAR lookup failed."); } finally { setLoading(false); }
+        } catch { setError("Weather lookup failed."); } finally { setLoading(false); }
     }
 
     const runwayWind = useMemo(() => calculateRunwayWind(runways, weather), [runways, weather]);
+    const alerts = useMemo(() => buildWeatherAlerts(weather, runwayWind), [weather, runwayWind]);
     if (!airport) return null;
 
     return (
         <div style={{ position: "fixed", right: 18, top: 138, zIndex: 1494, fontFamily: "inherit" }}>
             <section style={panelStyle}>
                 <div style={headerStyle}>
-                    <div><small style={eyebrowStyle}>AIRPORT WEATHER</small><strong style={titleStyle}>{icao ?? airport.code ?? "AIRPORT"} · METAR</strong><div style={subTitleStyle}>{airport.name ?? "Focused airport"}</div></div>
+                    <div><small style={eyebrowStyle}>AIRPORT WEATHER v2</small><strong style={titleStyle}>{icao ?? airport.code ?? "AIRPORT"} · METAR / TAF</strong><div style={subTitleStyle}>{airport.name ?? "Focused airport"}</div></div>
                     <button type="button" onClick={() => setAirport(null)} style={closeStyle} aria-label="Airport Weather schließen">×</button>
                 </div>
                 <div style={{ padding: 12 }}>
-                    {loading && <div style={stateStyle}>Loading current METAR…</div>}
+                    {loading && <div style={stateStyle}>Loading current METAR / TAF…</div>}
                     {error && !loading && <div style={errorStyle}>{error}</div>}
                     {weather && !loading && <>
-                        <div style={categoryRowStyle}><FlightCategory category={weather.flightCategory} /><span style={observedStyle}>{formatObserved(weather.observedAt)}</span></div>
+                        <div style={categoryRowStyle}>
+                            <FlightCategory category={weather.flightCategory} />
+                            <div style={{ textAlign: "right" }}><span style={observedStyle}>{formatObserved(weather.observedAt)}</span><small style={ageStyle}>{formatAge(weather.observedAt)}</small></div>
+                        </div>
+                        {alerts.length > 0 && <WeatherAlerts alerts={alerts} />}
                         <div style={gridStyle}>
                             <WeatherValue label="WIND" value={formatWind(weather)} /><WeatherValue label="VISIBILITY" value={weather.visibilitySm != null ? `${weather.visibilitySm} SM` : "---"} />
                             <WeatherValue label="TEMP" value={weather.temperatureC != null ? `${weather.temperatureC} °C` : "---"} /><WeatherValue label="DEWPOINT" value={weather.dewpointC != null ? `${weather.dewpointC} °C` : "---"} />
@@ -67,12 +80,28 @@ export default function AirportWeather() {
                         </div>
                         <RunwayWindIntelligence values={runwayWind} variable={weather.windDirectionDeg == null} />
                         {weather.raw && <div style={rawStyle}><small style={rawLabelStyle}>RAW METAR</small><code style={codeStyle}>{weather.raw}</code></div>}
+                        <TafBlock taf={weather.taf ?? null} />
                         <div style={sourceStyle}>Source: {weather.source ?? "AviationWeather.gov"} · runway recommendation is wind-only and not an official ATC runway assignment</div>
                     </>}
                 </div>
             </section>
         </div>
     );
+}
+
+function WeatherAlerts({ alerts }: { alerts: WeatherAlert[] }) {
+    return <div style={{ display: "grid", gap: 5, marginBottom: 9 }}>{alerts.map((alert, index) => {
+        const color = alert.level === "high" ? "#ff7474" : alert.level === "warn" ? "#ffc96b" : "#4ebbff";
+        return <div key={`${alert.label}-${index}`} style={{ ...alertStyle, borderColor: `${color}30`, background: `${color}0d` }}><strong style={{ color, fontSize: 8 }}>{alert.label}</strong><span>{alert.text}</span></div>;
+    })}</div>;
+}
+
+function TafBlock({ taf }: { taf: TafInfo }) {
+    if (!taf?.raw) return <div style={tafStyle}><small style={rawLabelStyle}>TAF FORECAST</small><div style={runwayNoticeStyle}>No current TAF available for this airport.</div></div>;
+    return <div style={tafStyle}>
+        <div style={tafHeaderStyle}><div><small style={rawLabelStyle}>TAF FORECAST</small><strong style={tafTitleStyle}>Terminal Forecast</strong></div><span style={tafTimeStyle}>{formatValidity(taf.validFrom, taf.validTo)}</span></div>
+        <code style={codeStyle}>{taf.raw}</code>
+    </div>;
 }
 
 function RunwayWindIntelligence({ values, variable }: { values: RunwayWind[]; variable: boolean }) {
@@ -100,13 +129,33 @@ function calculateRunwayWind(runways: RunwayRecord[], weather: WeatherInfo | nul
     }
     return directions.sort((a, b) => b.headwind - a.headwind || Math.abs(a.crosswind) - Math.abs(b.crosswind));
 }
+function buildWeatherAlerts(weather: WeatherInfo | null, runwayWind: RunwayWind[]): WeatherAlert[] {
+    if (!weather) return [];
+    const alerts: WeatherAlert[] = [];
+    const age = ageMinutes(weather.observedAt);
+    if (age != null && age >= 60) alerts.push({ label: "STALE METAR", text: `Observation is ${Math.round(age)} minutes old.`, level: age >= 120 ? "high" : "warn" });
+    if ((weather.windGustKt ?? 0) >= 25) alerts.push({ label: "STRONG GUSTS", text: `Gusts reported up to ${Math.round(weather.windGustKt ?? 0)} kt.`, level: (weather.windGustKt ?? 0) >= 35 ? "high" : "warn" });
+    const wx = String(weather.weather ?? "").toUpperCase();
+    if (/TS/.test(wx)) alerts.push({ label: "THUNDERSTORM", text: "Thunderstorm activity reported in the METAR.", level: "high" });
+    if (/SN/.test(wx)) alerts.push({ label: "SNOW", text: "Snow reported at or near the airport.", level: "warn" });
+    if (/FG/.test(wx)) alerts.push({ label: "FOG", text: "Fog reported; visibility may be significantly reduced.", level: "warn" });
+    if (/FZ/.test(wx)) alerts.push({ label: "FREEZING", text: "Freezing weather phenomenon reported.", level: "high" });
+    const best = runwayWind[0];
+    if (best && Math.abs(best.crosswind) >= 20) alerts.push({ label: "CROSSWIND", text: `Best wind-aligned runway still has about ${Math.round(Math.abs(best.crosswind))} kt crosswind.`, level: Math.abs(best.crosswind) >= 30 ? "high" : "warn" });
+    if (best && best.headwind < -5) alerts.push({ label: "TAILWIND", text: `Best calculated runway still has about ${Math.round(Math.abs(best.headwind))} kt tailwind.`, level: "warn" });
+    return alerts;
+}
 function componentLabel(item: RunwayWind) { const h = Math.round(item.headwind); const x = Math.round(Math.abs(item.crosswind)); return `${h >= 0 ? `H ${h}` : `T ${Math.abs(h)}`} · X ${x} kt`; }
 function WeatherValue({ label, value }: { label: string; value: string }) { return <div style={valueBoxStyle}><small style={valueLabelStyle}>{label}</small><strong style={valueStyle}>{value}</strong></div>; }
 function FlightCategory({ category }: { category?: string | null }) { const text = category ?? "UNKNOWN"; const color = text === "VFR" ? "#63ffe3" : text === "MVFR" ? "#4ebbff" : text === "IFR" ? "#ff8fd8" : text === "LIFR" ? "#ff7474" : "rgba(255,255,255,0.45)"; return <span style={{ ...categoryStyle, color, borderColor: `${color}55`, background: `${color}10` }}>{text}</span>; }
 function formatWind(weather: WeatherInfo) { if (weather.windSpeedKt == null) return "CALM / ---"; const direction = weather.windDirectionDeg == null ? "VRB" : `${Math.round(weather.windDirectionDeg).toString().padStart(3, "0")}°`; const gust = weather.windGustKt != null ? ` G${Math.round(weather.windGustKt)}` : ""; return `${direction} ${Math.round(weather.windSpeedKt)} kt${gust}`; }
-function formatObserved(value?: string | number | null) { if (value == null) return "---"; const date = typeof value === "number" ? new Date(value > 10_000_000_000 ? value : value * 1000) : new Date(value); return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }); }
+function parseDate(value?: string | number | null) { if (value == null) return null; const date = typeof value === "number" ? new Date(value > 10_000_000_000 ? value : value * 1000) : new Date(value); return Number.isNaN(date.getTime()) ? null : date; }
+function formatObserved(value?: string | number | null) { const date = parseDate(value); return date ? date.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }) : "---"; }
+function ageMinutes(value?: string | number | null) { const date = parseDate(value); return date ? Math.max(0, (Date.now() - date.getTime()) / 60000) : null; }
+function formatAge(value?: string | number | null) { const age = ageMinutes(value); if (age == null) return "age ---"; if (age < 1) return "just now"; if (age < 60) return `${Math.round(age)} min old`; return `${Math.floor(age / 60)} h ${Math.round(age % 60)} min old`; }
+function formatValidity(from?: string | number | null, to?: string | number | null) { const start = parseDate(from); const end = parseDate(to); if (!start && !end) return "CURRENT"; const f = (date: Date) => date.toLocaleString("de-CH", { day: "2-digit", hour: "2-digit", minute: "2-digit" }); return `${start ? f(start) : "---"} → ${end ? f(end) : "---"}`; }
 
-const panelStyle: React.CSSProperties = { width: "min(370px, calc(100vw - 36px))", maxHeight: "min(720px, calc(100vh - 100px))", overflowY: "auto", border: "1px solid rgba(78,187,255,0.22)", borderRadius: 16, background: "rgba(5,17,20,0.96)", boxShadow: "0 22px 60px rgba(0,0,0,0.42)", backdropFilter: "blur(14px)" };
+const panelStyle: React.CSSProperties = { width: "min(390px, calc(100vw - 36px))", maxHeight: "min(760px, calc(100vh - 100px))", overflowY: "auto", border: "1px solid rgba(78,187,255,0.22)", borderRadius: 16, background: "rgba(5,17,20,0.96)", boxShadow: "0 22px 60px rgba(0,0,0,0.42)", backdropFilter: "blur(14px)" };
 const headerStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", padding: "13px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)" };
 const eyebrowStyle: React.CSSProperties = { display: "block", color: "rgba(78,187,255,0.72)", fontSize: 8, letterSpacing: "0.15em" };
 const titleStyle: React.CSSProperties = { display: "block", color: "rgba(255,255,255,0.94)", fontSize: 14 };
@@ -114,11 +163,13 @@ const subTitleStyle: React.CSSProperties = { marginTop: 3, color: "rgba(255,255,
 const closeStyle: React.CSSProperties = { width: 30, height: 30, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 999, background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontSize: 18 };
 const categoryRowStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 10 };
 const categoryStyle: React.CSSProperties = { border: "1px solid", borderRadius: 999, padding: "5px 8px", fontSize: 8, letterSpacing: "0.10em" };
-const observedStyle: React.CSSProperties = { color: "rgba(255,255,255,0.32)", fontSize: 8 };
+const observedStyle: React.CSSProperties = { display: "block", color: "rgba(255,255,255,0.48)", fontSize: 8 };
+const ageStyle: React.CSSProperties = { display: "block", marginTop: 2, color: "rgba(255,255,255,0.28)", fontSize: 7 };
 const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 };
 const valueBoxStyle: React.CSSProperties = { border: "1px solid rgba(255,255,255,0.06)", borderRadius: 9, padding: "8px 9px", background: "rgba(255,255,255,0.025)" };
 const valueLabelStyle: React.CSSProperties = { display: "block", marginBottom: 4, color: "rgba(255,255,255,0.30)", fontSize: 7, letterSpacing: "0.12em" };
 const valueStyle: React.CSSProperties = { color: "rgba(255,255,255,0.82)", fontSize: 9, fontWeight: 600 };
+const alertStyle: React.CSSProperties = { display: "grid", gap: 2, padding: "7px 8px", border: "1px solid", borderRadius: 8, color: "rgba(255,255,255,0.56)", fontSize: 8, lineHeight: 1.35 };
 const runwayBoxStyle: React.CSSProperties = { marginTop: 10, padding: "10px", border: "1px solid rgba(99,255,227,0.13)", borderRadius: 10, background: "rgba(99,255,227,0.025)" };
 const runwayTitleRowStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 8 };
 const runwayBestStyle: React.CSSProperties = { display: "block", color: "#63ffe3", fontSize: 15 };
@@ -128,6 +179,10 @@ const windComponentStyle: React.CSSProperties = { padding: "7px", borderRadius: 
 const runwayRowStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 8, padding: "5px 2px", borderTop: "1px solid rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.45)", fontSize: 8 };
 const runwayNoticeStyle: React.CSSProperties = { marginTop: 7, color: "rgba(255,210,130,0.44)", fontSize: 7, lineHeight: 1.4 };
 const rawStyle: React.CSSProperties = { marginTop: 10, padding: "9px 10px", border: "1px solid rgba(78,187,255,0.10)", borderRadius: 9, background: "rgba(78,187,255,0.035)" };
+const tafStyle: React.CSSProperties = { marginTop: 10, padding: "9px 10px", border: "1px solid rgba(184,140,255,0.12)", borderRadius: 9, background: "rgba(184,140,255,0.035)" };
+const tafHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", marginBottom: 7 };
+const tafTitleStyle: React.CSSProperties = { display: "block", color: "rgba(215,195,255,0.88)", fontSize: 10 };
+const tafTimeStyle: React.CSSProperties = { color: "rgba(255,255,255,0.28)", fontSize: 7, textAlign: "right" };
 const rawLabelStyle: React.CSSProperties = { display: "block", marginBottom: 5, color: "rgba(78,187,255,0.55)", fontSize: 7, letterSpacing: "0.12em" };
 const codeStyle: React.CSSProperties = { display: "block", color: "rgba(255,255,255,0.68)", fontSize: 8, lineHeight: 1.5, whiteSpace: "normal" };
 const sourceStyle: React.CSSProperties = { marginTop: 10, color: "rgba(255,255,255,0.22)", fontSize: 7, lineHeight: 1.4 };
