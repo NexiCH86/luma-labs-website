@@ -352,6 +352,11 @@ export default function RadarClient() {
             Record<string, any>
         >({});
 
+    const trackFadeLayers =
+        useRef<
+            Record<string, any[]>
+        >({});
+
     const aircraftData =
         useRef<
             Record<string, Aircraft>
@@ -749,6 +754,183 @@ export default function RadarClient() {
         }
     }
 
+    function clearFadeLayers(
+        icao: string
+    ) {
+        const layers =
+            trackFadeLayers.current[
+            icao
+            ] ?? [];
+
+        for (
+            const layer of layers
+        ) {
+            layer.remove();
+        }
+
+        trackFadeLayers.current[
+            icao
+        ] = [];
+    }
+
+    function renderTrack(
+        L: any,
+        icao: string,
+        selectedNow: boolean
+    ) {
+        const points =
+            trails.current[
+            icao
+            ] ?? [];
+
+        if (
+            points.length <
+            2
+        ) {
+            trailLayers.current[
+                icao
+            ]?.setLatLngs(
+                points
+            );
+
+            clearFadeLayers(
+                icao
+            );
+
+            return;
+        }
+
+        if (
+            selectedNow
+        ) {
+            trailLayers.current[
+                icao
+            ]?.remove();
+
+            delete trailLayers.current[
+                icao
+            ];
+
+            clearFadeLayers(
+                icao
+            );
+
+            const segmentLayers:
+                any[] = [];
+
+            const segmentCount =
+                points.length -
+                1;
+
+            for (
+                let index = 0;
+                index <
+                segmentCount;
+                index++
+            ) {
+                const progress =
+                    segmentCount <=
+                        1
+                        ? 1
+                        : index /
+                        (
+                            segmentCount -
+                            1
+                        );
+
+                const opacity =
+                    0.10 +
+                    progress *
+                    0.85;
+
+                const weight =
+                    1.0 +
+                    progress *
+                    2.4;
+
+                const segment =
+                    L.polyline(
+                        [
+                            points[
+                            index
+                            ],
+                            points[
+                            index +
+                            1
+                            ],
+                        ],
+                        {
+                            color:
+                                "#63ffe3",
+                            weight,
+                            opacity,
+                            lineCap:
+                                "round",
+                            lineJoin:
+                                "round",
+                        }
+                    ).addTo(
+                        mapRef.current
+                    );
+
+                segmentLayers.push(
+                    segment
+                );
+            }
+
+            trackFadeLayers.current[
+                icao
+            ] =
+                segmentLayers;
+
+            return;
+        }
+
+        clearFadeLayers(
+            icao
+        );
+
+        if (
+            trailLayers.current[
+            icao
+            ]
+        ) {
+            trailLayers.current[
+                icao
+            ].setLatLngs(
+                points
+            );
+
+            trailLayers.current[
+                icao
+            ].setStyle({
+                color:
+                    "#238bd2",
+                weight:
+                    1,
+                opacity:
+                    0.12,
+            });
+        } else {
+            trailLayers.current[
+                icao
+            ] =
+                L.polyline(
+                    points,
+                    {
+                        color:
+                            "#238bd2",
+                        weight:
+                            1,
+                        opacity:
+                            0.12,
+                    }
+                ).addTo(
+                    mapRef.current
+                );
+        }
+    }
+
     function updateTrail(
         L: any,
         aircraft: Aircraft,
@@ -839,65 +1021,11 @@ export default function RadarClient() {
                 -300
             );
 
-        if (
-            trailLayers.current[
-            id
-            ]
-        ) {
-            trailLayers.current[
-                id
-            ].setLatLngs(
-                trails.current[
-                id
-                ]
-            );
-
-            trailLayers.current[
-                id
-            ].setStyle({
-                color:
-                    selectedNow
-                        ? "#63ffe3"
-                        : "#238bd2",
-
-                weight:
-                    selectedNow
-                        ? 3
-                        : 1,
-
-                opacity:
-                    selectedNow
-                        ? 0.95
-                        : 0.12,
-            });
-        } else {
-            trailLayers.current[
-                id
-            ] =
-                L.polyline(
-                    trails.current[
-                    id
-                    ],
-                    {
-                        color:
-                            selectedNow
-                                ? "#63ffe3"
-                                : "#238bd2",
-
-                        weight:
-                            selectedNow
-                                ? 3
-                                : 1,
-
-                        opacity:
-                            selectedNow
-                                ? 0.95
-                                : 0.12,
-                    }
-                ).addTo(
-                    mapRef.current
-                );
-        }
+        renderTrack(
+            L,
+            id,
+            selectedNow
+        );
     }
 
     function cleanupInactiveAircraft(
@@ -922,6 +1050,10 @@ export default function RadarClient() {
                 trailLayers.current[
                     icao
                 ]?.remove();
+
+                clearFadeLayers(
+                    icao
+                );
 
                 delete markers.current[
                     icao
@@ -1035,56 +1167,11 @@ export default function RadarClient() {
                 selectedRef.current ===
                 icao;
 
-            if (
-                trailLayers.current[icao]
-            ) {
-                trailLayers.current[
-                    icao
-                ].setLatLngs(
-                    trails.current[icao]
-                );
-
-                trailLayers.current[
-                    icao
-                ].setStyle({
-                    color:
-                        selectedNow
-                            ? "#63ffe3"
-                            : "#238bd2",
-                    weight:
-                        selectedNow
-                            ? 3
-                            : 1,
-                    opacity:
-                        selectedNow
-                            ? 0.95
-                            : 0.12,
-                });
-            } else if (
-                mapRef.current &&
-                trails.current[icao].length > 0
-            ) {
-                trailLayers.current[icao] =
-                    L.polyline(
-                        trails.current[icao],
-                        {
-                            color:
-                                selectedNow
-                                    ? "#63ffe3"
-                                    : "#238bd2",
-                            weight:
-                                selectedNow
-                                    ? 3
-                                    : 1,
-                            opacity:
-                                selectedNow
-                                    ? 0.95
-                                    : 0.12,
-                        }
-                    ).addTo(
-                        mapRef.current
-                    );
-            }
+            renderTrack(
+                L,
+                icao,
+                selectedNow
+            );
 
             persistentTrackLoaded.current[
                 icao
@@ -1246,24 +1333,11 @@ export default function RadarClient() {
                     })
                 );
 
-                trailLayers.current[
-                    icao
-                ]?.setStyle({
-                    color:
-                        selectedNow
-                            ? "#63ffe3"
-                            : "#238bd2",
-
-                    weight:
-                        selectedNow
-                            ? 3
-                            : 1,
-
-                    opacity:
-                        selectedNow
-                            ? 0.95
-                            : 0.12,
-                });
+                renderTrack(
+                    L,
+                    icao,
+                    selectedNow
+                );
             }
         );
     }
