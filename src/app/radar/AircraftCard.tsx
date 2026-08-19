@@ -32,19 +32,47 @@ type FlightInfo = {
     aircraft?: AircraftInfo;
 };
 
+type AirframeInfo = {
+    found: boolean;
+    source?: string;
+    registration?: string | null;
+    manufacturer?: string | null;
+    model?: string | null;
+    typeCode?: string | null;
+    serialNumber?: string | null;
+    lineNumber?: string | null;
+    icaoAircraftType?: string | null;
+    operator?: string | null;
+    operatorCallsign?: string | null;
+    operatorIcao?: string | null;
+    operatorIata?: string | null;
+    owner?: string | null;
+    registered?: string | null;
+    regUntil?: string | null;
+    status?: string | null;
+    built?: string | null;
+    yearBuilt?: number | null;
+    ageYears?: number | null;
+    firstFlightDate?: string | null;
+    seatConfiguration?: string | null;
+    engines?: string | null;
+    categoryDescription?: string | null;
+};
+
 const cardStyle: React.CSSProperties = {
     margin: "14px 0",
     overflow: "hidden",
     border: "1px solid rgba(99, 255, 227, 0.18)",
     borderRadius: "14px",
-    background: "linear-gradient(180deg, rgba(12, 33, 36, 0.96), rgba(5, 17, 20, 0.96))",
+    background:
+        "linear-gradient(180deg, rgba(12, 33, 36, 0.96), rgba(5, 17, 20, 0.96))",
     boxShadow: "0 14px 36px rgba(0, 0, 0, 0.24)",
 };
 
 const imageStyle: React.CSSProperties = {
     display: "block",
     width: "100%",
-    height: "170px",
+    height: "180px",
     objectFit: "cover",
     background: "rgba(255,255,255,0.03)",
 };
@@ -66,17 +94,15 @@ const valueStyle: React.CSSProperties = {
 
 export default function AircraftCard() {
     const [host, setHost] =
-        useState<HTMLDivElement | null>(
-            null
-        );
-
+        useState<HTMLDivElement | null>(null);
     const [callsign, setCallsign] =
         useState("");
-
-    const [info, setInfo] =
-        useState<FlightInfo | null>(
-            null
-        );
+    const [icao24, setIcao24] =
+        useState("");
+    const [flightInfo, setFlightInfo] =
+        useState<FlightInfo | null>(null);
+    const [airframeInfo, setAirframeInfo] =
+        useState<AirframeInfo | null>(null);
 
     useEffect(() => {
         function sync() {
@@ -84,12 +110,10 @@ export default function AircraftCard() {
                 document.querySelector(
                     ".aircraft-details"
                 );
-
             const trackCard =
                 details?.querySelector(
                     ".track-card"
                 );
-
             const heading =
                 details?.querySelector(
                     ".selected-aircraft-header h2"
@@ -98,22 +122,46 @@ export default function AircraftCard() {
             const nextCallsign =
                 heading?.textContent
                     ?.trim()
-                    .toUpperCase() ??
-                "";
+                    .toUpperCase() ?? "";
 
             if (
                 nextCallsign &&
                 nextCallsign !== callsign
             ) {
-                setCallsign(
-                    nextCallsign
-                );
+                setCallsign(nextCallsign);
             }
 
+            const rows = details
+                ? Array.from(
+                    details.querySelectorAll(
+                        ".detail-row"
+                    )
+                )
+                : [];
+
+            const icaoRow = rows.find(
+                (row) =>
+                    row.querySelector("span")
+                        ?.textContent
+                        ?.trim()
+                        .toUpperCase() === "ICAO"
+            );
+
+            const nextIcao =
+                icaoRow
+                    ?.querySelector("strong")
+                    ?.textContent
+                    ?.trim()
+                    .toLowerCase() ?? "";
+
             if (
-                details &&
-                trackCard
+                /^[0-9a-f]{6}$/.test(nextIcao) &&
+                nextIcao !== icao24
             ) {
+                setIcao24(nextIcao);
+            }
+
+            if (details && trackCard) {
                 let cardHost =
                     details.querySelector<HTMLDivElement>(
                         "#luma-aircraft-card-host"
@@ -121,35 +169,25 @@ export default function AircraftCard() {
 
                 if (!cardHost) {
                     cardHost =
-                        document.createElement(
-                            "div"
-                        );
-
+                        document.createElement("div");
                     cardHost.id =
                         "luma-aircraft-card-host";
-
                     details.insertBefore(
                         cardHost,
                         trackCard
                     );
                 }
 
-                setHost(
-                    cardHost
-                );
+                setHost(cardHost);
             } else {
-                setHost(
-                    null
-                );
+                setHost(null);
             }
         }
 
         sync();
 
         const observer =
-            new MutationObserver(
-                sync
-            );
+            new MutationObserver(sync);
 
         observer.observe(
             document.body,
@@ -162,18 +200,17 @@ export default function AircraftCard() {
 
         return () => {
             observer.disconnect();
-
             document
                 .querySelector(
                     "#luma-aircraft-card-host"
                 )
                 ?.remove();
         };
-    }, [callsign]);
+    }, [callsign, icao24]);
 
     useEffect(() => {
         if (!callsign) {
-            setInfo(null);
+            setFlightInfo(null);
             return;
         }
 
@@ -182,100 +219,234 @@ export default function AircraftCard() {
 
         async function load() {
             try {
-                const response =
-                    await fetch(
-                        `/api/radar/flight?callsign=${encodeURIComponent(
-                            callsign
-                        )}`,
-                        {
-                            cache: "no-store",
-                            signal:
-                                controller.signal,
-                        }
-                    );
+                const response = await fetch(
+                    `/api/radar/flight?callsign=${encodeURIComponent(
+                        callsign
+                    )}`,
+                    {
+                        cache: "no-store",
+                        signal: controller.signal,
+                    }
+                );
 
                 if (!response.ok) {
-                    setInfo(null);
+                    setFlightInfo(null);
                     return;
                 }
 
-                const data:
-                    FlightInfo =
-                    await response.json();
-
-                setInfo(data);
+                setFlightInfo(
+                    await response.json()
+                );
             } catch (error) {
                 if (
                     error instanceof DOMException &&
-                    error.name ===
-                        "AbortError"
+                    error.name === "AbortError"
                 ) {
                     return;
                 }
 
                 console.error(
-                    "Aircraft card lookup error:",
+                    "Aircraft lookup error:",
                     error
                 );
-
-                setInfo(null);
+                setFlightInfo(null);
             }
         }
 
         load();
-
-        return () => {
-            controller.abort();
-        };
+        return () => controller.abort();
     }, [callsign]);
 
-    const aircraft =
-        info?.aircraft;
+    useEffect(() => {
+        if (!icao24) {
+            setAirframeInfo(null);
+            return;
+        }
 
-    if (
-        !host ||
-        !aircraft ||
-        !(
-            aircraft.type ||
-            aircraft.manufacturer ||
-            aircraft.registration ||
-            aircraft.owner ||
-            aircraft.thumbnail ||
-            aircraft.photo
-        )
-    ) {
+        const controller =
+            new AbortController();
+
+        async function load() {
+            try {
+                const response = await fetch(
+                    `/api/radar/airframe?icao24=${encodeURIComponent(
+                        icao24
+                    )}`,
+                    {
+                        cache: "no-store",
+                        signal: controller.signal,
+                    }
+                );
+
+                if (!response.ok) {
+                    setAirframeInfo(null);
+                    return;
+                }
+
+                const data: AirframeInfo =
+                    await response.json();
+
+                setAirframeInfo(
+                    data.found ? data : null
+                );
+            } catch (error) {
+                if (
+                    error instanceof DOMException &&
+                    error.name === "AbortError"
+                ) {
+                    return;
+                }
+
+                console.error(
+                    "OpenSky lookup error:",
+                    error
+                );
+                setAirframeInfo(null);
+            }
+        }
+
+        load();
+        return () => controller.abort();
+    }, [icao24]);
+
+    if (!host) {
         return null;
     }
 
+    const aircraft =
+        flightInfo?.aircraft;
+    const openSky =
+        airframeInfo;
+
+    if (!aircraft && !openSky) {
+        return null;
+    }
+
+    const registration =
+        aircraft?.registration ??
+        openSky?.registration ?? null;
+    const manufacturer =
+        aircraft?.manufacturer ??
+        openSky?.manufacturer ?? null;
+    const model =
+        aircraft?.type ??
+        openSky?.model ?? null;
+    const icaoType =
+        aircraft?.icaoType ??
+        openSky?.typeCode ??
+        openSky?.icaoAircraftType ?? null;
+    const owner =
+        aircraft?.owner ??
+        openSky?.owner ?? null;
+    const operator =
+        openSky?.operator ??
+        aircraft?.owner ?? null;
+    const yearBuilt =
+        openSky?.yearBuilt ??
+        aircraft?.yearBuilt ?? null;
+    const ageYears =
+        openSky?.ageYears ??
+        aircraft?.ageYears ?? null;
     const photo =
-        aircraft.thumbnail ??
-        aircraft.photo ??
-        null;
+        aircraft?.thumbnail ??
+        aircraft?.photo ?? null;
 
     const manufacturerAndType =
-        [
-            aircraft.manufacturer,
-            aircraft.type,
-        ]
+        [manufacturer, model]
             .filter(Boolean)
             .join(" ");
 
     const typeName =
         manufacturerAndType ||
-        aircraft.icao ||
-        aircraft.icaoType ||
+        aircraft?.icao ||
+        icaoType ||
         "Aircraft";
 
     const wikipediaUrl =
         `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(
-            aircraft.type ||
-            typeName
+            model || typeName
         )}`;
+
+    const sources = Array.from(
+        new Set([
+            ...(aircraft?.metadataSources ?? []),
+            ...(openSky ? ["OpenSky"] : []),
+        ])
+    );
+
+    const values = [
+        ["REGISTRATION", registration],
+        [
+            "MODE-S / ICAO24",
+            aircraft?.modeS ??
+            (icao24 ? icao24.toUpperCase() : null),
+        ],
+        ["MANUFACTURER", manufacturer],
+        ["TYPE / MODEL", model],
+        ["ICAO TYPE", icaoType],
+        ["MSN / SERIAL", openSky?.serialNumber],
+        ["LINE NUMBER", openSky?.lineNumber],
+        [
+            "YEAR BUILT",
+            yearBuilt != null
+                ? String(yearBuilt)
+                : null,
+        ],
+        ["BUILT", openSky?.built],
+        [
+            "AIRFRAME AGE",
+            ageYears != null
+                ? `${ageYears} years`
+                : null,
+        ],
+        ["FIRST FLIGHT", openSky?.firstFlightDate],
+        ["ENGINES", openSky?.engines],
+        ["SEAT CONFIG", openSky?.seatConfiguration],
+        ["OPERATOR", operator],
+        [
+            "OPERATOR ICAO / IATA",
+            [
+                openSky?.operatorIcao,
+                openSky?.operatorIata,
+            ]
+                .filter(Boolean)
+                .join(" / ") || null,
+        ],
+        ["OPERATOR CALLSIGN", openSky?.operatorCallsign],
+        ["REGISTERED OWNER", owner],
+        [
+            "REGISTERED IN",
+            [
+                aircraft?.ownerCountry,
+                aircraft?.ownerCountryIso,
+            ]
+                .filter(Boolean)
+                .join(" · ") || null,
+        ],
+        ["REGISTERED SINCE", openSky?.registered],
+        ["REGISTERED UNTIL", openSky?.regUntil],
+        ["STATUS", openSky?.status],
+        ["OPERATOR FLAG", aircraft?.operatorFlagCode],
+        [
+            "MILITARY",
+            aircraft?.isMilitary == null
+                ? null
+                : aircraft.isMilitary
+                    ? "YES"
+                    : "NO",
+        ],
+    ] as const;
+
+    const visibleValues =
+        values.filter(([, value]) =>
+            value != null &&
+            String(value).trim() !== ""
+        );
 
     return createPortal(
         <section
             style={cardStyle}
-            aria-label="Aircraft information"
+            aria-label="Aircraft intelligence"
         >
             {photo && (
                 <img
@@ -287,11 +458,7 @@ export default function AircraftCard() {
                 />
             )}
 
-            <div
-                style={{
-                    padding: "14px",
-                }}
-            >
+            <div style={{ padding: "14px" }}>
                 <div
                     style={{
                         display: "flex",
@@ -302,12 +469,9 @@ export default function AircraftCard() {
                     }}
                 >
                     <div>
-                        <span
-                            style={labelStyle}
-                        >
-                            AIRFRAME
+                        <span style={labelStyle}>
+                            AIRCRAFT INTELLIGENCE
                         </span>
-
                         <strong
                             style={{
                                 display: "block",
@@ -320,11 +484,12 @@ export default function AircraftCard() {
                         </strong>
                     </div>
 
-                    {aircraft.icaoType && (
+                    {icaoType && (
                         <span
                             style={{
                                 flexShrink: 0,
-                                border: "1px solid rgba(99,255,227,0.18)",
+                                border:
+                                    "1px solid rgba(99,255,227,0.18)",
                                 borderRadius: "999px",
                                 padding: "5px 8px",
                                 color: "rgba(99,255,227,0.8)",
@@ -332,7 +497,7 @@ export default function AircraftCard() {
                                 letterSpacing: "0.1em",
                             }}
                         >
-                            {aircraft.icaoType}
+                            {icaoType}
                         </span>
                     )}
                 </div>
@@ -344,92 +509,34 @@ export default function AircraftCard() {
                         gap: "12px 14px",
                     }}
                 >
-                    <AircraftValue
-                        label="REGISTRATION"
-                        value={
-                            aircraft.registration
-                        }
-                    />
-
-                    <AircraftValue
-                        label="MODE-S / ICAO24"
-                        value={
-                            aircraft.modeS
-                        }
-                    />
-
-                    <AircraftValue
-                        label="MANUFACTURER"
-                        value={
-                            aircraft.manufacturer
-                        }
-                    />
-
-                    <AircraftValue
-                        label="TYPE / MODEL"
-                        value={
-                            aircraft.type
-                        }
-                    />
-
-                    <AircraftValue
-                        label="YEAR BUILT"
-                        value={
-                            aircraft.yearBuilt != null
-                                ? String(
-                                    aircraft.yearBuilt
-                                )
-                                : null
-                        }
-                    />
-
-                    <AircraftValue
-                        label="AIRFRAME AGE"
-                        value={
-                            aircraft.ageYears != null
-                                ? `${aircraft.ageYears} years`
-                                : null
-                        }
-                    />
-
-                    <AircraftValue
-                        label="REGISTERED OWNER"
-                        value={
-                            aircraft.owner
-                        }
-                    />
-
-                    <AircraftValue
-                        label="REGISTERED IN"
-                        value={
-                            [
-                                aircraft.ownerCountry,
-                                aircraft.ownerCountryIso,
-                            ]
-                                .filter(Boolean)
-                                .join(" · ") ||
-                            null
-                        }
-                    />
-
-                    <AircraftValue
-                        label="OPERATOR FLAG"
-                        value={
-                            aircraft.operatorFlagCode
-                        }
-                    />
-
-                    <AircraftValue
-                        label="MILITARY"
-                        value={
-                            aircraft.isMilitary == null
-                                ? null
-                                : aircraft.isMilitary
-                                    ? "YES"
-                                    : "NO"
-                        }
-                    />
+                    {visibleValues.map(
+                        ([label, value]) => (
+                            <AircraftValue
+                                key={label}
+                                label={label}
+                                value={String(value)}
+                            />
+                        )
+                    )}
                 </div>
+
+                {openSky?.categoryDescription && (
+                    <div
+                        style={{
+                            marginTop: "14px",
+                            paddingTop: "12px",
+                            borderTop:
+                                "1px solid rgba(255,255,255,0.06)",
+                        }}
+                    >
+                        <span style={labelStyle}>
+                            CATEGORY
+                        </span>
+                        <span style={valueStyle}>
+                            {openSky.categoryDescription}
+                        </span>
+                    </div>
+                )}
 
                 <div
                     style={{
@@ -439,7 +546,8 @@ export default function AircraftCard() {
                         gap: "10px",
                         marginTop: "14px",
                         paddingTop: "12px",
-                        borderTop: "1px solid rgba(255,255,255,0.06)",
+                        borderTop:
+                            "1px solid rgba(255,255,255,0.06)",
                     }}
                 >
                     <a
@@ -456,19 +564,18 @@ export default function AircraftCard() {
                         TYPE INFO ↗
                     </a>
 
-                    {aircraft.metadataSources &&
-                        aircraft.metadataSources.length > 0 && (
-                            <span
-                                style={{
-                                    color: "rgba(255,255,255,0.28)",
-                                    fontSize: "8px",
-                                    letterSpacing: "0.08em",
-                                    textAlign: "right",
-                                }}
-                            >
-                                DATA: {aircraft.metadataSources.join(" + ")}
-                            </span>
-                        )}
+                    {sources.length > 0 && (
+                        <span
+                            style={{
+                                color: "rgba(255,255,255,0.28)",
+                                fontSize: "8px",
+                                letterSpacing: "0.08em",
+                                textAlign: "right",
+                            }}
+                        >
+                            DATA: {sources.join(" + ")}
+                        </span>
+                    )}
                 </div>
             </div>
         </section>,
@@ -481,16 +588,15 @@ function AircraftValue({
     value,
 }: {
     label: string;
-    value?: string | null;
+    value: string;
 }) {
     return (
         <div>
             <span style={labelStyle}>
                 {label}
             </span>
-
             <span style={valueStyle}>
-                {value ?? "---"}
+                {value}
             </span>
         </div>
     );
