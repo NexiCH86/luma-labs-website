@@ -245,15 +245,18 @@ export default function AircraftCard() {
         aircraft.photo ??
         null;
 
-    const typeName =
+    const manufacturerAndType =
         [
             aircraft.manufacturer,
             aircraft.type,
         ]
             .filter(Boolean)
-            .join(" ") ||
-        aircraft.icao ??
-        aircraft.icaoType ??
+            .join(" ");
+
+    const typeName =
+        manufacturerAndType ||
+        aircraft.icao ||
+        aircraft.icaoType ||
         "Aircraft";
 
     return createPortal(
