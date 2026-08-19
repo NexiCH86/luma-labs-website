@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "npm run radar:sync-airports && npm run radar:sync-airspace && next build",
     "start": "next start",
     "lint": "eslint",
     "radar:sync-opensky": "node scripts/sync-opensky-aircraft.mjs",
