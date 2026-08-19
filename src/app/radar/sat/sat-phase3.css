@@ -1,0 +1,263 @@
+.sat3-panel {
+    position: fixed;
+    z-index: 2200;
+    left: 24px;
+    bottom: 78px;
+    width: 390px;
+    max-height: calc(100vh - 180px);
+    overflow-y: auto;
+    padding: 14px;
+    border: 1px solid rgba(255, 209, 102, 0.18);
+    border-radius: 12px;
+    background: rgba(4, 12, 16, 0.94);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(16px);
+}
+
+.sat3-panel.is-collapsed {
+    width: auto;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+.sat3-collapse {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    z-index: 2;
+    min-width: 28px;
+    height: 28px;
+    border: 1px solid rgba(255, 209, 102, 0.22);
+    border-radius: 7px;
+    background: rgba(255, 209, 102, 0.06);
+    color: #ffd166;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.sat3-panel.is-collapsed .sat3-collapse {
+    position: static;
+    width: 52px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.35);
+}
+
+.sat3-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 35px;
+    padding-right: 32px;
+    margin-bottom: 11px;
+}
+
+.sat3-head small,
+.sat3-solar-stats small,
+.sat3-light-row small,
+.sat3-pass small,
+.sat3-selected-title span,
+.sat3-passes-head small {
+    color: rgba(255, 255, 255, 0.32);
+    font-size: 7px;
+    letter-spacing: .13em;
+}
+
+.sat3-head strong {
+    display: block;
+    margin-top: 3px;
+    color: #fff;
+    font-size: 9px;
+    letter-spacing: .12em;
+}
+
+.sat3-head > span {
+    color: rgba(91, 231, 224, .65);
+    font-size: 7px;
+    line-height: 1.4;
+    text-align: right;
+}
+
+.sat3-solar-grid {
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 1;
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 9px;
+    background: #03080b;
+    overflow: hidden;
+}
+
+.sat3-cell.sat3-day { fill: rgba(255, 209, 102, .26); }
+.sat3-cell.sat3-twilight { fill: rgba(143, 167, 255, .14); }
+.sat3-cell.sat3-night { fill: rgba(6, 13, 20, .96); }
+.sat3-grid-line { stroke: rgba(255,255,255,.08); stroke-width: .5; }
+.sat3-sun-point { fill: #ffd166; stroke: rgba(255,255,255,.8); stroke-width: 1; }
+.sat3-observer-point { fill: #ff74d4; stroke: #fff; stroke-width: .8; }
+
+.sat3-solar-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.sat3-solar-stats > div,
+.sat3-light-row > div {
+    padding: 8px;
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 7px;
+    background: rgba(255,255,255,.025);
+}
+
+.sat3-solar-stats b,
+.sat3-light-row b {
+    display: block;
+    margin-top: 4px;
+    color: rgba(255,255,255,.82);
+    font-size: 8px;
+}
+
+.sat3-location {
+    width: 100%;
+    height: 32px;
+    margin-top: 8px;
+    border: 1px solid rgba(255, 116, 212, .25);
+    border-radius: 7px;
+    background: rgba(255, 116, 212, .06);
+    color: #ff74d4;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    cursor: pointer;
+}
+
+.sat3-selected {
+    margin-top: 11px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,.06);
+}
+
+.sat3-selected-title {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: baseline;
+}
+
+.sat3-selected-title b {
+    max-width: 230px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #fff;
+    font-size: 9px;
+}
+
+.sat3-light-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    margin-top: 7px;
+}
+
+.sat3-light-row > div.is-good {
+    border-color: rgba(124,255,107,.24);
+    background: rgba(124,255,107,.04);
+}
+
+.sat3-light-row > div.is-good b {
+    color: #7cff6b;
+}
+
+.sat3-passes {
+    margin-top: 11px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,.06);
+}
+
+.sat3-passes-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.sat3-passes-head strong {
+    color: rgba(255,255,255,.72);
+    font-size: 8px;
+    letter-spacing: .13em;
+}
+
+.sat3-pass {
+    display: grid;
+    grid-template-columns: 24px 1fr 1.35fr 1fr auto;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 6px;
+    margin-top: 5px;
+    border: 1px solid rgba(255,255,255,.055);
+    border-radius: 7px;
+    background: rgba(255,255,255,.02);
+}
+
+.sat3-pass > span {
+    color: rgba(255,255,255,.28);
+    font-size: 8px;
+}
+
+.sat3-pass b {
+    display: block;
+    margin-top: 2px;
+    color: rgba(255,255,255,.78);
+    font-size: 8px;
+}
+
+.sat3-pass em {
+    color: rgba(255,255,255,.36);
+    font-size: 6px;
+    font-style: normal;
+    letter-spacing: .07em;
+    text-align: right;
+}
+
+.sat3-pass.is-optical {
+    border-color: rgba(124,255,107,.2);
+    background: rgba(124,255,107,.035);
+}
+
+.sat3-pass.is-optical em {
+    color: #7cff6b;
+}
+
+.sat3-empty {
+    margin: 7px 0 0;
+    color: rgba(255,255,255,.32);
+    font-size: 8px;
+    line-height: 1.5;
+}
+
+@media (max-width: 1050px) {
+    .sat3-panel {
+        width: 330px;
+        left: 12px;
+        bottom: 70px;
+    }
+
+    .sat3-solar-stats {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .sat3-pass {
+        grid-template-columns: 20px 1fr 1fr;
+    }
+
+    .sat3-pass > div:nth-of-type(3),
+    .sat3-pass em {
+        display: none;
+    }
+}
