@@ -19,6 +19,7 @@ type ApiResponse = {
 type WatchItem = {
     norad: number;
     name: string;
+    groupKey: string;
     groupLabel: string;
 };
 
@@ -35,6 +36,10 @@ const GROUP_BY_LABEL: Record<string, string> = {
     Earth: "RESOURCE",
 };
 
+const UI_LABEL_BY_GROUP: Record<string, string> = Object.fromEntries(
+    Object.entries(GROUP_BY_LABEL).map(([label, group]) => [group, label])
+);
+
 const WATCH_KEY = "luma-radar-sat-watchlist";
 const PANEL_KEY = "luma-radar-sat-tracked-panel-position";
 
@@ -44,12 +49,24 @@ function activeGroupLabels() {
         .filter(Boolean);
 }
 
-function selectInRadar(item: { norad: number; groupLabel: string }) {
-    const groupButton = Array.from(document.querySelectorAll<HTMLButtonElement>(".sat2-filter"))
-        .find((button) => button.querySelector("b")?.textContent?.trim() === item.groupLabel);
+function uiLabelForGroup(groupKey: string, fallback = "Stations") {
+    return UI_LABEL_BY_GROUP[groupKey] ?? fallback;
+}
 
-    const ensureActive = groupButton && !groupButton.classList.contains("is-on");
-    if (ensureActive) groupButton.click();
+function inferGroupKey(groupLabel: string) {
+    if (GROUP_BY_LABEL[groupLabel]) return GROUP_BY_LABEL[groupLabel];
+    if (groupLabel === "Space Stations") return "STATIONS";
+    if (groupLabel === "Earth Resources") return "RESOURCE";
+    return "STATIONS";
+}
+
+function selectInRadar(item: { norad: number; groupKey: string; groupLabel: string }) {
+    const uiLabel = uiLabelForGroup(item.groupKey, item.groupLabel);
+    const groupButton = Array.from(document.querySelectorAll<HTMLButtonElement>(".sat2-filter"))
+        .find((button) => button.querySelector("b")?.textContent?.trim() === uiLabel);
+
+    const ensureActive = Boolean(groupButton && !groupButton.classList.contains("is-on"));
+    if (ensureActive) groupButton?.click();
 
     window.setTimeout(() => {
         const input = document.querySelector<HTMLInputElement>(".radar-search input");
@@ -63,23 +80,43 @@ function selectInRadar(item: { norad: number; groupLabel: string }) {
         setter?.call(input, String(item.norad));
         input.dispatchEvent(new Event("input", { bubbles: true }));
         searchButton.click();
-    }, ensureActive ? 900 : 30);
+    }, ensureActive ? 1100 : 30);
 }
 
 function readWatchlist(): WatchItem[] {
     try {
         const raw = localStorage.getItem(WATCH_KEY);
         if (!raw) return [];
-        const parsed = JSON.parse(raw) as WatchItem[];
-        return Array.isArray(parsed) ? parsed.filter((item) => Number.isFinite(item.norad)) : [];
+        const parsed = JSON.parse(raw) as Array<Partial<WatchItem>>;
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+            .filter((item) => Number.isFinite(item.norad))
+            .map((item) => {
+                const groupLabel = item.groupLabel || "Stations";
+                return {
+                    norad: Number(item.norad),
+                    name: item.name || `NORAD ${item.norad}`,
+                    groupKey: item.groupKey || inferGroupKey(groupLabel),
+                    groupLabel,
+                };
+            });
     } catch {
         return [];
     }
 }
 
+function chunks<T>(values: T[], size: number) {
+    const result: T[][] = [];
+    for (let index = 0; index < values.length; index += size) {
+        result.push(values.slice(index, index + size));
+    }
+    return result;
+}
+
 export default function SatTrackedPanel() {
     const panelRef = useRef<HTMLDivElement | null>(null);
     const dragRef = useRef<{ pointerId: number; dx: number; dy: number } | null>(null);
+    const positionRef = useRef<Point | null>(null);
     const [records, setRecords] = useState<SatRecord[]>([]);
     const [watchlist, setWatchlist] = useState<WatchItem[]>([]);
     const [tab, setTab] = useState<"tracked" | "watch">("tracked");
@@ -95,7 +132,10 @@ export default function SatTrackedPanel() {
             const stored = localStorage.getItem(PANEL_KEY);
             if (stored) {
                 const parsed = JSON.parse(stored) as Point;
-                if (Number.isFinite(parsed.x) && Number.isFinite(parsed.y)) setPosition(parsed);
+                if (Number.isFinite(parsed.x) && Number.isFinite(parsed.y)) {
+                    positionRef.current = parsed;
+                    setPosition(parsed);
+                }
             }
         } catch {
             // Ignore stale workspace state.
@@ -108,24 +148,34 @@ export default function SatTrackedPanel() {
 
         async function refresh() {
             const labels = activeGroupLabels();
-            const groups = labels.map((label) => GROUP_BY_LABEL[label]).filter(Boolean);
-            const signature = groups.sort().join(",");
+            const groups = labels.map((label) => GROUP_BY_LABEL[label]).filter(Boolean).sort();
+            const signature = groups.join(",");
             if (!signature || signature === lastSignature) return;
             lastSignature = signature;
             setLoading(true);
 
             try {
-                const response = await fetch(
-                    `/api/radar/satellites?groups=${encodeURIComponent(signature)}`,
-                    { cache: "no-store" }
+                const responses = await Promise.all(
+                    chunks(groups, 4).map(async (batch) => {
+                        const response = await fetch(
+                            `/api/radar/satellites?groups=${encodeURIComponent(batch.join(","))}`,
+                            { cache: "no-store" }
+                        );
+                        if (!response.ok) throw new Error(`SAT group request returned ${response.status}`);
+                        return (await response.json()) as ApiResponse;
+                    })
                 );
-                const data = (await response.json()) as ApiResponse;
+
                 if (cancelled) return;
                 const unique = new Map<number, SatRecord>();
-                for (const record of data.satellites ?? []) {
-                    if (record.NORAD_CAT_ID != null) unique.set(record.NORAD_CAT_ID, record);
+                for (const data of responses) {
+                    for (const record of data.satellites ?? []) {
+                        if (record.NORAD_CAT_ID != null) unique.set(record.NORAD_CAT_ID, record);
+                    }
                 }
-                setRecords(Array.from(unique.values()));
+                setRecords(Array.from(unique.values()).sort((a, b) =>
+                    (a.OBJECT_NAME ?? "").localeCompare(b.OBJECT_NAME ?? "")
+                ));
                 setUpdatedAt(new Date().toLocaleTimeString("de-CH", {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -160,12 +210,14 @@ export default function SatTrackedPanel() {
             persistWatchlist(watchlist.filter((item) => item.norad !== norad));
             return;
         }
+        const groupKey = record.group ?? inferGroupKey(record.groupLabel ?? "Stations");
         persistWatchlist([
             ...watchlist,
             {
                 norad,
                 name: record.OBJECT_NAME ?? `NORAD ${norad}`,
-                groupLabel: record.groupLabel ?? "Stations",
+                groupKey,
+                groupLabel: uiLabelForGroup(groupKey, record.groupLabel ?? "Stations"),
             },
         ]);
     }
@@ -188,15 +240,18 @@ export default function SatTrackedPanel() {
         const panel = panelRef.current;
         if (!drag || drag.pointerId !== event.pointerId || !panel) return;
         const rect = panel.getBoundingClientRect();
-        const x = Math.max(8, Math.min(window.innerWidth - rect.width - 8, event.clientX - drag.dx));
-        const y = Math.max(68, Math.min(window.innerHeight - rect.height - 8, event.clientY - drag.dy));
-        setPosition({ x, y });
+        const next = {
+            x: Math.max(8, Math.min(window.innerWidth - rect.width - 8, event.clientX - drag.dx)),
+            y: Math.max(68, Math.min(window.innerHeight - rect.height - 8, event.clientY - drag.dy)),
+        };
+        positionRef.current = next;
+        setPosition(next);
     }
 
     function onPointerUp(event: React.PointerEvent<HTMLDivElement>) {
         if (!dragRef.current || dragRef.current.pointerId !== event.pointerId) return;
         dragRef.current = null;
-        if (position) localStorage.setItem(PANEL_KEY, JSON.stringify(position));
+        if (positionRef.current) localStorage.setItem(PANEL_KEY, JSON.stringify(positionRef.current));
     }
 
     const trackedRows = useMemo(() => {
@@ -239,6 +294,7 @@ export default function SatTrackedPanel() {
                 onPointerUp={onPointerUp}
                 onPointerCancel={onPointerUp}
                 onDoubleClick={() => {
+                    positionRef.current = null;
                     setPosition(null);
                     localStorage.removeItem(PANEL_KEY);
                 }}
@@ -269,14 +325,16 @@ export default function SatTrackedPanel() {
             <div className="sat4-list">
                 {tab === "tracked" ? trackedRows.map((record) => {
                     const norad = record.NORAD_CAT_ID!;
+                    const groupKey = record.group ?? inferGroupKey(record.groupLabel ?? "Stations");
+                    const uiGroupLabel = uiLabelForGroup(groupKey, record.groupLabel ?? "Stations");
                     const watched = watchlist.some((item) => item.norad === norad);
                     return (
                         <div className="sat4-row" key={norad}>
-                            <button className="sat4-select" onClick={() => selectInRadar({ norad, groupLabel: record.groupLabel ?? "Stations" })}>
+                            <button className="sat4-select" onClick={() => selectInRadar({ norad, groupKey, groupLabel: uiGroupLabel })}>
                                 <strong>{record.OBJECT_NAME ?? `NORAD ${norad}`}</strong>
                                 <small>{record.OBJECT_ID ?? "---"}</small>
                             </button>
-                            <span>{record.groupLabel ?? "---"}</span>
+                            <span>{uiGroupLabel}</span>
                             <code>{norad}</code>
                             <button className={watched ? "sat4-star is-on" : "sat4-star"} onClick={() => toggleWatch(record)}>{watched ? "★" : "☆"}</button>
                         </div>
