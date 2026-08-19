@@ -9,6 +9,11 @@ type ManualLocation = {
     altitudeM: number;
 };
 
+type StoredPanelPosition = {
+    left: number;
+    top: number;
+};
+
 const LOCATION_STORAGE_KEY = "luma-radar-sat-manual-location";
 const PANEL_STORAGE_KEY = "luma-radar-sat-details-position";
 
@@ -30,20 +35,12 @@ function fakePosition(location: ManualLocation): GeolocationPosition {
             speed: null,
         },
         timestamp: Date.now(),
-        toJSON() {
-            return {
-                coords: this.coords,
-                timestamp: this.timestamp,
-            };
-        },
     } as GeolocationPosition;
 }
 
 function applyManualLocation(location: ManualLocation) {
     const geolocation = navigator.geolocation;
-    if (!geolocation) {
-        throw new Error("Geolocation API is not available in this browser.");
-    }
+    if (!geolocation) throw new Error("Geolocation API is not available in this browser.");
 
     const ownDescriptor = Object.getOwnPropertyDescriptor(geolocation, "getCurrentPosition");
     const manualGetCurrentPosition: Geolocation["getCurrentPosition"] = (success) => {
@@ -56,18 +53,14 @@ function applyManualLocation(location: ManualLocation) {
             value: manualGetCurrentPosition,
         });
 
+        // Feed the manual position through the existing Phase 2 + Phase 3 handlers.
         document.querySelector<HTMLButtonElement>(".sat2-location-button")?.click();
         document.querySelector<HTMLButtonElement>(".sat3-location")?.click();
     } finally {
         if (ownDescriptor) {
             Object.defineProperty(geolocation, "getCurrentPosition", ownDescriptor);
         } else {
-            try {
-                delete (geolocation as Geolocation & { getCurrentPosition?: Geolocation["getCurrentPosition"] })
-                    .getCurrentPosition;
-            } catch {
-                // Browser owns the property. The page reload restores the native API in this rare case.
-            }
+            Reflect.deleteProperty(geolocation, "getCurrentPosition");
         }
     }
 }
@@ -86,7 +79,7 @@ function enableDetailsPanelDragging() {
     handle.classList.add("satx-drag-handle");
     handle.title = "Ziehen zum Verschieben · Doppelklick zum Zurücksetzen";
 
-    const clampAndApply = (left: number, top: number, persist = true) => {
+    const applyPosition = (left: number, top: number, persist = true) => {
         const parentRect = parent.getBoundingClientRect();
         const panelRect = panel.getBoundingClientRect();
         const maxLeft = Math.max(8, parentRect.width - panelRect.width - 8);
@@ -106,28 +99,22 @@ function enableDetailsPanelDragging() {
         }
     };
 
-    const restoreSavedPosition = () => {
-        try {
-            const saved = JSON.parse(localStorage.getItem(PANEL_STORAGE_KEY) ?? "null") as
-                | { left?: number; top?: number }
-                | null;
-            if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
-                requestAnimationFrame(() => clampAndApply(saved.left ?? 8, saved.top ?? 8, false));
-            }
-        } catch {
-            localStorage.removeItem(PANEL_STORAGE_KEY);
-        }
-    };
-
     const resetPosition = () => {
         localStorage.removeItem(PANEL_STORAGE_KEY);
         panel.classList.remove("satx-is-dragged");
-        panel.style.removeProperty("left");
-        panel.style.removeProperty("top");
-        panel.style.removeProperty("right");
-        panel.style.removeProperty("bottom");
-        panel.style.removeProperty("height");
+        for (const property of ["left", "top", "right", "bottom", "height"]) {
+            panel.style.removeProperty(property);
+        }
     };
+
+    try {
+        const saved = JSON.parse(localStorage.getItem(PANEL_STORAGE_KEY) ?? "null") as StoredPanelPosition | null;
+        if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+            requestAnimationFrame(() => applyPosition(saved.left, saved.top, false));
+        }
+    } catch {
+        localStorage.removeItem(PANEL_STORAGE_KEY);
+    }
 
     let dragging = false;
     let offsetX = 0;
@@ -136,7 +123,11 @@ function enableDetailsPanelDragging() {
     const onPointerMove = (event: PointerEvent) => {
         if (!dragging) return;
         const parentRect = parent.getBoundingClientRect();
-        clampAndApply(event.clientX - parentRect.left - offsetX, event.clientY - parentRect.top - offsetY, false);
+        applyPosition(
+            event.clientX - parentRect.left - offsetX,
+            event.clientY - parentRect.top - offsetY,
+            false
+        );
     };
 
     const onPointerUp = () => {
@@ -159,7 +150,7 @@ function enableDetailsPanelDragging() {
         const parentRect = parent.getBoundingClientRect();
 
         if (!panel.classList.contains("satx-is-dragged")) {
-            clampAndApply(panelRect.left - parentRect.left, panelRect.top - parentRect.top, false);
+            applyPosition(panelRect.left - parentRect.left, panelRect.top - parentRect.top, false);
         }
 
         dragging = true;
@@ -175,14 +166,12 @@ function enableDetailsPanelDragging() {
         if (!panel.classList.contains("satx-is-dragged")) return;
         const parentRect = parent.getBoundingClientRect();
         const panelRect = panel.getBoundingClientRect();
-        clampAndApply(panelRect.left - parentRect.left, panelRect.top - parentRect.top, false);
+        applyPosition(panelRect.left - parentRect.left, panelRect.top - parentRect.top, false);
     };
 
     handle.addEventListener("pointerdown", onPointerDown);
     handle.addEventListener("dblclick", resetPosition);
     window.addEventListener("resize", onResize);
-    restoreSavedPosition();
-
     return true;
 }
 
@@ -197,9 +186,7 @@ export default function SatWorkspaceEnhancements() {
     useEffect(() => {
         setMounted(true);
         try {
-            const saved = JSON.parse(localStorage.getItem(LOCATION_STORAGE_KEY) ?? "null") as
-                | ManualLocation
-                | null;
+            const saved = JSON.parse(localStorage.getItem(LOCATION_STORAGE_KEY) ?? "null") as ManualLocation | null;
             if (saved) {
                 setLatitude(String(saved.latitude));
                 setLongitude(String(saved.longitude));
@@ -240,7 +227,7 @@ export default function SatWorkspaceEnhancements() {
             return;
         }
 
-        const location = { latitude: lat, longitude: lon, altitudeM: alt };
+        const location: ManualLocation = { latitude: lat, longitude: lon, altitudeM: alt };
         try {
             localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(location));
             applyManualLocation(location);
@@ -252,7 +239,6 @@ export default function SatWorkspaceEnhancements() {
     }
 
     if (!mounted) return null;
-
     const header = document.querySelector<HTMLElement>(".radar-header");
 
     return (
