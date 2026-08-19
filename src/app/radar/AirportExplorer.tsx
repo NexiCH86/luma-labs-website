@@ -96,6 +96,37 @@ export default function AirportExplorer() {
         }
     }
 
+    function focusAirport() {
+        if (
+            !airport ||
+            airport.latitude == null ||
+            airport.longitude == null
+        ) {
+            return;
+        }
+
+        window.dispatchEvent(
+            new CustomEvent(
+                "luma:airport-focus",
+                {
+                    detail: {
+                        latitude:
+                            airport.latitude,
+                        longitude:
+                            airport.longitude,
+                        code:
+                            airport.iata ??
+                            airport.icao ??
+                            "AIRPORT",
+                        name:
+                            airport.name ??
+                            "Airport",
+                    },
+                }
+            )
+        );
+    }
+
     return (
         <div
             style={{
@@ -397,6 +428,19 @@ export default function AirportExplorer() {
                                         }
                                     />
                                 </div>
+
+                                {airport.latitude != null &&
+                                    airport.longitude != null && (
+                                        <button
+                                            type="button"
+                                            onClick={
+                                                focusAirport
+                                            }
+                                            style={focusButtonStyle}
+                                        >
+                                            FOCUS ON MAP →
+                                        </button>
+                                    )}
                             </div>
                         )}
                     </div>
@@ -486,4 +530,17 @@ const searchButtonStyle: React.CSSProperties = {
     cursor: "pointer",
     fontSize: 9,
     letterSpacing: "0.10em",
+};
+
+const focusButtonStyle: React.CSSProperties = {
+    width: "100%",
+    marginTop: 16,
+    border: "1px solid rgba(99,255,227,0.24)",
+    borderRadius: 10,
+    padding: "10px 12px",
+    background: "rgba(99,255,227,0.10)",
+    color: "rgba(99,255,227,0.96)",
+    cursor: "pointer",
+    fontSize: 9,
+    letterSpacing: "0.12em",
 };
