@@ -1,0 +1,125 @@
+.satv1-orbit-card.sat-photo-mounted > svg,
+.satv1-orbit-card.sat-photo-mounted > .satv1-orbit-caption,
+.satv1-orbit-card.sat-photo-mounted > .sat-realistic-orbit {
+    display: none !important;
+}
+
+.sat-photo-orbit {
+    width: 100%;
+    background:
+        radial-gradient(circle at 50% 45%, rgba(14, 41, 56, 0.38), rgba(2, 8, 14, 0.76) 58%, rgba(1, 4, 8, 0.96) 100%);
+}
+
+.sat-photo-orbit svg {
+    display: block;
+    width: 100%;
+    height: 305px;
+}
+
+.sat-photo-stars circle {
+    fill: rgba(210, 235, 244, 0.72);
+}
+
+.sat-photo-atmo-ring {
+    fill: none;
+    stroke: rgba(92, 206, 255, 0.2);
+    stroke-width: 8;
+    filter: drop-shadow(0 0 11px rgba(75, 181, 255, 0.25));
+}
+
+.sat-photo-earth-edge {
+    fill: none;
+    stroke: rgba(176, 226, 245, 0.34);
+    stroke-width: 1.2;
+}
+
+.sat-photo-limb-shade {
+    fill: rgba(0, 5, 12, 0.22);
+}
+
+.sat-photo-grid {
+    fill: none;
+    stroke: rgba(170, 225, 235, 0.11);
+    stroke-width: 0.55;
+}
+
+.sat-photo-orbit-rear {
+    fill: none;
+    stroke: rgba(255, 168, 58, 0.33);
+    stroke-width: 1.35;
+    stroke-dasharray: 5 5;
+}
+
+.sat-photo-orbit-front {
+    fill: none;
+    stroke: #ffae45;
+    stroke-width: 2.1;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 4px rgba(255, 174, 69, 0.52));
+}
+
+.sat-photo-sat-glow {
+    fill: rgba(255, 187, 82, 0.18);
+    stroke: rgba(255, 205, 126, 0.3);
+    filter: url(#sat-photo-glow);
+}
+
+.sat-photo-sat-dot {
+    fill: #ffe3a6;
+    stroke: #ffffff;
+    stroke-width: 0.8;
+}
+
+.sat-photo-sat-label {
+    fill: rgba(225, 242, 242, 0.76);
+    font-size: 6.5px;
+    letter-spacing: 0.08em;
+    paint-order: stroke;
+    stroke: rgba(0, 6, 10, 0.8);
+    stroke-width: 2px;
+}
+
+.sat-photo-caption {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-end;
+    padding: 0 14px 13px;
+}
+
+.sat-photo-caption > div:first-child {
+    display: grid;
+    gap: 3px;
+}
+
+.sat-photo-caption strong {
+    color: #d9f3ef;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+}
+
+.sat-photo-caption span,
+.sat-photo-caption small {
+    color: rgba(170, 205, 202, 0.42);
+    font-size: 7px;
+    letter-spacing: 0.08em;
+}
+
+.sat-photo-caption > div:last-child {
+    min-width: 84px;
+    padding-left: 14px;
+    border-left: 1px solid rgba(255,255,255,0.06);
+    text-align: right;
+}
+
+.sat-photo-caption b {
+    display: block;
+    margin-top: 4px;
+    color: #e8f8f5;
+    font-size: 13px;
+}
+
+@media (max-width: 760px) {
+    .sat-photo-orbit svg { height: 235px; }
+    .sat-photo-caption { align-items: flex-start; }
+}
