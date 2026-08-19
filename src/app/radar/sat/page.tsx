@@ -6,6 +6,7 @@ import SatTrackedPanel from "./SatTrackedPanel";
 import SatWorkspaceBar from "./SatWorkspaceBar";
 import SatWorkspacePolish from "./SatWorkspacePolish";
 import SatV1CompleteClientOnly from "./SatV1CompleteClientOnly";
+import SatRealisticOrbitGlobe from "./SatRealisticOrbitGlobe";
 import "../radar.css";
 import "../radar-mode-switch.css";
 import "./sat.css";
@@ -14,6 +15,7 @@ import "./sat-phase3.css";
 import "./sat-workspace.css";
 import "./sat-phase4.css";
 import "./sat-v1-complete.css";
+import "./sat-realistic-orbit.css";
 
 export default function SatRadarPage() {
     return (
@@ -25,6 +27,7 @@ export default function SatRadarPage() {
             <SatWorkspaceBar />
             <SatWorkspacePolish />
             <SatV1CompleteClientOnly />
+            <SatRealisticOrbitGlobe />
             <RadarModeSwitch />
         </>
     );
