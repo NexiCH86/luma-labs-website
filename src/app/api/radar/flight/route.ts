@@ -10,6 +10,9 @@ const ADSBDB_CALLSIGN_API =
 const ADSBDB_AIRCRAFT_API =
     "https://api.adsbdb.com/v0/aircraft";
 
+const SKYLINK_AIRCRAFT_API =
+    "https://skylink-api.p.rapidapi.com/v3/aircraft/icao24";
+
 type FlightResult = {
     found: boolean;
     callsign: string;
@@ -48,8 +51,15 @@ type FlightResult = {
         manufacturer?: string | null;
         owner?: string | null;
         ownerCountry?: string | null;
+        ownerCountryIso?: string | null;
+        operatorFlagCode?: string | null;
+        modeS?: string | null;
         photo?: string | null;
         thumbnail?: string | null;
+        yearBuilt?: number | null;
+        ageYears?: number | null;
+        isMilitary?: boolean | null;
+        metadataSources?: string[];
     };
 
     status?: string | null;
@@ -63,8 +73,14 @@ type AircraftMetadata = {
     registration: string | null;
     owner: string | null;
     ownerCountry: string | null;
+    ownerCountryIso: string | null;
+    operatorFlagCode: string | null;
+    modeS: string | null;
     photo: string | null;
     thumbnail: string | null;
+    yearBuilt: number | null;
+    isMilitary: boolean | null;
+    sources: string[];
 };
 
 type RadarAircraft = {
@@ -316,6 +332,82 @@ async function getIcao24ForCallsign(
 async function lookupAircraftMetadata(
     icao24: string
 ): Promise<AircraftMetadata | null> {
+    const [adsbdb, skylink] =
+        await Promise.all([
+            lookupAdsbdbAircraft(
+                icao24
+            ),
+            lookupSkylinkAircraft(
+                icao24
+            ),
+        ]);
+
+    if (!adsbdb && !skylink) {
+        return null;
+    }
+
+    return {
+        type:
+            skylink?.type ??
+            adsbdb?.type ??
+            null,
+        icaoType:
+            skylink?.icaoType ??
+            adsbdb?.icaoType ??
+            null,
+        manufacturer:
+            skylink?.manufacturer ??
+            adsbdb?.manufacturer ??
+            null,
+        registration:
+            skylink?.registration ??
+            adsbdb?.registration ??
+            null,
+        owner:
+            skylink?.owner ??
+            adsbdb?.owner ??
+            null,
+        ownerCountry:
+            skylink?.ownerCountry ??
+            adsbdb?.ownerCountry ??
+            null,
+        ownerCountryIso:
+            adsbdb?.ownerCountryIso ??
+            null,
+        operatorFlagCode:
+            adsbdb?.operatorFlagCode ??
+            null,
+        modeS:
+            adsbdb?.modeS ??
+            icao24.toUpperCase(),
+        photo:
+            skylink?.photo ??
+            adsbdb?.photo ??
+            null,
+        thumbnail:
+            skylink?.thumbnail ??
+            adsbdb?.thumbnail ??
+            null,
+        yearBuilt:
+            skylink?.yearBuilt ??
+            null,
+        isMilitary:
+            skylink?.isMilitary ??
+            null,
+        sources: [
+            ...(adsbdb
+                ? ["ADSBDB"]
+                : []),
+            ...(skylink
+                ? ["SkyLink"]
+                : []),
+        ],
+    };
+}
+
+async function lookupAdsbdbAircraft(
+    icao24: string
+): Promise<AircraftMetadata | null> {
     try {
         const response =
             await fetch(
@@ -367,16 +459,140 @@ async function lookupAircraftMetadata(
             ownerCountry:
                 aircraft.registered_owner_country_name ??
                 null,
+            ownerCountryIso:
+                aircraft.registered_owner_country_iso_name ??
+                null,
+            operatorFlagCode:
+                aircraft.registered_owner_operator_flag_code ??
+                null,
+            modeS:
+                aircraft.mode_s ??
+                icao24.toUpperCase(),
             photo:
                 aircraft.url_photo ??
                 null,
             thumbnail:
                 aircraft.url_photo_thumbnail ??
                 null,
+            yearBuilt: null,
+            isMilitary: null,
+            sources: ["ADSBDB"],
         };
     } catch (error) {
         console.error(
             "ADSBDB aircraft lookup:",
+            error
+        );
+
+        return null;
+    }
+}
+
+async function lookupSkylinkAircraft(
+    icao24: string
+): Promise<AircraftMetadata | null> {
+    const apiKey =
+        process.env.SKYLINK_RAPIDAPI_KEY;
+
+    if (!apiKey) {
+        return null;
+    }
+
+    try {
+        const response =
+            await fetch(
+                `${SKYLINK_AIRCRAFT_API}/${encodeURIComponent(
+                    icao24
+                )}?photos=true`,
+                {
+                    cache: "no-store",
+                    headers: {
+                        Accept:
+                            "application/json",
+                        "x-rapidapi-key":
+                            apiKey,
+                        "x-rapidapi-host":
+                            "skylink-api.p.rapidapi.com",
+                    },
+                }
+            );
+
+        if (!response.ok) {
+            return null;
+        }
+
+        const json =
+            await response.json();
+
+        const aircraft =
+            json?.aircraft;
+
+        if (!aircraft) {
+            return null;
+        }
+
+        const firstPhoto =
+            Array.isArray(
+                aircraft.photos
+            )
+                ? aircraft.photos[0]
+                : null;
+
+        const yearBuilt =
+            typeof aircraft.year_built ===
+                "number"
+                ? aircraft.year_built
+                : Number.isFinite(
+                    Number(
+                        aircraft.year_built
+                    )
+                )
+                    ? Number(
+                        aircraft.year_built
+                    )
+                    : null;
+
+        return {
+            type:
+                aircraft.type_name ??
+                null,
+            icaoType:
+                aircraft.type_code ??
+                null,
+            manufacturer:
+                aircraft.manufacturer ??
+                null,
+            registration:
+                aircraft.registration ??
+                null,
+            owner:
+                aircraft.owner_operator ??
+                null,
+            ownerCountry:
+                aircraft.country ??
+                null,
+            ownerCountryIso: null,
+            operatorFlagCode: null,
+            modeS:
+                aircraft.icao24 ??
+                icao24.toUpperCase(),
+            photo:
+                firstPhoto?.url ??
+                null,
+            thumbnail:
+                firstPhoto?.thumbnail_url ??
+                null,
+            yearBuilt,
+            isMilitary:
+                typeof aircraft.is_military ===
+                    "boolean"
+                    ? aircraft.is_military
+                    : null,
+            sources: ["SkyLink"],
+        };
+    } catch (error) {
+        console.error(
+            "SkyLink aircraft lookup:",
             error
         );
 
@@ -406,6 +622,15 @@ function aircraftForClient(
             .join(" · ") ||
         null;
 
+    const ageYears =
+        metadata.yearBuilt
+            ? Math.max(
+                0,
+                new Date().getFullYear() -
+                    metadata.yearBuilt
+            )
+            : null;
+
     return {
         registration:
             metadata.registration,
@@ -422,10 +647,23 @@ function aircraftForClient(
             metadata.owner,
         ownerCountry:
             metadata.ownerCountry,
+        ownerCountryIso:
+            metadata.ownerCountryIso,
+        operatorFlagCode:
+            metadata.operatorFlagCode,
+        modeS:
+            metadata.modeS,
         photo:
             metadata.photo,
         thumbnail:
             metadata.thumbnail,
+        yearBuilt:
+            metadata.yearBuilt,
+        ageYears,
+        isMilitary:
+            metadata.isMilitary,
+        metadataSources:
+            metadata.sources,
     };
 }
 
@@ -469,10 +707,24 @@ function applyAircraftMetadata(
                 enriched.owner,
             ownerCountry:
                 enriched.ownerCountry,
+            ownerCountryIso:
+                enriched.ownerCountryIso,
+            operatorFlagCode:
+                enriched.operatorFlagCode,
+            modeS:
+                enriched.modeS,
             photo:
                 enriched.photo,
             thumbnail:
                 enriched.thumbnail,
+            yearBuilt:
+                enriched.yearBuilt,
+            ageYears:
+                enriched.ageYears,
+            isMilitary:
+                enriched.isMilitary,
+            metadataSources:
+                enriched.metadataSources,
         },
     };
 }
