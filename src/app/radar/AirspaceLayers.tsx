@@ -52,19 +52,21 @@ export default function AirspaceLayers() {
         setError("");
 
         try {
-            const response = await fetch(`/data/airspace/${kind}.geojson`, {
+            const response = await fetch(`/api/radar/airspace?layer=${kind}`, {
                 cache: "force-cache",
             });
 
             if (!response.ok) {
-                throw new Error("Airspace data not synced");
+                const payload = await response.json().catch(() => null) as { error?: string } | null;
+                throw new Error(payload?.error ?? "Airspace data unavailable");
             }
 
             const data = (await response.json()) as GeoJsonCollection;
             dataRef.current[kind] = data;
             return data;
-        } catch {
-            setError("Airspace data not synced. Run npm run radar:sync-airspace.");
+        } catch (caught) {
+            const message = caught instanceof Error ? caught.message : "Airspace data unavailable.";
+            setError(message);
             return null;
         } finally {
             setLoading(false);
