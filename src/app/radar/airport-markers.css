@@ -1,0 +1,83 @@
+.luma-world-airport-wrapper {
+    background: transparent !important;
+    border: 0 !important;
+}
+
+.luma-world-airport {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: max-content;
+    color: rgba(255, 255, 255, 0.62);
+    font-family: inherit;
+    font-size: 8px;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    text-shadow: 0 1px 5px rgba(0, 0, 0, 0.95);
+    pointer-events: auto;
+}
+
+.luma-world-airport > span {
+    width: 6px;
+    height: 6px;
+    flex: 0 0 6px;
+    border-radius: 999px;
+    border: 1px solid rgba(99, 255, 227, 0.52);
+    background: rgba(5, 17, 20, 0.88);
+    box-shadow: 0 0 7px rgba(99, 255, 227, 0.24);
+}
+
+.luma-world-airport strong {
+    display: block;
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    white-space: nowrap;
+}
+
+.luma-world-airport small {
+    display: block;
+    max-width: 110px;
+    margin-top: 2px;
+    overflow: hidden;
+    color: rgba(255, 255, 255, 0.28);
+    font-size: 7px;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.luma-world-airport.major {
+    color: rgba(99, 255, 227, 0.90);
+}
+
+.luma-world-airport.major > span {
+    width: 8px;
+    height: 8px;
+    flex-basis: 8px;
+    background: rgba(99, 255, 227, 0.22);
+    box-shadow: 0 0 10px rgba(99, 255, 227, 0.42);
+}
+
+.luma-world-airport.regional {
+    color: rgba(78, 187, 255, 0.72);
+}
+
+.luma-world-airport.regional > span {
+    border-color: rgba(78, 187, 255, 0.46);
+    box-shadow: 0 0 7px rgba(78, 187, 255, 0.20);
+}
+
+.luma-world-airport.local {
+    color: rgba(255, 255, 255, 0.42);
+}
+
+.luma-world-airport.local > span {
+    width: 5px;
+    height: 5px;
+    flex-basis: 5px;
+    border-color: rgba(255, 255, 255, 0.28);
+    box-shadow: none;
+}
