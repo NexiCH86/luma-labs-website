@@ -27,36 +27,38 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const url = new URL("https://aviationweather.gov/api/data/metar");
-        url.searchParams.set("ids", icao);
-        url.searchParams.set("format", "json");
+        const [metarResult, tafResult] = await Promise.all([
+            fetchAviationWeather("metar", icao),
+            fetchAviationWeather("taf", icao),
+        ]);
 
-        const response = await fetch(url, {
-            headers: {
-                Accept: "application/json",
-                "User-Agent": "LuMa-Radar/1.0 (lumalabs.ch)",
-            },
-            cache: "no-store",
-        });
-
-        if (response.status === 204) {
-            const value = { found: false, icao, source: "AviationWeather.gov" };
+        if (metarResult.status === 204) {
+            const value = {
+                found: false,
+                icao,
+                source: "AviationWeather.gov",
+                taf: normalizeTaf(tafResult.data),
+            };
             cache.set(icao, { expires: Date.now() + CACHE_MS, value });
             return NextResponse.json(value);
         }
 
-        if (!response.ok) {
+        if (!metarResult.ok) {
             return NextResponse.json(
-                { error: `AviationWeather METAR lookup failed (${response.status})` },
+                { error: `AviationWeather METAR lookup failed (${metarResult.status})` },
                 { status: 502 }
             );
         }
 
-        const rows = await response.json();
-        const metar = Array.isArray(rows) ? rows[0] : null;
+        const metar = Array.isArray(metarResult.data) ? metarResult.data[0] : null;
 
         if (!metar) {
-            const value = { found: false, icao, source: "AviationWeather.gov" };
+            const value = {
+                found: false,
+                icao,
+                source: "AviationWeather.gov",
+                taf: normalizeTaf(tafResult.data),
+            };
             cache.set(icao, { expires: Date.now() + CACHE_MS, value });
             return NextResponse.json(value);
         }
@@ -77,14 +79,59 @@ export async function GET(request: NextRequest) {
             flightCategory: metar.fltCat ?? null,
             clouds: Array.isArray(metar.clouds) ? metar.clouds : [],
             weather: metar.wxString ?? null,
+            taf: normalizeTaf(tafResult.data),
         };
 
         cache.set(icao, { expires: Date.now() + CACHE_MS, value });
         return NextResponse.json(value);
     } catch (error) {
-        console.error("METAR lookup failed:", error);
-        return NextResponse.json({ error: "METAR lookup failed" }, { status: 500 });
+        console.error("Weather lookup failed:", error);
+        return NextResponse.json({ error: "Weather lookup failed" }, { status: 500 });
     }
+}
+
+async function fetchAviationWeather(product: "metar" | "taf", icao: string) {
+    const url = new URL(`https://aviationweather.gov/api/data/${product}`);
+    url.searchParams.set("ids", icao);
+    url.searchParams.set("format", "json");
+
+    const response = await fetch(url, {
+        headers: {
+            Accept: "application/json",
+            "User-Agent": "LuMa-Radar/1.0 (lumalabs.ch)",
+        },
+        cache: "no-store",
+    });
+
+    if (response.status === 204) {
+        return { ok: true, status: response.status, data: null };
+    }
+
+    let data: any = null;
+    try {
+        data = await response.json();
+    } catch {
+        data = null;
+    }
+
+    return { ok: response.ok, status: response.status, data };
+}
+
+function normalizeTaf(rows: any) {
+    const taf = Array.isArray(rows) ? rows[0] : null;
+    if (!taf) return null;
+
+    return {
+        raw: taf.rawTAF ?? taf.raw_text ?? taf.rawText ?? taf.rawOb ?? null,
+        issuedAt: taf.issueTime ?? taf.issue_time ?? taf.bulletinTime ?? null,
+        validFrom: taf.validTimeFrom ?? taf.valid_time_from ?? taf.validFrom ?? null,
+        validTo: taf.validTimeTo ?? taf.valid_time_to ?? taf.validTo ?? null,
+        forecasts: Array.isArray(taf.fcsts)
+            ? taf.fcsts
+            : Array.isArray(taf.forecast)
+                ? taf.forecast
+                : [],
+    };
 }
 
 function numberOrNull(value: unknown) {
