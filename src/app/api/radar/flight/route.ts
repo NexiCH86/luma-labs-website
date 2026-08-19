@@ -43,6 +43,13 @@ type FlightResult = {
         registration: string | null;
         iata: string | null;
         icao: string | null;
+        type?: string | null;
+        icaoType?: string | null;
+        manufacturer?: string | null;
+        owner?: string | null;
+        ownerCountry?: string | null;
+        photo?: string | null;
+        thumbnail?: string | null;
     };
 
     status?: string | null;
@@ -380,7 +387,7 @@ async function lookupAircraftMetadata(
 function aircraftForClient(
     metadata: AircraftMetadata
 ) {
-    const displayType =
+    const typeName =
         [
             metadata.manufacturer,
             metadata.type,
@@ -390,12 +397,35 @@ function aircraftForClient(
         metadata.icaoType ||
         null;
 
+    const displayType =
+        [
+            typeName,
+            metadata.owner,
+        ]
+            .filter(Boolean)
+            .join(" · ") ||
+        null;
+
     return {
         registration:
             metadata.registration,
         iata: null,
         icao:
             displayType,
+        type:
+            metadata.type,
+        icaoType:
+            metadata.icaoType,
+        manufacturer:
+            metadata.manufacturer,
+        owner:
+            metadata.owner,
+        ownerCountry:
+            metadata.ownerCountry,
+        photo:
+            metadata.photo,
+        thumbnail:
+            metadata.thumbnail,
     };
 }
 
@@ -429,6 +459,20 @@ function applyAircraftMetadata(
                 result.aircraft
                     ?.icao ??
                 null,
+            type:
+                enriched.type,
+            icaoType:
+                enriched.icaoType,
+            manufacturer:
+                enriched.manufacturer,
+            owner:
+                enriched.owner,
+            ownerCountry:
+                enriched.ownerCountry,
+            photo:
+                enriched.photo,
+            thumbnail:
+                enriched.thumbnail,
         },
     };
 }
