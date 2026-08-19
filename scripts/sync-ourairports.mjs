@@ -91,6 +91,31 @@ function clean(value) {
     return text || null;
 }
 
+function tileKey(latitude, longitude, size) {
+    const lat = Math.max(-90, Math.min(89.999999, latitude));
+    const lon = Math.max(-180, Math.min(179.999999, longitude));
+    const latCell = Math.floor((lat + 90) / size);
+    const lonCell = Math.floor((lon + 180) / size);
+    return `${latCell}_${lonCell}`;
+}
+
+function pushTile(store, key, record) {
+    store[key] ??= [];
+    store[key].push(record);
+}
+
+async function writeTiles(directory, tiles) {
+    await mkdir(directory, { recursive: true });
+
+    for (const [tile, records] of Object.entries(tiles)) {
+        await writeFile(
+            path.join(directory, `${tile}.json`),
+            JSON.stringify(records),
+            "utf8"
+        );
+    }
+}
+
 console.log("Downloading OurAirports metadata...");
 
 const [airports, countries] = await Promise.all([
@@ -107,9 +132,14 @@ const countryNames = new Map(
 
 const iataShards = {};
 const icaoShards = {};
+const majorAirports = [];
+const regionalTiles = {};
+const localTiles = {};
+
 let indexed = 0;
 let iataCount = 0;
 let icaoCount = 0;
+let mapCount = 0;
 
 for (const airport of airports) {
     if (airport.type === "closed_airport") {
@@ -134,6 +164,9 @@ for (const airport of airports) {
                 : null;
 
     const countryIso = clean(airport.iso_country)?.toUpperCase() ?? null;
+    const type = clean(airport.type);
+    const scheduledService =
+        String(airport.scheduled_service ?? "").toLowerCase() === "yes";
 
     const record = {
         icao,
@@ -150,9 +183,8 @@ for (const airport of airports) {
         countryIso,
         city: clean(airport.municipality),
         region: clean(airport.iso_region),
-        type: clean(airport.type),
-        scheduledService:
-            String(airport.scheduled_service ?? "").toLowerCase() === "yes",
+        type,
+        scheduledService,
         wikipedia: clean(airport.wikipedia_link),
         website: clean(airport.home_link),
     };
@@ -178,6 +210,47 @@ for (const airport of airports) {
     if (used) {
         indexed++;
     }
+
+    const mapRecord = {
+        i: icao,
+        a: iata,
+        n: record.name,
+        y: latitude,
+        x: longitude,
+        t: type,
+        s: scheduledService,
+        c: record.city,
+        k: countryIso,
+    };
+
+    if (type === "large_airport") {
+        majorAirports.push(mapRecord);
+        mapCount++;
+    }
+
+    if (
+        type === "large_airport" ||
+        type === "medium_airport"
+    ) {
+        pushTile(
+            regionalTiles,
+            tileKey(latitude, longitude, 20),
+            mapRecord
+        );
+    }
+
+    if (
+        iata ||
+        icao ||
+        type === "large_airport" ||
+        type === "medium_airport"
+    ) {
+        pushTile(
+            localTiles,
+            tileKey(latitude, longitude, 5),
+            mapRecord
+        );
+    }
 }
 
 await rm(outputRoot, { recursive: true, force: true });
@@ -200,6 +273,22 @@ for (const [shard, records] of Object.entries(icaoShards)) {
     );
 }
 
+await mkdir(path.join(outputRoot, "map"), { recursive: true });
+await writeFile(
+    path.join(outputRoot, "map", "major.json"),
+    JSON.stringify(majorAirports),
+    "utf8"
+);
+
+await writeTiles(
+    path.join(outputRoot, "map", "regional"),
+    regionalTiles
+);
+await writeTiles(
+    path.join(outputRoot, "map", "local"),
+    localTiles
+);
+
 await writeFile(
     path.join(outputRoot, "manifest.json"),
     JSON.stringify(
@@ -210,6 +299,11 @@ await writeFile(
             airportsIndexed: indexed,
             iataCodes: iataCount,
             icaoCodes: icaoCount,
+            mapMajorAirports: mapCount,
+            regionalTileSizeDegrees: 20,
+            localTileSizeDegrees: 5,
+            regionalTiles: Object.keys(regionalTiles).length,
+            localTiles: Object.keys(localTiles).length,
             license: "Public Domain",
         },
         null,
@@ -220,5 +314,7 @@ await writeFile(
 
 console.log(
     `OurAirports ready: ${indexed.toLocaleString("en-US")} airports indexed ` +
-        `(${iataCount.toLocaleString("en-US")} IATA, ${icaoCount.toLocaleString("en-US")} ICAO).`
+        `(${iataCount.toLocaleString("en-US")} IATA, ${icaoCount.toLocaleString("en-US")} ICAO, ` +
+        `${majorAirports.length.toLocaleString("en-US")} major map airports, ` +
+        `${Object.keys(localTiles).length.toLocaleString("en-US")} local map tiles).`
 );
