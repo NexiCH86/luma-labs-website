@@ -6,7 +6,6 @@ import SatWorkspaceEnhancements from "./SatWorkspaceEnhancements";
 import SatTrackedPanel from "./SatTrackedPanel";
 import SatWorkspaceBar from "./SatWorkspaceBar";
 import SatWorkspacePolish from "./SatWorkspacePolish";
-import SatV1CompleteClientOnly from "./SatV1CompleteClientOnly";
 import SatRealisticOrbitGlobe from "./SatRealisticOrbitGlobe";
 import SatPhotorealisticOrbitGlobe from "./SatPhotorealisticOrbitGlobe";
 import SatFinalCenter from "./SatFinalCenter";
@@ -32,7 +31,6 @@ export default function SatRadarPage() {
             <SatTrackedPanel />
             <SatWorkspaceBar />
             <SatWorkspacePolish />
-            <SatV1CompleteClientOnly />
             <SatRealisticOrbitGlobe />
             <SatPhotorealisticOrbitGlobe />
             <SatFinalCenter />
