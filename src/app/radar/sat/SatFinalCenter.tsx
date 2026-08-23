@@ -149,6 +149,7 @@ export default function SatFinalCenter() {
         const lib = satelliteJs();
         if (!lib) return;
         const activeLib: SatelliteJs = lib;
+        const activeObserver: Observer = observer;
         setLoading(true);
         async function run() {
             const result: PassRow[] = [];
@@ -158,7 +159,7 @@ export default function SatFinalCenter() {
                     const data = await response.json() as { satellites?: Array<Record<string, unknown>> };
                     const record = data.satellites?.find((sat) => Number(sat.NORAD_CAT_ID) === item.norad);
                     if (!record) { result.push({ ...item, pass: null, error: "DATA UNAVAILABLE" }); continue; }
-                    result.push({ ...item, pass: nextPass(activeLib, activeLib.json2satrec(record), observer) });
+                    result.push({ ...item, pass: nextPass(activeLib, activeLib.json2satrec(record), activeObserver) });
                 } catch { result.push({ ...item, pass: null, error: "OFFLINE" }); }
             }
             if (!cancelled) {
