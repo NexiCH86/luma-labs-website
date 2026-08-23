@@ -31,7 +31,7 @@ type ControlTelemetry = {
     services?: Record<string, ServiceState>;
 };
 
-const allowedDevices = new Set(["luisserver", "master-intel", "master-mac"]);
+const allowedDevices = new Set(["luisserver", "master-intel", "master-mac", "kali-mac"]);
 
 function getRedis() {
     const url = process.env.CONTROL_REDIS_REST_URL;
