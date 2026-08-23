@@ -3,6 +3,7 @@ import { LockKeyhole, UserRound } from "lucide-react";
 type LoginPageProps = {
     searchParams: Promise<{
         error?: string;
+        next?: string;
     }>;
 };
 
@@ -11,6 +12,10 @@ export default async function LoginPage({
 }: LoginPageProps) {
     const params = await searchParams;
     const hasError = params.error === "1";
+    const nextPath =
+        params.next?.startsWith("/") && !params.next.startsWith("//")
+            ? params.next
+            : "/portal";
 
     return (
         <main className="flex min-h-screen items-center justify-center bg-[#071315] px-6">
@@ -32,7 +37,7 @@ export default async function LoginPage({
 
                     <p className="mt-4 text-sm leading-6 text-white/50">
                         Geschützter Zugang zu Präsentationen,
-                        Projekten und internen Dokumenten.
+                        Projekten und internen Systemen.
                     </p>
                 </div>
 
@@ -41,6 +46,8 @@ export default async function LoginPage({
                     method="POST"
                     className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl backdrop-blur"
                 >
+                    <input type="hidden" name="next" value={nextPath} />
+
                     <label
                         htmlFor="username"
                         className="mb-2 block text-sm font-medium text-white/70"
@@ -90,7 +97,7 @@ export default async function LoginPage({
                         type="submit"
                         className="mt-5 w-full rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-[#071315] transition hover:bg-cyan-200"
                     >
-                        Portal öffnen
+                        Zugang öffnen
                     </button>
                 </form>
 
@@ -101,4 +108,3 @@ export default async function LoginPage({
         </main>
     );
 }
-
