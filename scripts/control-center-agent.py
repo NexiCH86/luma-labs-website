@@ -12,7 +12,7 @@ ENDPOINT = os.environ.get(
     "https://lumalabs.ch/api/control-center/ingest",
 )
 SECRET = os.environ.get("LUMA_CONTROL_SECRET", "")
-INTERVAL = max(15, int(os.environ.get("LUMA_CONTROL_INTERVAL", "30")))
+INTERVAL = max(30, int(os.environ.get("LUMA_CONTROL_INTERVAL", "90")))
 
 
 def read_cpu_percent():
