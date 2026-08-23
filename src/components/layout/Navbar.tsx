@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, LockKeyhole, Radar } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 
 const links = [
@@ -16,21 +16,24 @@ export function Navbar() {
           <Logo />
         </a>
 
-        <div className="hidden items-center gap-8 text-sm uppercase tracking-[0.12em] text-slate-300 lg:flex">
+        <div className="hidden items-center gap-7 text-sm uppercase tracking-[0.12em] text-slate-300 lg:flex">
           {links.map(([label, href]) => (
-            <a
-              key={href}
-              href={href}
-              className="transition hover:text-[#00D7D5]"
-            >
+            <a key={href} href={href} className="transition hover:text-[#00D7D5]">
               {label}
             </a>
           ))}
 
-          <a
-            href="/portal"
-            className="transition hover:text-[#00D7D5]"
-          >
+          <a href="/radar" className="inline-flex items-center gap-2 transition hover:text-[#00D7D5]">
+            <Radar className="h-4 w-4" />
+            RADAR
+          </a>
+
+          <a href="/control-center" className="inline-flex items-center gap-2 transition hover:text-[#00D7D5]">
+            <LockKeyhole className="h-4 w-4" />
+            Control Center
+          </a>
+
+          <a href="/portal" className="transition hover:text-[#00D7D5]">
             Intern
           </a>
 
