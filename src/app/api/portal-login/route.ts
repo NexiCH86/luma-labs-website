@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 
+function getSafeNextPath(value: FormDataEntryValue | null) {
+    if (typeof value !== "string") return "/portal";
+    if (!value.startsWith("/") || value.startsWith("//")) return "/portal";
+    return value;
+}
+
 export async function POST(request: Request) {
     const formData = await request.formData();
 
     const username = formData.get("username");
     const password = formData.get("password");
+    const nextPath = getSafeNextPath(formData.get("next"));
 
     const portalUsername = process.env.PORTAL_USERNAME;
     const portalPassword = process.env.PORTAL_PASSWORD;
@@ -23,14 +30,15 @@ export async function POST(request: Request) {
     const passwordIsValid = password === portalPassword;
 
     if (!usernameIsValid || !passwordIsValid) {
-        return NextResponse.redirect(
-            new URL("/portal/login?error=1", request.url),
-            303
-        );
+        const loginUrl = new URL("/portal/login", request.url);
+        loginUrl.searchParams.set("error", "1");
+        loginUrl.searchParams.set("next", nextPath);
+
+        return NextResponse.redirect(loginUrl, 303);
     }
 
     const response = NextResponse.redirect(
-        new URL("/portal", request.url),
+        new URL(nextPath, request.url),
         303
     );
 
@@ -44,4 +52,3 @@ export async function POST(request: Request) {
 
     return response;
 }
-
