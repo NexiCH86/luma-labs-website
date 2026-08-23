@@ -31,7 +31,7 @@ function getRedis() {
     return new Redis({ url, token });
 }
 
-function validNumber(value: unknown) {
+function validNumber(value: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value);
 }
 
