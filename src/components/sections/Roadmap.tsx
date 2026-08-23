@@ -148,7 +148,7 @@ const items = [
     ],
     accent: "slate",
   },
-];
+] as const;
 
 const accentStyles = {
   emerald: {
