@@ -22,13 +22,16 @@ export function Navbar() {
             </a>
           ))}
 
-          <a href="/radar" className="inline-flex items-center gap-2 transition hover:text-[#00D7D5]">
-            <Radar className="h-4 w-4" />
-            RADAR
-          </a>
-
           <a href="#roadmap" className="transition hover:text-[#00D7D5]">
             Roadmap
+          </a>
+
+          <a
+            href="/radar"
+            className="inline-flex items-center gap-2 rounded-md border border-[#00D7D5]/30 bg-[#00D7D5]/[0.035] px-4 py-2.5 font-semibold text-cyan-100/80 transition hover:-translate-y-0.5 hover:border-[#00D7D5]/60 hover:bg-[#00D7D5]/[0.09] hover:text-white"
+          >
+            <Radar className="h-4 w-4" />
+            RADAR
           </a>
 
           <a
