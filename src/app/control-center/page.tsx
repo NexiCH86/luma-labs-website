@@ -190,12 +190,14 @@ export default async function ControlCenterPage() {
     const session = cookieStore.get("luma_portal_session");
     if (session?.value !== "authenticated") redirect("/portal/login?next=/control-center");
 
-    const [luisServer, masterIntel] = await Promise.all([
+    const [luisServer, masterIntel, masterMac] = await Promise.all([
         getTelemetry("luisserver"),
         getTelemetry("master-intel"),
+        getTelemetry("master-mac"),
     ]);
     const luisServerOnline = isOnline(luisServer);
     const masterIntelOnline = isOnline(masterIntel);
+    const masterMacOnline = isOnline(masterMac);
 
     const devices: Device[] = [
         {
@@ -206,7 +208,14 @@ export default async function ControlCenterPage() {
             status: masterIntel ? (masterIntelOnline ? "online" : "offline") : "standby",
             icon: Cpu,
         },
-        { name: "Master-Mac", role: "Mobile Development", os: "macOS", detail: "MacBook Pro · M1 Pro · 16 GB RAM", status: "standby", icon: Laptop },
+        {
+            name: "Master-Mac",
+            role: "Mobile Development",
+            os: "macOS",
+            detail: masterMac ? `${masterMac.hostname}${masterMac.ip ? ` · ${masterMac.ip}` : ""}` : "MacBook Pro · M1 Pro · 16 GB RAM",
+            status: masterMac ? (masterMacOnline ? "online" : "offline") : "standby",
+            icon: Laptop,
+        },
         { name: "Kali-Mac", role: "Cyber Lab", os: "Kali Linux", detail: "MacBook Pro Intel · 32 GB RAM", status: "standby", icon: TerminalSquare },
         {
             name: "LuisServer",
@@ -239,7 +248,7 @@ export default async function ControlCenterPage() {
                     <div className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.035] p-5 md:col-span-2">
                         <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-cyan-300/60">System Overview</p>
                         <div className="mt-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-                            <div><h2 className="text-2xl font-medium tracking-tight">LuMa Operations Network</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-white/40">{[luisServerOnline, masterIntelOnline].filter(Boolean).length} von 4 registrierten Systemen liefern aktuell Live-Telemetrie.</p></div>
+                            <div><h2 className="text-2xl font-medium tracking-tight">LuMa Operations Network</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-white/40">{[luisServerOnline, masterIntelOnline, masterMacOnline].filter(Boolean).length} von 4 registrierten Systemen liefern aktuell Live-Telemetrie.</p></div>
                             <div className="flex w-fit items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-[10px] font-medium tracking-[0.14em] text-emerald-300"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />CONTROL CENTER ONLINE</div>
                         </div>
                     </div>
@@ -254,6 +263,7 @@ export default async function ControlCenterPage() {
                 </section>
 
                 <TelemetrySection title="Master-Intel" telemetry={masterIntel} online={masterIntelOnline} showGpu />
+                <TelemetrySection title="Master-Mac" telemetry={masterMac} online={masterMacOnline} />
                 <TelemetrySection title="LuisServer" telemetry={luisServer} online={luisServerOnline} />
 
                 <div className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
