@@ -98,8 +98,8 @@ const infrastructure = [
 ];
 
 function getRedis() {
-    const url = process.env.RADAR_REDIS_KV_REST_API_URL;
-    const token = process.env.RADAR_REDIS_KV_REST_API_TOKEN;
+    const url = process.env.CONTROL_REDIS_REST_URL;
+    const token = process.env.CONTROL_REDIS_REST_TOKEN;
     if (!url || !token) return null;
     return new Redis({ url, token });
 }
@@ -188,7 +188,7 @@ export default async function ControlCenterPage() {
     }
 
     const telemetry = await getLuisServerTelemetry();
-    const isLuisServerOnline = telemetry ? Date.now() - telemetry.receivedAt < 90_000 : false;
+    const isLuisServerOnline = telemetry ? Date.now() - telemetry.receivedAt < 240_000 : false;
     const luisServerStatus: Status = isLuisServerOnline ? "online" : "offline";
 
     const devices: Device[] = [
