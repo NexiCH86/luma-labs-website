@@ -3,6 +3,16 @@ import { Redis } from "@upstash/redis";
 
 type ServiceState = "online" | "offline" | "unknown";
 
+type GpuTelemetry = {
+    name?: string | null;
+    utilizationPercent?: number | null;
+    temperatureC?: number | null;
+    memoryUsedMb?: number | null;
+    memoryTotalMb?: number | null;
+    powerDrawW?: number | null;
+    powerLimitW?: number | null;
+};
+
 type ControlTelemetry = {
     device: string;
     hostname: string;
@@ -17,8 +27,11 @@ type ControlTelemetry = {
     diskPercent: number;
     diskUsedGb?: number | null;
     diskTotalGb?: number | null;
+    gpu?: GpuTelemetry | null;
     services?: Record<string, ServiceState>;
 };
+
+const allowedDevices = new Set(["luisserver", "master-intel"]);
 
 function getRedis() {
     const url = process.env.CONTROL_REDIS_REST_URL;
@@ -33,6 +46,10 @@ function getRedis() {
 
 function validNumber(value: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value);
+}
+
+function optionalNumber(value: unknown) {
+    return validNumber(value) ? value : null;
 }
 
 export async function POST(request: NextRequest) {
@@ -55,7 +72,8 @@ export async function POST(request: NextRequest) {
         const payload = (await request.json()) as Partial<ControlTelemetry>;
 
         if (
-            payload.device !== "luisserver" ||
+            typeof payload.device !== "string" ||
+            !allowedDevices.has(payload.device) ||
             typeof payload.hostname !== "string" ||
             !validNumber(payload.uptimeSeconds) ||
             !validNumber(payload.cpuPercent) ||
@@ -66,8 +84,20 @@ export async function POST(request: NextRequest) {
         }
 
         const now = Date.now();
+        const gpu = payload.gpu && typeof payload.gpu === "object"
+            ? {
+                name: typeof payload.gpu.name === "string" ? payload.gpu.name.slice(0, 120) : null,
+                utilizationPercent: optionalNumber(payload.gpu.utilizationPercent),
+                temperatureC: optionalNumber(payload.gpu.temperatureC),
+                memoryUsedMb: optionalNumber(payload.gpu.memoryUsedMb),
+                memoryTotalMb: optionalNumber(payload.gpu.memoryTotalMb),
+                powerDrawW: optionalNumber(payload.gpu.powerDrawW),
+                powerLimitW: optionalNumber(payload.gpu.powerLimitW),
+            }
+            : null;
+
         const snapshot: ControlTelemetry & { receivedAt: number } = {
-            device: "luisserver",
+            device: payload.device,
             hostname: payload.hostname.slice(0, 100),
             ip: typeof payload.ip === "string" ? payload.ip.slice(0, 100) : null,
             timestamp: validNumber(payload.timestamp) ? payload.timestamp : now,
@@ -75,19 +105,20 @@ export async function POST(request: NextRequest) {
             uptimeSeconds: payload.uptimeSeconds,
             cpuPercent: Math.max(0, Math.min(100, payload.cpuPercent)),
             memoryPercent: Math.max(0, Math.min(100, payload.memoryPercent)),
-            memoryUsedGb: validNumber(payload.memoryUsedGb) ? payload.memoryUsedGb : null,
-            memoryTotalGb: validNumber(payload.memoryTotalGb) ? payload.memoryTotalGb : null,
-            temperatureC: validNumber(payload.temperatureC) ? payload.temperatureC : null,
+            memoryUsedGb: optionalNumber(payload.memoryUsedGb),
+            memoryTotalGb: optionalNumber(payload.memoryTotalGb),
+            temperatureC: optionalNumber(payload.temperatureC),
             diskPercent: Math.max(0, Math.min(100, payload.diskPercent)),
-            diskUsedGb: validNumber(payload.diskUsedGb) ? payload.diskUsedGb : null,
-            diskTotalGb: validNumber(payload.diskTotalGb) ? payload.diskTotalGb : null,
+            diskUsedGb: optionalNumber(payload.diskUsedGb),
+            diskTotalGb: optionalNumber(payload.diskTotalGb),
+            gpu,
             services: payload.services ?? {},
         };
 
         const redis = getRedis();
-        await redis.set("control:device:luisserver", snapshot, { ex: 360 });
+        await redis.set(`control:device:${payload.device}`, snapshot, { ex: 360 });
 
-        return NextResponse.json({ ok: true, receivedAt: now });
+        return NextResponse.json({ ok: true, device: payload.device, receivedAt: now });
     } catch (error) {
         console.error("Control Center ingest error:", error);
         return NextResponse.json(
