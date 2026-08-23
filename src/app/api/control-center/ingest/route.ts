@@ -21,11 +21,11 @@ type ControlTelemetry = {
 };
 
 function getRedis() {
-    const url = process.env.RADAR_REDIS_KV_REST_API_URL;
-    const token = process.env.RADAR_REDIS_KV_REST_API_TOKEN;
+    const url = process.env.CONTROL_REDIS_REST_URL;
+    const token = process.env.CONTROL_REDIS_REST_TOKEN;
 
     if (!url || !token) {
-        throw new Error("Control Center Redis environment variables are missing");
+        throw new Error("CONTROL_REDIS_REST_URL or CONTROL_REDIS_REST_TOKEN is missing");
     }
 
     return new Redis({ url, token });
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         };
 
         const redis = getRedis();
-        await redis.set("control:device:luisserver", snapshot, { ex: 120 });
+        await redis.set("control:device:luisserver", snapshot, { ex: 360 });
 
         return NextResponse.json({ ok: true, receivedAt: now });
     } catch (error) {
