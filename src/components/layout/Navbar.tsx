@@ -5,7 +5,6 @@ const links = [
   ["Lösungen", "#loesungen"],
   ["Projekte", "#projekte"],
   ["Technologien", "#technologien"],
-  ["Roadmap", "#roadmap"],
 ];
 
 export function Navbar() {
@@ -16,7 +15,7 @@ export function Navbar() {
           <Logo />
         </a>
 
-        <div className="hidden items-center gap-7 text-sm uppercase tracking-[0.12em] text-slate-300 lg:flex">
+        <div className="hidden items-center gap-6 text-sm uppercase tracking-[0.12em] text-slate-300 lg:flex">
           {links.map(([label, href]) => (
             <a key={href} href={href} className="transition hover:text-[#00D7D5]">
               {label}
@@ -28,7 +27,14 @@ export function Navbar() {
             RADAR
           </a>
 
-          <a href="/control-center" className="inline-flex items-center gap-2 transition hover:text-[#00D7D5]">
+          <a href="#roadmap" className="transition hover:text-[#00D7D5]">
+            Roadmap
+          </a>
+
+          <a
+            href="/control-center"
+            className="inline-flex items-center gap-2 rounded-md border border-[#00D7D5]/45 bg-[#00D7D5]/[0.06] px-4 py-2.5 font-semibold text-[#55ECE9] shadow-[0_0_24px_rgba(0,215,213,0.06)] transition hover:-translate-y-0.5 hover:border-[#00D7D5]/75 hover:bg-[#00D7D5]/[0.12] hover:text-white hover:shadow-[0_10px_30px_rgba(0,215,213,0.12)]"
+          >
             <LockKeyhole className="h-4 w-4" />
             Control Center
           </a>
