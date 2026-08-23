@@ -148,6 +148,7 @@ export default function SatFinalCenter() {
         if (!observer || !watchlist.length) { setRows([]); return; }
         const lib = satelliteJs();
         if (!lib) return;
+        const activeLib: SatelliteJs = lib;
         setLoading(true);
         async function run() {
             const result: PassRow[] = [];
@@ -157,7 +158,7 @@ export default function SatFinalCenter() {
                     const data = await response.json() as { satellites?: Array<Record<string, unknown>> };
                     const record = data.satellites?.find((sat) => Number(sat.NORAD_CAT_ID) === item.norad);
                     if (!record) { result.push({ ...item, pass: null, error: "DATA UNAVAILABLE" }); continue; }
-                    result.push({ ...item, pass: nextPass(lib, lib.json2satrec(record), observer) });
+                    result.push({ ...item, pass: nextPass(activeLib, activeLib.json2satrec(record), observer) });
                 } catch { result.push({ ...item, pass: null, error: "OFFLINE" }); }
             }
             if (!cancelled) {
