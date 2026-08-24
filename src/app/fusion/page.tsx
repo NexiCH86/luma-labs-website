@@ -2,8 +2,8 @@ import { ArrowRight, Boxes, FileText, ShieldCheck, Users, Wrench } from "lucide-
 import Link from "next/link";
 
 const projects = [
-  { name: "ZH31 Ausstellungsstrasse", code: "ZH31", location: "Zürich", disciplines: "ARCH · H · LUE · SAN · KOORD", issues: 0, critical: 0, href: "/fusion/zh31" },
-  { name: "BOG Fusion Pilot", code: "PILOT-01", location: "Schweiz", disciplines: "ARCH · H · LUE · SAN · KOORD", issues: 73, critical: 12, href: "/fusion/pilot-01" },
+  { name: "ZH31 Ausstellungsstrasse", code: "ZH31", location: "Zürich", disciplines: "ARCH · HEI · LUE · SAN · KOORD", issues: 0, critical: 0, href: "/fusion/zh31" },
+  { name: "BOG Fusion Pilot", code: "PILOT-01", location: "Schweiz", disciplines: "ARCH · HEI · LUE · SAN · KOORD", issues: 73, critical: 12, href: "/fusion/pilot-01" },
   { name: "Demo Projekt Architektur", code: "DEMO-ARCH", location: "Schlieren", disciplines: "ARCH · LUE · SAN", issues: 18, critical: 2, href: "/fusion/demo-arch" },
 ];
 
