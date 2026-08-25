@@ -14,13 +14,17 @@ function watchCount() {
 }
 
 export default function SatWorkspaceBar() {
-    const [now, setNow] = useState(() => new Date());
+    const [now, setNow] = useState<Date | null>(null);
+    const [timeZone, setTimeZone] = useState("");
     const [markers, setMarkers] = useState(true);
     const [orbits, setOrbits] = useState(true);
     const [watch, setWatch] = useState(0);
 
     useEffect(() => {
+        setNow(new Date());
+        setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
         setWatch(watchCount());
+
         const timer = window.setInterval(() => setNow(new Date()), 1000);
         const onWatch = () => setWatch(watchCount());
         window.addEventListener("luma-sat-watchlist-change", onWatch);
@@ -54,16 +58,19 @@ export default function SatWorkspaceBar() {
         window.location.reload();
     }
 
+    const localTime = now ? now.toLocaleTimeString("de-CH") : "--:--:--";
+    const utcTime = now ? now.toLocaleTimeString("de-CH", { timeZone: "UTC" }) : "--:--:--";
+
     return (
         <div className="sat4-workspace-bar">
             <div className="sat4-workspace-section sat4-clock">
                 <small>LOCAL</small>
-                <b>{now.toLocaleTimeString("de-CH")}</b>
-                <span>{Intl.DateTimeFormat().resolvedOptions().timeZone}</span>
+                <b>{localTime}</b>
+                <span>{timeZone || "LOCAL"}</span>
             </div>
             <div className="sat4-workspace-section sat4-clock">
                 <small>UTC</small>
-                <b>{now.toLocaleTimeString("de-CH", { timeZone: "UTC" })}</b>
+                <b>{utcTime}</b>
             </div>
             <button className={markers ? "is-on" : ""} onClick={toggleMarkers}><span /> MARKERS</button>
             <button className={orbits ? "is-on" : ""} onClick={toggleOrbits}><span /> ORBIT TRAIL</button>
