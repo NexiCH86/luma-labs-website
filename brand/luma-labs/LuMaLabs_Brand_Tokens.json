@@ -1,0 +1,20 @@
+{
+  "brand": "LuMa Labs",
+  "logo": "LM MONOGRAM",
+  "status": "definitive",
+  "colors": {
+    "graphite": "#071117",
+    "cyan": "#00D7E6",
+    "petrol_cyan_dark": "#00AFC2",
+    "off_white": "#F4F6F8",
+    "ink": "#0A1116",
+    "slate": "#9DA8AE"
+  },
+  "typography": {
+    "primary": "Inter",
+    "wordmark_weight": 300,
+    "support_weight": 400
+  },
+  "tagline": "Engineering tomorrow.",
+  "extended_tagline": "Connecting Engineering, Software & Smart Infrastructure."
+}
