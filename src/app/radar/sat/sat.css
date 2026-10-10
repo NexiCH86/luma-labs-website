@@ -169,43 +169,87 @@
     font-size: 9px;
 }
 
-.sat-marker-wrapper {
-    background: transparent;
-    border: none;
+/* Legacy + current SAT marker class names. SatClientV2 uses the sat2-* names. */
+.sat-marker-wrapper,
+.sat2-marker-wrapper {
+    background: transparent !important;
+    border: none !important;
 }
 
-.sat-marker {
+.sat-marker,
+.sat2-marker {
     width: 22px;
     height: 22px;
     display: grid;
     place-items: center;
     border-radius: 50%;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    opacity: 1;
     transition: transform 0.16s ease, filter 0.16s ease;
 }
 
-.sat-marker span {
+.sat-marker span,
+.sat2-marker span {
     display: block;
     line-height: 1;
 }
 
-.sat-marker-station {
-    color: #5be7e0;
-    background: rgba(91, 231, 224, 0.10);
-    border: 1px solid rgba(91, 231, 224, 0.32);
-    box-shadow: 0 0 14px rgba(91, 231, 224, 0.18);
+.sat-marker-station,
+.sat2-marker-station {
+    color: #ffffff;
+    background: rgba(91, 231, 224, 0.95);
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 5px rgba(91, 231, 224, 1), 0 0 14px rgba(91, 231, 224, 0.9);
 }
 
-.sat-marker-navigation {
-    color: #8fa7ff;
-    background: rgba(143, 167, 255, 0.09);
-    border: 1px solid rgba(143, 167, 255, 0.28);
-    box-shadow: 0 0 12px rgba(143, 167, 255, 0.14);
+.sat-marker-navigation,
+.sat2-marker-navigation {
+    color: #ffffff;
+    background: rgba(143, 167, 255, 0.95);
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 5px rgba(143, 167, 255, 1), 0 0 14px rgba(143, 167, 255, 0.9);
 }
 
-.sat-marker.is-selected {
-    transform: scale(1.45);
-    filter: brightness(1.4);
-    box-shadow: 0 0 22px currentColor;
+.sat2-marker-constellation {
+    color: #ffffff;
+    background: rgba(215, 124, 255, 0.95);
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 5px rgba(215, 124, 255, 1), 0 0 14px rgba(215, 124, 255, 0.9);
+}
+
+.sat2-marker-weather {
+    color: #051315;
+    background: rgba(98, 229, 221, 0.98);
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 5px rgba(98, 229, 221, 1), 0 0 14px rgba(98, 229, 221, 0.9);
+}
+
+.sat2-marker-earth {
+    color: #051315;
+    background: rgba(126, 231, 135, 0.98);
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 5px rgba(126, 231, 135, 1), 0 0 14px rgba(126, 231, 135, 0.9);
+}
+
+.sat-marker.is-selected,
+.sat2-marker.is-selected {
+    transform: scale(1.55);
+    filter: brightness(1.35);
+    box-shadow: 0 0 24px currentColor;
+}
+
+.sat2-marker.is-iss {
+    width: 34px;
+    height: 24px;
+    border-radius: 8px;
+    color: #141006;
+    background: #ffd166;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 7px #ffd166, 0 0 20px rgba(255, 209, 102, 0.95);
+    font-size: 9px;
+    letter-spacing: 0.04em;
 }
 
 .radar-mode-switch {
