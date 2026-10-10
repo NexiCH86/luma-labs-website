@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-    getRadarRedis,
-    readSnapshot,
-} from "@/lib/radar-store";
+import { readSnapshot } from "@/lib/radar-store";
 
 /*
  * Der Collector liefert alle 25 Sekunden neue Daten. Das
@@ -17,11 +14,8 @@ const WAITING_CACHE =
 
 export async function GET() {
     try {
-        const redis =
-            getRadarRedis();
-
         const snapshot =
-            await readSnapshot(redis);
+            await readSnapshot();
 
         if (!snapshot) {
             return NextResponse.json(
