@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
+import {
+    getRadarRedis,
+    readSnapshot,
+} from "@/lib/radar-store";
 
 const AVIATIONSTACK_API =
     "https://api.aviationstack.com/v1/flights";
@@ -83,15 +86,6 @@ type AircraftMetadata = {
     sources: string[];
 };
 
-type RadarAircraft = {
-    icao24: string;
-    callsign: string;
-};
-
-type RadarSnapshot = {
-    aircraft?: RadarAircraft[];
-};
-
 type CacheEntry = {
     expires: number;
     value: FlightResult;
@@ -110,23 +104,6 @@ globalForRadar.lumaFlightCache =
 
 const CACHE_TIME =
     30 * 60 * 1000;
-
-function getRedis() {
-    const url =
-        process.env.RADAR_REDIS_KV_REST_API_URL;
-
-    const token =
-        process.env.RADAR_REDIS_KV_REST_API_TOKEN;
-
-    if (!url || !token) {
-        return null;
-    }
-
-    return new Redis({
-        url,
-        token,
-    });
-}
 
 export async function GET(
     request: NextRequest
@@ -294,16 +271,9 @@ async function getIcao24ForCallsign(
     callsign: string
 ): Promise<string | null> {
     try {
-        const redis =
-            getRedis();
-
-        if (!redis) {
-            return null;
-        }
-
         const snapshot =
-            await redis.get<RadarSnapshot>(
-                "radar:snapshot"
+            await readSnapshot(
+                getRadarRedis()
             );
 
         const aircraft =

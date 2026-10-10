@@ -1,30 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
+import {
+    getRadarRedis,
+    readTrack,
+} from "@/lib/radar-store";
 
-type TrackPoint = {
-    latitude: number;
-    longitude: number;
-    altitude: number | null;
-    heading: number | null;
-    velocity: number | null;
-    timestamp: number;
-};
-
-function getRedis() {
-    const url = process.env.RADAR_REDIS_KV_REST_API_URL;
-    const token = process.env.RADAR_REDIS_KV_REST_API_TOKEN;
-
-    if (!url || !token) {
-        throw new Error(
-            "Radar Redis environment variables are missing"
-        );
-    }
-
-    return new Redis({
-        url,
-        token,
-    });
-}
+/*
+ * Spur-Frames entstehen einmal pro Minute, daher darf das
+ * Vercel-CDN die Antwort pro Flugzeug 60 Sekunden halten.
+ */
+const TRACK_CACHE =
+    "public, max-age=0, s-maxage=60, stale-while-revalidate=60";
 
 export async function GET(request: NextRequest) {
     try {
@@ -44,29 +29,25 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const redis = getRedis();
+        const redis = getRadarRedis();
 
-        const key = `radar:track:${icao24}`;
-
-        const points = await redis.lrange<TrackPoint>(
-            key,
-            0,
-            -1
+        const points = await readTrack(
+            redis,
+            icao24
         );
 
-        if (!points?.length) {
-            return NextResponse.json({
+        return NextResponse.json(
+            {
                 icao24,
-                count: 0,
-                points: [],
-            });
-        }
-
-        return NextResponse.json({
-            icao24,
-            count: points.length,
-            points,
-        });
+                count: points.length,
+                points,
+            },
+            {
+                headers: {
+                    "Cache-Control": TRACK_CACHE,
+                },
+            }
+        );
     } catch (error) {
         console.error(
             "Radar track API error:",
@@ -83,6 +64,9 @@ export async function GET(request: NextRequest) {
             },
             {
                 status: 500,
+                headers: {
+                    "Cache-Control": "no-store",
+                },
             }
         );
     }

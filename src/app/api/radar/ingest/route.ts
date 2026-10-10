@@ -1,44 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
-
-type Aircraft = {
-    icao24: string;
-    callsign: string;
-    country: string;
-    longitude: number;
-    latitude: number;
-    altitude: number | null;
-    onGround: boolean;
-    velocity: number | null;
-    heading: number | null;
-    verticalRate: number | null;
-    geoAltitude: number | null;
-    squawk: string | null;
-};
+import {
+    getRadarRedis,
+    isTrackFrameDue,
+    writeSnapshot,
+    writeTrackFrame,
+    type RadarAircraft,
+} from "@/lib/radar-store";
 
 type RadarPayload = {
     updated: number;
-    aircraft: Aircraft[];
+    aircraft: RadarAircraft[];
 };
-
-function getRedis() {
-    const url =
-        process.env.RADAR_REDIS_KV_REST_API_URL;
-
-    const token =
-        process.env.RADAR_REDIS_KV_REST_API_TOKEN;
-
-    if (!url || !token) {
-        throw new Error(
-            "Radar Redis environment variables are missing"
-        );
-    }
-
-    return new Redis({
-        url,
-        token,
-    });
-}
 
 export async function POST(
     request: NextRequest
@@ -96,7 +68,7 @@ export async function POST(
         }
 
         const redis =
-            getRedis();
+            getRadarRedis();
 
         const now =
             Date.now();
@@ -137,17 +109,9 @@ export async function POST(
             aircraft,
         };
 
-        await redis.set(
-            "radar:snapshot",
-            snapshot,
-            {
-                /*
-                 * Collector laeuft alle 25 Sekunden.
-                 * Nach 90 Sekunden ohne Collector gelten
-                 * die Daten als veraltet.
-                 */
-                ex: 90,
-            }
+        await writeSnapshot(
+            redis,
+            snapshot
         );
 
         /*
@@ -155,141 +119,20 @@ export async function POST(
          * PERSISTENT TRACK HISTORY
          * =====================================================
          *
-         * Wir schreiben nicht mehr nur 15 Aircraft pro Runde,
-         * sondern 100.
-         *
-         * Bei rund 200 Flugzeugen erhaelt damit jedes Aircraft
-         * ungefaehr alle 50 Sekunden einen persistenten Punkt.
-         *
-         * Pro Flugzeug nur:
-         *
-         *   RPUSH
-         *   EXPIRE
-         *
-         * Kein LTRIM mehr notwendig.
+         * Einmal pro Minute ein Frame mit allen Flugzeugen
+         * (1 Redis-Befehl). Frueher waren es bis zu 200 Befehle
+         * pro Lieferung, das hat das Upstash-Monatslimit
+         * innerhalb eines Tages aufgebraucht.
          */
 
-        const TRACK_BATCH_SIZE = 100;
+        const trackFrameWritten =
+            isTrackFrameDue(now);
 
-        const cursorKey =
-            "radar:track-batch-cursor";
-
-        const previousCursor =
-            (await redis.get<number>(
-                cursorKey
-            )) ?? 0;
-
-        const aircraftCount =
-            aircraft.length;
-
-        let trackAircraft:
-            Aircraft[] = [];
-
-        let nextCursor = 0;
-
-        if (aircraftCount > 0) {
-            const start =
-                previousCursor %
-                aircraftCount;
-
-            const amount =
-                Math.min(
-                    TRACK_BATCH_SIZE,
-                    aircraftCount
-                );
-
-            /*
-             * Array verdoppeln, damit ein Batch sauber
-             * ueber das Ende des Arrays hinauslaufen kann.
-             */
-
-            trackAircraft =
+        if (trackFrameWritten) {
+            await writeTrackFrame(
+                redis,
+                now,
                 aircraft
-                    .concat(aircraft)
-                    .slice(
-                        start,
-                        start + amount
-                    );
-
-            nextCursor =
-                (
-                    start +
-                    amount
-                ) %
-                aircraftCount;
-        }
-
-        if (
-            trackAircraft.length >
-            0
-        ) {
-            const pipeline =
-                redis.pipeline();
-
-            for (
-                const item of
-                trackAircraft
-            ) {
-                const key =
-                    `radar:track:${item.icao24.toLowerCase()}`;
-
-                const point = {
-                    latitude:
-                        item.latitude,
-
-                    longitude:
-                        item.longitude,
-
-                    altitude:
-                        item.altitude,
-
-                    heading:
-                        item.heading,
-
-                    velocity:
-                        item.velocity,
-
-                    timestamp:
-                        now,
-                };
-
-                /*
-                 * Neuen Punkt ans Ende des Tracks schreiben.
-                 */
-
-                pipeline.rpush(
-                    key,
-                    point
-                );
-
-                /*
-                 * Track verschwindet 12 Stunden nach dem
-                 * letzten empfangenen Punkt automatisch.
-                 */
-
-                pipeline.expire(
-                    key,
-                    12 * 60 * 60
-                );
-            }
-
-            /*
-             * Alle Redis-Befehle gemeinsam senden.
-             */
-
-            await pipeline.exec();
-
-            /*
-             * Cursor fuer den naechsten Collector-Durchlauf.
-             */
-
-            await redis.set(
-                cursorKey,
-                nextCursor,
-                {
-                    ex:
-                        12 * 60 * 60,
-                }
             );
         }
 
@@ -302,13 +145,7 @@ export async function POST(
             updated:
                 snapshot.updated,
 
-            tracksUpdated:
-                trackAircraft.length,
-
-            trackBatchSize:
-                TRACK_BATCH_SIZE,
-
-            nextCursor,
+            trackFrameWritten,
         });
     } catch (error) {
         console.error(

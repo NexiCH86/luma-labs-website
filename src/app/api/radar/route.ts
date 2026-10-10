@@ -1,73 +1,60 @@
 import { NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
+import {
+    getRadarRedis,
+    readSnapshot,
+} from "@/lib/radar-store";
 
-type Aircraft = {
-    icao24: string;
-    callsign: string;
-    country: string;
-    longitude: number;
-    latitude: number;
-    altitude: number | null;
-    onGround: boolean;
-    velocity: number | null;
-    heading: number | null;
-    verticalRate: number | null;
-    geoAltitude: number | null;
-    squawk: string | null;
-};
+/*
+ * Der Collector liefert alle 25 Sekunden neue Daten. Das
+ * Vercel-CDN haelt die Antwort 20 Sekunden, damit nicht jeder
+ * Besucher und jedes Radar-Panel (alle 5 s) Redis abfragt.
+ */
+const LIVE_CACHE =
+    "public, max-age=0, s-maxage=20, stale-while-revalidate=40";
 
-type RadarSnapshot = {
-    updated: number;
-    receivedAt: number;
-    count: number;
-    aircraft: Aircraft[];
-};
-
-function getRedis() {
-    const url =
-        process.env.RADAR_REDIS_KV_REST_API_URL;
-
-    const token =
-        process.env.RADAR_REDIS_KV_REST_API_TOKEN;
-
-    if (!url || !token) {
-        throw new Error(
-            "Radar Redis environment variables are missing"
-        );
-    }
-
-    return new Redis({
-        url,
-        token,
-    });
-}
+const WAITING_CACHE =
+    "public, max-age=0, s-maxage=5";
 
 export async function GET() {
     try {
         const redis =
-            getRedis();
+            getRadarRedis();
 
         const snapshot =
-            await redis.get<RadarSnapshot>(
-                "radar:snapshot"
-            );
+            await readSnapshot(redis);
 
         if (!snapshot) {
-            return NextResponse.json({
-                count: 0,
-                aircraft: [],
-                updated: null,
-                source: "redis",
-                status:
-                    "waiting-for-collector",
-            });
+            return NextResponse.json(
+                {
+                    count: 0,
+                    aircraft: [],
+                    updated: null,
+                    source: "redis",
+                    status:
+                        "waiting-for-collector",
+                },
+                {
+                    headers: {
+                        "Cache-Control":
+                            WAITING_CACHE,
+                    },
+                }
+            );
         }
 
-        return NextResponse.json({
-            ...snapshot,
-            source: "redis",
-            status: "live",
-        });
+        return NextResponse.json(
+            {
+                ...snapshot,
+                source: "redis",
+                status: "live",
+            },
+            {
+                headers: {
+                    "Cache-Control":
+                        LIVE_CACHE,
+                },
+            }
+        );
     } catch (error) {
         console.error(
             "Radar API error:",
@@ -87,6 +74,10 @@ export async function GET() {
             },
             {
                 status: 500,
+                headers: {
+                    "Cache-Control":
+                        "no-store",
+                },
             }
         );
     }
