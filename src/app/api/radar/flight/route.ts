@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-    getRadarRedis,
-    readSnapshot,
-} from "@/lib/radar-store";
+import { readSnapshot } from "@/lib/radar-store";
 
 const AVIATIONSTACK_API =
     "https://api.aviationstack.com/v1/flights";
@@ -272,9 +269,7 @@ async function getIcao24ForCallsign(
 ): Promise<string | null> {
     try {
         const snapshot =
-            await readSnapshot(
-                getRadarRedis()
-            );
+            await readSnapshot();
 
         const aircraft =
             snapshot?.aircraft?.find(

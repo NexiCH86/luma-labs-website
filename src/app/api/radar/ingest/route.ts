@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-    getRadarRedis,
     isTrackFrameDue,
     writeSnapshot,
     writeTrackFrame,
@@ -67,9 +66,6 @@ export async function POST(
             );
         }
 
-        const redis =
-            getRadarRedis();
-
         const now =
             Date.now();
 
@@ -110,7 +106,6 @@ export async function POST(
         };
 
         await writeSnapshot(
-            redis,
             snapshot
         );
 
@@ -130,7 +125,6 @@ export async function POST(
 
         if (trackFrameWritten) {
             await writeTrackFrame(
-                redis,
                 now,
                 aircraft
             );

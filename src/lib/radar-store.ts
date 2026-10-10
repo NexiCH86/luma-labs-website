@@ -1,14 +1,16 @@
 import { gunzipSync, gzipSync } from "node:zlib";
-import { Redis } from "@upstash/redis";
+import { createClient } from "redis";
 
 /*
  * =====================================================
  * LuMa RADAR – Redis-Speicher
  * =====================================================
  *
- * Upstash Free erlaubt 500'000 Befehle und 10 GB Traffic
- * pro Monat. Der Collector liefert alle 25 Sekunden, also
- * rund 3'500 Mal pro Tag. Deshalb gilt:
+ * Redis Cloud (Free, ueber den Vercel Marketplace):
+ * 30 MB, 30 Verbindungen, 100 Befehle/s, 5 GB Traffic
+ * pro Monat, aber kein monatliches Befehlslimit.
+ *
+ * Der Collector liefert alle 25 Sekunden. Deshalb gilt:
  *
  *   - Snapshot: genau 1 Befehl pro Lieferung
  *   - Spuren:   1 Befehl pro Minute (ein Frame mit allen
@@ -78,46 +80,101 @@ const TRACK_HISTORY_FRAMES = 120;
 
 const PACKED_PREFIX = "gz:";
 
-export function getRadarRedis() {
+/*
+ * Eine Verbindung pro Function-Instanz, die ueber mehrere
+ * Requests wiederverwendet wird (Free-Plan: max. 30).
+ */
+let connection: Promise<RadarRedis> | null = null;
+
+function getRadarRedis() {
+    if (connection) {
+        return connection;
+    }
+
     const url =
-        process.env.RADAR_REDIS_KV_REST_API_URL;
+        process.env.RADAR_REDIS_URL;
 
-    const token =
-        process.env.RADAR_REDIS_KV_REST_API_TOKEN;
-
-    if (!url || !token) {
+    if (!url) {
         throw new Error(
-            "Radar Redis environment variables are missing"
+            "RADAR_REDIS_URL is missing"
         );
     }
 
-    return new Redis({
+    const client =
+        createRadarClient(url);
+
+    client.on("error", (error) => {
+        console.error(
+            "Radar Redis error:",
+            error
+        );
+    });
+
+    client.on("end", () => {
+        connection = null;
+    });
+
+    const pending = client
+        .connect()
+        .catch((error) => {
+            connection = null;
+            throw error;
+        });
+
+    connection = pending;
+
+    return pending;
+}
+
+type RadarRedis = ReturnType<typeof createRadarClient>;
+
+function createRadarClient(
+    url: string
+) {
+    return createClient({
         url,
-        token,
-        /*
-         * Gespeichert wird nur ASCII (Base64), daher ist die
-         * zusaetzliche Base64-Kodierung der Antworten unnoetig.
-         */
-        responseEncoding: false,
+        socket: {
+            connectTimeout: 5_000,
+            /*
+             * Nach 5 Fehlversuchen aufgeben, damit Requests nicht
+             * bis zum Function-Timeout haengen. Der naechste
+             * Request baut eine neue Verbindung auf.
+             */
+            reconnectStrategy: (retries) =>
+                retries > 5
+                    ? new Error(
+                        "Radar Redis unreachable"
+                    )
+                    : Math.min(
+                        retries * 200,
+                        2_000
+                    ),
+        },
     });
 }
 
 export async function writeSnapshot(
-    redis: Redis,
     snapshot: RadarSnapshot
 ) {
+    const redis =
+        await getRadarRedis();
+
     await redis.set(
         SNAPSHOT_KEY,
         pack(snapshot),
         {
-            ex: SNAPSHOT_TTL_SECONDS,
+            expiration: {
+                type: "EX",
+                value: SNAPSHOT_TTL_SECONDS,
+            },
         }
     );
 }
 
-export async function readSnapshot(
-    redis: Redis
-) {
+export async function readSnapshot() {
+    const redis =
+        await getRadarRedis();
+
     return unpack<RadarSnapshot>(
         await redis.get(SNAPSHOT_KEY)
     );
@@ -138,7 +195,6 @@ export function isTrackFrameDue(
 }
 
 export async function writeTrackFrame(
-    redis: Redis,
     now: number,
     aircraft: RadarAircraft[]
 ) {
@@ -157,22 +213,27 @@ export async function writeTrackFrame(
         ];
     }
 
+    const redis =
+        await getRadarRedis();
+
     await redis.set(
         frameKey(
             Math.floor(now / TRACK_FRAME_MS)
         ),
         pack(frame),
         {
-            ex:
-                ((TRACK_HISTORY_FRAMES + 1) *
-                    TRACK_FRAME_MS) /
-                1000,
+            expiration: {
+                type: "EX",
+                value:
+                    ((TRACK_HISTORY_FRAMES + 1) *
+                        TRACK_FRAME_MS) /
+                    1000,
+            },
         }
     );
 }
 
 export async function readTrack(
-    redis: Redis,
     icao24: string,
     now = Date.now()
 ) {
@@ -195,8 +256,11 @@ export async function readTrack(
             )
     );
 
+    const redis =
+        await getRadarRedis();
+
     const stored =
-        await redis.mget<unknown[]>(keys);
+        await redis.mGet(keys);
 
     const id =
         icao24.toLowerCase();
@@ -253,21 +317,12 @@ function pack(
 }
 
 function unpack<T>(
-    stored: unknown
+    stored: string | null
 ): T | null {
-    if (stored == null) {
-        return null;
-    }
-
-    /*
-     * Altes, unkomprimiertes Format: der Upstash-Client hat das
-     * JSON bereits in ein Objekt umgewandelt.
-     */
-    if (typeof stored !== "string") {
-        return stored as T;
-    }
-
-    if (!stored.startsWith(PACKED_PREFIX)) {
+    if (
+        !stored ||
+        !stored.startsWith(PACKED_PREFIX)
+    ) {
         return null;
     }
 

@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-    getRadarRedis,
-    readTrack,
-} from "@/lib/radar-store";
+import { readTrack } from "@/lib/radar-store";
 
 /*
  * Spur-Frames entstehen einmal pro Minute, daher darf das
@@ -29,12 +26,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const redis = getRadarRedis();
-
-        const points = await readTrack(
-            redis,
-            icao24
-        );
+        const points = await readTrack(icao24);
 
         return NextResponse.json(
             {
