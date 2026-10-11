@@ -363,24 +363,50 @@ async function loadAreaAircraft(map: any): Promise<Aircraft[]> {
         map.distance(center, bounds.getNorthEast()) / 1852
     );
 
+    const url =
+        `/api/radar/area?lat=${center.lat.toFixed(1)}&lon=${center.lng.toFixed(1)}&radius=${Math.round(radiusNm / 50) * 50}`;
+
+    // Gleicher Ausschnitt hoechstens alle 15 s (adsb.lol drosselt).
+    if (
+        url === areaCache.url &&
+        Date.now() - areaCache.at < 15_000
+    ) {
+        return areaCache.aircraft;
+    }
+
     try {
-        const response = await fetch(
-            `/api/radar/area?lat=${center.lat.toFixed(3)}&lon=${center.lng.toFixed(3)}&radius=${Math.round(radiusNm)}`
-        );
+        const response = await fetch(url);
 
         if (!response.ok) {
-            return [];
+            throw new Error(`area ${response.status}`);
         }
 
         const data = await response.json();
 
-        return Array.isArray(data.aircraft)
-            ? data.aircraft
-            : [];
+        areaCache = {
+            url,
+            at: Date.now(),
+            aircraft: Array.isArray(data.aircraft)
+                ? data.aircraft
+                : [],
+        };
+
+        return areaCache.aircraft;
     } catch {
-        return [];
+        // Letzte Flugzeuge behalten statt sie verschwinden zu lassen.
+        return areaCache.aircraft;
     }
 }
+
+let areaCache: {
+    url: string;
+    at: number;
+    aircraft: Aircraft[];
+} = {
+    url: "",
+    at: 0,
+    aircraft: [],
+};
 
 /*
  * IATA-Airline-Code -> ICAO-Codes, erzeugt von

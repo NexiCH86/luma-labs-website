@@ -9,7 +9,17 @@ import { NextRequest, NextResponse } from "next/server";
  * gerundet, damit das Vercel-CDN Anfragen mehrerer Besucher teilt.
  */
 const SOURCE = "https://api.adsb.lol/v2/point";
-const AREA_CACHE = "public, max-age=0, s-maxage=10, stale-while-revalidate=20";
+
+/*
+ * adsb.lol drosselt nach ca. 3 schnellen Anfragen (HTTP 429).
+ * Deshalb: grobe Kacheln, 30 s CDN-Cache und bei Drosselung die
+ * letzte gute Antwort dieser Kachel (bis 2 min alt).
+ */
+const AREA_CACHE = "public, max-age=0, s-maxage=30, stale-while-revalidate=60";
+const STALE_CACHE = "public, max-age=0, s-maxage=5";
+const STALE_MAX_AGE_MS = 120_000;
+
+const lastGood = new Map<string, { at: number; payload: Record<string, unknown> }>();
 
 const FEET_TO_METERS = 0.3048;
 const KNOTS_TO_MPS = 0.514444;
@@ -54,10 +64,11 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    const radiusNm = Math.min(250, Math.max(25, roundTo(radius, 25)));
-    const step = radiusNm > 100 ? 1 : 0.25;
+    const radiusNm = Math.min(250, Math.max(50, roundTo(radius, 50)));
+    const step = radiusNm > 100 ? 2 : 0.5;
     const centerLat = roundTo(lat, step);
     const centerLon = roundTo(lon, step);
+    const key = `${centerLat}/${centerLon}/${radiusNm}`;
 
     try {
         const response = await fetch(
@@ -111,19 +122,34 @@ export async function GET(request: NextRequest) {
                 };
             });
 
-        return NextResponse.json(
-            {
-                count: aircraft.length,
-                aircraft,
-                center: [centerLat, centerLon],
-                radiusNm,
-                updated: data.now ?? Date.now(),
-                source: "adsb.lol",
-                attribution: "Flight data: adsb.lol (ODbL)",
-            },
-            { headers: { "Cache-Control": AREA_CACHE } }
-        );
+        const payload = {
+            count: aircraft.length,
+            aircraft,
+            center: [centerLat, centerLon],
+            radiusNm,
+            updated: data.now ?? Date.now(),
+            source: "adsb.lol",
+            attribution: "Flight data: adsb.lol (ODbL)",
+        };
+
+        lastGood.set(key, { at: Date.now(), payload });
+
+        if (lastGood.size > 200) {
+            const oldest = lastGood.keys().next().value;
+            if (oldest !== undefined) lastGood.delete(oldest);
+        }
+
+        return NextResponse.json(payload, { headers: { "Cache-Control": AREA_CACHE } });
     } catch (error) {
+        const cached = lastGood.get(key);
+
+        if (cached && Date.now() - cached.at < STALE_MAX_AGE_MS) {
+            return NextResponse.json(
+                { ...cached.payload, stale: true },
+                { headers: { "Cache-Control": STALE_CACHE } }
+            );
+        }
+
         console.error("Radar area error:", error);
 
         return NextResponse.json(
