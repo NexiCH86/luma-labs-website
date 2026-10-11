@@ -1,5 +1,6 @@
 const items = [
   {
+    id: "roadmap-platform",
     title: "LuMa Labs Platform",
     status: "LIVE",
     phase: "Foundation",
@@ -8,16 +9,18 @@ const items = [
       "Die technische Basis der LuMa-Labs-Plattform ist produktiv und bildet das Fundament für alle weiteren Module.",
     done: [
       "lumalabs.ch mit Next.js, TypeScript und Vercel produktiv",
-      "Corporate Design, Hauptnavigation und getrennte Produktzugänge",
-      "Eigene Bereiche für RADAR, Control Center und Intern",
+      "Verbindliches LM-Monogramm (Cyan/Petrol), Inter als Hausschrift, Favicon und App-Icons",
+      "Eigene Bereiche für RADAR, Control Center und Intern, Navigation auch auf dem Handy",
+      "Überwachung mit Uptime Kuma und Discord-Alarm",
     ],
     next: [
-      "Navigation und Mobile UX weiter verfeinern",
-      "Projektseiten und Produktübersichten stärker miteinander verknüpfen",
+      "Eigene Seiten für die acht Produktlinien",
+      "Roadmap automatisch aus Linear aktualisieren",
     ],
     accent: "emerald",
   },
   {
+    id: "roadmap-control",
     title: "LuMa Control Center",
     status: "V1 LIVE",
     phase: "NEX-27 · Operations",
@@ -39,63 +42,67 @@ const items = [
     accent: "emerald",
   },
   {
+    id: "roadmap-air",
     title: "LuMa RADAR · AIR",
-    status: "AKTIVE ENTWICKLUNG",
-    phase: "High Priority · Linear",
-    progress: 70,
+    status: "LIVE",
+    phase: "Flight Tracking · Linear",
+    progress: 90,
     summary:
-      "AIR entwickelt sich vom Schweizer Live-Radar zur weltweiten Flugverkehrs- und Airport-Plattform.",
+      "Vom Schweizer Live-Radar zur weltweiten Flugverkehrs- und Airport-Plattform.",
     done: [
-      "Live-Flugzeuge, Mapbox 2D/3D, Höhenfarben und Flugspuren",
-      "Airport Explorer, OurAirports-Daten, Runways und Airspace-Layer",
-      "Aircraft Type/Registration-Datenbasis und Aircraft-Detailpanel",
-      "Raspberry-Pi-Collector mit OpenSky OAuth2 und Redis-Ingest",
+      "Live-Flugzeuge über der Schweiz (OpenSky-Collector) und weltweit über adsb.lol",
+      "Suche per Ticket-Flugnummer (z. B. LX 3155), Callsign oder ICAO",
+      "Flugzeugtyp, Registration, Bild und Baujahr, Flugphase, Route und ETA",
+      "Filter nach Airline, Höhe, Phase, Kategorie und Flughafen, Helikopter-Symbol, Squawk-Warnungen",
+      "Weltweite Flughäfen, Pisten, Ländergrenzen und Airspace-Layer",
     ],
     next: [
-      "Weltweite Abdeckung und Airports weiter skalieren (NEX-8 / NEX-9)",
-      "Flight Phase, Steigen/Sinken sowie Route, Distanz und ETA (NEX-10 / NEX-11)",
-      "Erweiterte Filter, Aircraft-Kategorien und Helikopter (NEX-12 / NEX-13)",
-      "Squawk-Sonderstatus sowie Aircraft-Bilder und Typeninfos (NEX-14 / NEX-7)",
+      "Spurenverlauf auch ausserhalb der Schweiz",
+      "Verkehrsdichte und Airport-Operations mit weltweiten Daten",
+      "Flugnummern auch für Airlines mit Buchstaben-Rufzeichen (z. B. easyJet)",
     ],
     accent: "cyan",
   },
   {
+    id: "roadmap-sat",
     title: "LuMa RADAR · SAT",
-    status: "PROTOTYP / AUSBAU",
+    status: "LIVE",
     phase: "Satellite Tracking · Linear",
-    progress: 45,
+    progress: 85,
     summary:
-      "SAT schafft einen eigenständigen globalen Satellitenmodus mit echten TLE-/Orbitdaten und visueller Bahnverfolgung.",
+      "Globaler Satellitenmodus mit echten Bahndaten von CelesTrak und Bahnberechnung im Browser.",
     done: [
-      "Eigenständiger SAT-Bereich mit globaler Karten-/Globe-Ansicht",
-      "TLE-Verarbeitung und Orbit-Propagation technisch erprobt",
-      "Workspace-, Tracking- und Detailpanel-Prototypen vorhanden",
+      "Weltkarte und Orbit-Globus mit Satellitenpositionen und Ground Tracks",
+      "Netzwerke wie Stationen, GPS, Galileo, Starlink und Wetter als Filter",
+      "Objektinformationen mit NORAD-ID, Watchlist und Überflug-Center",
     ],
     next: [
-      "Orbit-Engine und Datenquelle final stabilisieren (NEX-15)",
-      "Globale Satellitenkarte und Ground Tracks produktionsreif machen (NEX-16)",
-      "NORAD-ID, Betreiber, Objektart, Startdaten und Filter ergänzen (NEX-17)",
+      "Überflug-Vorhersage mit Benachrichtigung",
+      "Sichtbare Überflüge (ISS) direkt in der STARS-Ansicht",
     ],
     accent: "cyan",
   },
   {
-    title: "LuMa RADAR · SKY",
-    status: "GEPLANT",
+    id: "roadmap-sky",
+    title: "LuMa RADAR · STARS",
+    status: "LIVE",
     phase: "Astronomy · Linear",
-    progress: 15,
+    progress: 80,
     summary:
-      "SKY wird der Astronomie-Modus von LuMa RADAR: sichtbarer Himmel für Standort und Zeitpunkt mit interaktiver Sternenkarte.",
+      "Der sichtbare Himmel für Standort und Zeitpunkt mit interaktiver Sternenkarte.",
     done: [
-      "Funktionsumfang und Moduskonzept in der RADAR-Roadmap definiert",
+      "„Sky now“-Ansicht mit Horizont und Himmelsrichtungen",
+      "5'044 Sterne, alle Sternbilder und 142 Messier- und NGC-Objekte",
+      "Sonne, Mond und Planeten in Echtzeit, Suche und Detailpanel",
     ],
     next: [
-      "Astronomie-Engine, Koordinatensysteme und Sternkataloge auswählen (NEX-18)",
-      "Interaktive Sternenkarte mit Sternen, Sternbildern und Planeten bauen (NEX-19)",
-      "Messier-/NGC-/Deep-Sky-Objekte mit Suche und Detailpanel integrieren (NEX-20)",
+      "Mondphase sowie Auf- und Untergangszeiten",
+      "Beobachtungsplaner für die kommende Nacht",
     ],
-    accent: "amber",
+    accent: "cyan",
   },
   {
+    id: "roadmap-os",
     title: "LuMa OS · Ecosystem Shell",
     status: "VISION / BACKLOG",
     phase: "NEX-29",
@@ -113,6 +120,7 @@ const items = [
     accent: "amber",
   },
   {
+    id: "roadmap-engineering",
     title: "LuMa Air, BIM & Engineering Tools",
     status: "GEPLANT / PARALLEL",
     phase: "Engineering Software",
@@ -131,6 +139,7 @@ const items = [
     accent: "slate",
   },
   {
+    id: "roadmap-knowledge",
     title: "Academy, Docs & Smart Infrastructure",
     status: "LANGFRISTIG",
     phase: "Knowledge & Infrastructure",
@@ -183,7 +192,7 @@ export function Roadmap() {
       <div className="mx-auto max-w-6xl px-6 lg:px-10">
         <div className="max-w-4xl">
           <p className="text-xs font-medium uppercase tracking-[0.26em] text-[#00D7D5]">
-            Roadmap · Stand August 2026
+            Roadmap · Stand Oktober 2026
           </p>
           <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-white sm:text-5xl">
             Schritt für Schritt zum Engineering-Ökosystem.
@@ -200,7 +209,7 @@ export function Roadmap() {
             const styles = accentStyles[item.accent];
 
             return (
-              <article key={item.title} className="rounded-2xl border border-white/10 bg-[#0A1924] p-6 transition hover:border-[#00D7D5]/20 hover:bg-[#0B1C28] md:p-7">
+              <article key={item.title} id={item.id} className="scroll-mt-28 rounded-2xl border border-white/10 bg-[#0A1924] p-6 transition hover:border-[#00D7D5]/20 hover:bg-[#0B1C28] md:p-7">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                   <div className="flex gap-4">
                     <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border text-sm font-medium ${styles.number}`}>

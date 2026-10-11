@@ -53,16 +53,16 @@ export function Hero() {
             LuMa Labs
           </div>
 
-          <h1 className="mt-5 font-semibold tracking-[-0.055em] text-white">
-            <span className="block font-serif text-6xl leading-[0.95] sm:text-7xl lg:text-[86px]">
+          <h1 className="mt-5 font-semibold tracking-[-0.045em] text-white">
+            <span className="block text-[44px] leading-[0.98] min-[400px]:text-5xl sm:text-7xl lg:text-[86px]">
               Engineering
             </span>
-            <span className="mt-1 block font-serif text-6xl leading-[0.95] text-[#00C9D8] sm:text-7xl lg:text-[86px]">
+            <span className="mt-1 block text-[44px] leading-[0.98] text-[#00D7E6] min-[400px]:text-5xl sm:text-7xl lg:text-[86px]">
               tomorrow.
             </span>
           </h1>
 
-          <p className="mt-7 max-w-[560px] font-serif text-2xl leading-snug text-slate-200 sm:text-3xl">
+          <p className="mt-7 max-w-[560px] text-2xl font-light leading-snug text-slate-200 sm:text-3xl">
             Connecting Engineering, Software &{" "}
             <span className="text-[#49E9E6]">Smart Infrastructure.</span>
           </p>
@@ -85,9 +85,9 @@ export function Hero() {
                   <Radar className="h-6 w-6" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="font-serif text-xl text-white">LuMa RADAR</h2>
+                  <h2 className="text-xl font-medium text-white">LuMa RADAR</h2>
                   <p className="mt-1 text-[11px] uppercase tracking-[0.12em] text-[#55ECE9]/70">
-                    Live Tracking Platform
+                    Flugzeuge · Satelliten · Sterne
                   </p>
                 </div>
                 <ArrowRight className="h-5 w-5 text-[#55ECE9] transition group-hover:translate-x-1" />
@@ -103,7 +103,7 @@ export function Hero() {
                   <LockKeyhole className="h-6 w-6" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="font-serif text-xl text-white">Control Center</h2>
+                  <h2 className="text-xl font-medium text-white">Control Center</h2>
                   <p className="mt-1 text-[11px] uppercase tracking-[0.12em] text-[#55ECE9]/70">
                     Systeme & Services
                   </p>
