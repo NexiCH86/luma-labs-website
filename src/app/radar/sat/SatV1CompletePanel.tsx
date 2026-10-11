@@ -123,10 +123,6 @@ function norm360(value: number) {
     return ((value % 360) + 360) % 360;
 }
 
-function normLon(value: number) {
-    return norm360(value + 180) - 180;
-}
-
 function julianDay(date: Date) {
     return date.getTime() / 86400000 + 2440587.5;
 }

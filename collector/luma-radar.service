@@ -1,0 +1,16 @@
+[Unit]
+Description=LuMa Radar Collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=luis
+WorkingDirectory=/home/luis/luma-radar
+EnvironmentFile=/home/luis/luma-radar/.env
+ExecStart=/home/luis/luma-radar/.venv/bin/python -u /home/luis/luma-radar/collector.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

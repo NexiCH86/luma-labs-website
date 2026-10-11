@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
     useEffect,
     useRef,
@@ -2043,7 +2044,7 @@ export default function RadarClient() {
         <main className="radar-shell">
             <header className="radar-header">
 
-                <a
+                <Link
                     href="/"
                     className="radar-brand"
                 >
@@ -2057,7 +2058,7 @@ export default function RadarClient() {
                     <small>
                         LIVE AIRSPACE
                     </small>
-                </a>
+                </Link>
 
                 <div className="radar-search-wrapper">
 
@@ -2103,12 +2104,12 @@ export default function RadarClient() {
 
                 </div>
 
-                <a
+                <Link
                     href="/"
                     className="back-button"
                 >
                     ← LUMA LABS
-                </a>
+                </Link>
 
                 <button
                     className="fullscreen-button"

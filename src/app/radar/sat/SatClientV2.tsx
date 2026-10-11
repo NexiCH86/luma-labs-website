@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CARTO_ATTRIBUTION, CARTO_DARK_TILES, COUNTRY_BORDERS_URL, countryBorderStyleForZoom } from "@/lib/basemap";
 
@@ -741,10 +742,10 @@ export default function SatClientV2() {
     return (
         <main className="radar-shell sat-shell">
             <header className="radar-header sat2-header">
-                <a href="/" className="radar-brand">
+                <Link href="/" className="radar-brand">
                     <div>LuMa <span>RADAR</span></div>
                     <small>LIVE SATELLITE NETWORK</small>
-                </a>
+                </Link>
 
                 <div className="radar-search-wrapper">
                     <div className="radar-search">
@@ -767,7 +768,7 @@ export default function SatClientV2() {
                 <button className="sat2-location-button" onClick={locateObserver}>
                     MY LOCATION
                 </button>
-                <a href="/" className="back-button">← LUMA LABS</a>
+                <Link href="/" className="back-button">← LUMA LABS</Link>
                 <button className="fullscreen-button" onClick={fullscreen}>FULLSCREEN</button>
             </header>
 

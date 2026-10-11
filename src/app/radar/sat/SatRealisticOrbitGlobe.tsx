@@ -125,7 +125,6 @@ function calculateOrbit(
     }
 
     const width = 360;
-    const height = 270;
     const centerX = width / 2;
     const centerY = 132;
     const earthRadiusPx = 66;

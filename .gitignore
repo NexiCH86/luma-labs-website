@@ -40,7 +40,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Radar-Daten, beim Build erzeugt (npm run radar:sync-*), > 200 MB
+/public/data/
+
 # Private presentation files
 /private/
 .vercel
 .env*
+
+# Vorlage ohne Werte fuer den Radar-Collector (nach .env*, damit die Ausnahme greift)
+!collector/.env.example
