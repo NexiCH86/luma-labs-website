@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CARTO_ATTRIBUTION, CARTO_DARK_TILES, COUNTRY_BORDERS_URL, countryBorderStyleForZoom } from "@/lib/basemap";
 
 type SatCategory = "station" | "navigation" | "constellation" | "weather" | "earth";
 
@@ -570,10 +571,10 @@ export default function SatClientV2() {
                 }).setView([24, 8], 3);
 
                 const primaryTiles = L.tileLayer(
-                    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+                    CARTO_DARK_TILES,
                     {
                         maxZoom: 20,
-                        attribution: "© OpenStreetMap © CARTO",
+                        attribution: CARTO_ATTRIBUTION,
                     }
                 );
 
@@ -589,6 +590,17 @@ export default function SatClientV2() {
                 });
                 primaryTiles.addTo(map);
                 mapRef.current = map;
+
+                void fetch(COUNTRY_BORDERS_URL, { cache: "force-cache" })
+                    .then((response) => (response.ok ? response.json() : null))
+                    .then((borders) => {
+                        if (!borders || cancelled) return;
+                        const layer = L.geoJSON(borders, { style: countryBorderStyleForZoom(map.getZoom()), interactive: false }).addTo(map);
+                        map.on("zoomend", () => layer.setStyle(countryBorderStyleForZoom(map.getZoom())));
+                    })
+                    .catch(() => {
+                        // Karte bleibt ohne zusätzliche Grenzlinien nutzbar.
+                    });
 
                 await Promise.all([loadGroup("STATIONS"), loadGroup("GPS-OPS")]);
                 if (cancelled) return;

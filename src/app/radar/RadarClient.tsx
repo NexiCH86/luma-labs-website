@@ -5,6 +5,10 @@ import {
     useRef,
     useState,
 } from "react";
+import {
+    CARTO_ATTRIBUTION,
+    CARTO_DARK_TILES,
+} from "@/lib/basemap";
 
 type Aircraft = {
     icao24: string;
@@ -558,13 +562,13 @@ export default function RadarClient() {
                 );
 
             L.tileLayer(
-                "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+                CARTO_DARK_TILES,
                 {
                     maxZoom:
                         20,
 
                     attribution:
-                        "© OpenStreetMap © CARTO",
+                        CARTO_ATTRIBUTION,
                 }
             ).addTo(map);
 
