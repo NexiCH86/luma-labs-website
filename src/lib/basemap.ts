@@ -18,3 +18,27 @@ export const CARTO_DARK_TILES =
  */
 export const CARTO_ATTRIBUTION =
     "© OpenStreetMap contributors, © CARTO";
+
+/*
+ * Ländergrenzen (/api/radar/airspace?layer=borders) über der dunklen
+ * Karte, deren eigene Grenzen kaum sichtbar sind.
+ */
+export const COUNTRY_BORDERS_URL =
+    "/api/radar/airspace?layer=borders";
+
+export const COUNTRY_BORDER_STYLE = {
+    color: "#63ffe3",
+    weight: 1.2,
+    opacity: 0.6,
+};
+
+/*
+ * Die 1:10-Mio.-Linien weichen ab Zoom 12 sichtbar (einige 100 m) von
+ * der Karte ab. Dort zeigt die Karte die Grenzen selbst, also ausblenden.
+ */
+export function countryBorderStyleForZoom(zoom: number) {
+    const opacity =
+        zoom >= 12 ? 0 : zoom >= 11 ? 0.3 : COUNTRY_BORDER_STYLE.opacity;
+
+    return { ...COUNTRY_BORDER_STYLE, opacity };
+}

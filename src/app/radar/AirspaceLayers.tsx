@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { COUNTRY_BORDER_STYLE, countryBorderStyleForZoom } from "@/lib/basemap";
 
 type GeoJsonFeature = {
     type: "Feature";
@@ -21,13 +22,19 @@ declare global {
 
 export default function AirspaceLayers() {
     const [open, setOpen] = useState(false);
-    const [countriesOn, setCountriesOn] = useState(false);
+    const [countriesOn, setCountriesOn] = useState(true);
     const [firOn, setFirOn] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const countryLayer = useRef<any>(null);
     const firLayer = useRef<any>(null);
-    const dataRef = useRef<{ countries?: GeoJsonCollection; fir?: GeoJsonCollection }>({});
+    const dataRef = useRef<{ borders?: GeoJsonCollection; fir?: GeoJsonCollection }>({});
+
+    // Stabile Referenz, damit map.off() den Listener wieder entfernt.
+    const syncBorderStyle = useCallback(() => {
+        const map = window.__lumaRadarMap;
+        if (map) countryLayer.current?.setStyle(countryBorderStyleForZoom(map.getZoom()));
+    }, []);
 
     const activeCount = useMemo(
         () => Number(countriesOn) + Number(firOn),
@@ -40,12 +47,13 @@ export default function AirspaceLayers() {
 
     useEffect(() => {
         return () => {
+            window.__lumaRadarMap?.off("zoomend", syncBorderStyle);
             countryLayer.current?.remove();
             firLayer.current?.remove();
         };
-    }, []);
+    }, [syncBorderStyle]);
 
-    async function ensureData(kind: "countries" | "fir") {
+    async function ensureData(kind: "borders" | "fir") {
         if (dataRef.current[kind]) return dataRef.current[kind];
 
         setLoading(true);
@@ -85,19 +93,15 @@ export default function AirspaceLayers() {
         if (!countriesOn) {
             countryLayer.current?.remove();
             countryLayer.current = null;
+            map.off("zoomend", syncBorderStyle);
         } else if (!countryLayer.current) {
-            const data = await ensureData("countries");
-            if (data) {
+            const data = await ensureData("borders");
+            if (data && !countryLayer.current) {
                 countryLayer.current = L.geoJSON(data as any, {
-                    style: {
-                        color: "#63ffe3",
-                        weight: 1,
-                        opacity: 0.34,
-                        fillOpacity: 0,
-                        dashArray: "4 6",
-                    },
+                    style: countryBorderStyleForZoom(map.getZoom()),
                     interactive: false,
                 }).addTo(map);
+                map.on("zoomend", syncBorderStyle);
             }
         }
 
@@ -152,7 +156,7 @@ export default function AirspaceLayers() {
                     <div style={{ padding: 14 }}>
                         <LayerToggle
                             label="COUNTRY BORDERS"
-                            description="Natural Earth reference boundaries"
+                            description="Natural Earth 1:10m boundary lines"
                             checked={countriesOn}
                             onChange={setCountriesOn}
                         />
@@ -171,7 +175,7 @@ export default function AirspaceLayers() {
                         </div>
 
                         <div style={legendStyle}>
-                            <div><span style={{ ...lineSampleStyle, borderColor: "#63ffe3" }} />COUNTRY</div>
+                            <div><span style={{ ...lineSampleStyle, borderTopStyle: "solid", borderColor: COUNTRY_BORDER_STYLE.color }} />COUNTRY</div>
                             <div><span style={{ ...lineSampleStyle, borderColor: "#b88cff" }} />FIR</div>
                         </div>
                     </div>
