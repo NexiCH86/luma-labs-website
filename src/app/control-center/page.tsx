@@ -1,6 +1,7 @@
 import { Redis } from "@upstash/redis";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { LumaSignet } from "@/components/brand/LumaSignet";
 import {
   Activity,
   AppWindow,
@@ -233,12 +234,15 @@ export default async function ControlCenterPage() {
     <main className="min-h-screen bg-[#061113] text-white">
       <div className="border-b border-white/5 bg-[#081719]/90">
         <div className="mx-auto flex max-w-7xl flex-col justify-between gap-6 px-6 py-7 sm:flex-row sm:items-center">
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.3em] text-cyan-300/60">
-              <ShieldCheck className="h-4 w-4" /> LuMa Labs · Secure Operations
+          <div className="flex items-center gap-5">
+            <LumaSignet className="h-12 w-12 shrink-0" gradientId="lumaSignetCc" />
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.3em] text-cyan-300/60">
+                <ShieldCheck className="h-4 w-4" /> LuMa Labs · Secure Operations
+              </div>
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Control Center</h1>
+              <p className="mt-2 text-sm text-white/40">Infrastructure · Systems · Services</p>
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Control Center</h1>
-            <p className="mt-2 text-sm text-white/40">Infrastructure · Systems · Services</p>
           </div>
           <div className="flex items-center gap-3">
             <a href="/radar" className="rounded-full border border-white/10 px-4 py-2 text-xs text-white/50 transition hover:border-white/20 hover:text-white">RADAR</a>

@@ -7,6 +7,7 @@ import {
     FileText,
     Images,
 } from "lucide-react";
+import { LumaSignet } from "@/components/brand/LumaSignet";
 
 const presentations = [
     {
@@ -41,12 +42,14 @@ export default async function PortalPage() {
                 {/* HEADER */}
                 <header className="mb-14 flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
                     <div>
+                        <LumaSignet className="mb-5 h-11 w-11" gradientId="lumaSignetPortal" />
+
                         <p className="mb-3 text-xs font-medium uppercase tracking-[0.35em] text-cyan-300/70">
                             Private Portal
                         </p>
 
-                        <h1 className="text-4xl font-semibold tracking-tight">
-                            LuMa Labs.
+                        <h1 className="text-4xl font-light tracking-tight">
+                            LuMa Labs
                         </h1>
 
                         <p className="mt-4 max-w-xl text-sm leading-6 text-white/50">
