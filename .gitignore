@@ -40,9 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Vorlage ohne Werte fuer den Radar-Collector
-!collector/.env.example
-
 # Radar-Daten, beim Build erzeugt (npm run radar:sync-*), > 200 MB
 /public/data/
 
@@ -50,3 +47,6 @@ next-env.d.ts
 /private/
 .vercel
 .env*
+
+# Vorlage ohne Werte fuer den Radar-Collector (nach .env*, damit die Ausnahme greift)
+!collector/.env.example
