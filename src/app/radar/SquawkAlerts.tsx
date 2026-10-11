@@ -67,7 +67,7 @@ export default function SquawkAlerts() {
                     const data = (await response.json()) as RadarResponse;
                     if (!active) return;
 
-                    const nextAlerts = (Array.isArray(data.aircraft) ? data.aircraft : [])
+                    const nextAlerts = [...(Array.isArray(data.aircraft) ? data.aircraft : []), ...((window.__lumaRadarAreaAircraft ?? []) as unknown as NonNullable<RadarResponse["aircraft"]>)]
                         .map((aircraft) => {
                             const code = aircraft.squawk?.trim();
                             const info = code ? SQUAWK_INFO[code] : null;

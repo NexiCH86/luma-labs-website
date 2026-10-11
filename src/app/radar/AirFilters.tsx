@@ -187,7 +187,7 @@ async function warmCategoryMetadata(aircraft: Aircraft[]) {
     await Promise.allSettled(missing.map(async (item) => {
         const key = item.icao24.toLowerCase();
         try {
-            const response = await fetch(`/api/radar/airframe?icao24=${encodeURIComponent(key)}`, { cache: "force-cache" });
+            const response = await fetch(`/api/radar/airframe?icao24=${encodeURIComponent(key)}&lite=1`, { cache: "force-cache" });
             if (!response.ok) { metaCache.set(key, null); return; }
             const data = await response.json();
             metaCache.set(key, data.found ? data as AirframeMeta : null);
