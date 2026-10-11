@@ -18,7 +18,7 @@ const productLinks = [
 ] as const;
 
 /*
- * Navigation fuer Handy, Tablet und kleine Laptops (unter xl). Breiter zeigt die
+ * Navigation fuer Handy, Tablet und kleine Laptops (unter 1440 px). Breiter zeigt die
  * Navbar die Links direkt.
  */
 export function MobileMenu() {
@@ -26,7 +26,7 @@ export function MobileMenu() {
   const close = () => setOpen(false);
 
   return (
-    <div className="xl:hidden">
+    <div className="min-[1440px]:hidden">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
