@@ -185,6 +185,8 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
 
 function isAircraftTrail(layer: any) {
     if (!layer?.getLatLngs || !layer?.setLatLngs || !layer?.setStyle) return false;
+    // GeoJSON-Linien (Ländergrenzen, FIR) sind keine Flugzeugspuren.
+    if (layer.feature) return false;
     const options = layer.options ?? {};
     if (options.dashArray) return false;
     const color = String(options.color ?? "").toLowerCase();

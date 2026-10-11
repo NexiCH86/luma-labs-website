@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-type LayerKey = "countries" | "fir";
+type LayerKey = "countries" | "borders" | "fir";
 
 const FILES: Record<LayerKey, string> = {
     countries: "countries.geojson",
+    borders: "borders.geojson",
     fir: "fir.geojson",
 };
 
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     if (!layer || !(layer in FILES)) {
         return NextResponse.json(
-            { error: "Missing or invalid airspace layer. Use countries or fir." },
+            { error: "Missing or invalid airspace layer. Use countries, borders or fir." },
             { status: 400 }
         );
     }
