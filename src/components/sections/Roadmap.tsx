@@ -1,3 +1,5 @@
+import { loadLinearProgress } from "@/lib/linear-roadmap";
+
 const items = [
   {
     id: "roadmap-platform",
@@ -186,13 +188,16 @@ const accentStyles = {
   },
 } as const;
 
-export function Roadmap() {
+export async function Roadmap() {
+  // Fortschritt und naechste Schritte live aus Linear, sonst die Werte oben.
+  const live = await loadLinearProgress();
+
   return (
     <section id="roadmap" className="scroll-mt-24 border-t border-white/10 bg-[#08151f] py-28">
       <div className="mx-auto max-w-6xl px-6 lg:px-10">
         <div className="max-w-4xl">
           <p className="text-xs font-medium uppercase tracking-[0.26em] text-[#00D7D5]">
-            Roadmap · Stand Oktober 2026
+            {live ? "Roadmap · Live aus Linear" : "Roadmap · Stand Oktober 2026"}
           </p>
           <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-white sm:text-5xl">
             Schritt für Schritt zum Engineering-Ökosystem.
@@ -207,6 +212,13 @@ export function Roadmap() {
         <div className="mt-12 space-y-6">
           {items.map((item, index) => {
             const styles = accentStyles[item.accent];
+            const linear = live?.[item.id];
+            const progress = linear?.progress ?? item.progress;
+            const next = linear
+              ? linear.next.length
+                ? linear.next
+                : ["Alle geplanten Aufgaben in Linear erledigt"]
+              : item.next;
 
             return (
               <article key={item.title} id={item.id} className="scroll-mt-28 rounded-2xl border border-white/10 bg-[#0A1924] p-6 transition hover:border-[#00D7D5]/20 hover:bg-[#0B1C28] md:p-7">
@@ -232,11 +244,11 @@ export function Roadmap() {
 
                 <div className="mt-6">
                   <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-slate-500">
-                    <span>Fortschritt</span>
-                    <span>{item.progress}%</span>
+                    <span>Fortschritt{linear ? ` · ${linear.done} von ${linear.total} Aufgaben erledigt` : ""}</span>
+                    <span>{progress}%</span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                    <div className={`h-full rounded-full ${styles.bar}`} style={{ width: `${item.progress}%` }} />
+                    <div className={`h-full rounded-full ${styles.bar}`} style={{ width: `${progress}%` }} />
                   </div>
                 </div>
 
@@ -251,9 +263,9 @@ export function Roadmap() {
                   </div>
 
                   <div className="rounded-xl border border-white/[0.06] bg-black/[0.08] p-5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#55ECE9]/70">Nächste Schritte</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#55ECE9]/70">Nächste Schritte{linear ? " · Linear" : ""}</p>
                     <ul className="mt-4 space-y-2.5 text-sm leading-6 text-slate-400">
-                      {item.next.map((entry) => (
+                      {next.map((entry) => (
                         <li key={entry} className="flex gap-3"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#00D7D5]/70" />{entry}</li>
                       ))}
                     </ul>
