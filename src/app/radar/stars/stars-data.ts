@@ -25,7 +25,24 @@ export type DeepSkyObject = {
     distanceLy?: number;
 };
 
-export type SkyObject = StarObject | DeepSkyObject;
+export type PlanetObject = {
+    id: string;
+    kind: "planet";
+    name: string;
+    constellation: string;
+    ra: number;
+    dec: number;
+    magnitude: number;
+    distanceAu: number;
+};
+
+export type SkyObject = StarObject | DeepSkyObject | PlanetObject;
+
+/*
+ * Fallback, solange /data/sky/catalog.json (scripts/sync-sky-catalog.mjs)
+ * nicht geladen ist. STARS und DEEP_SKY ergaenzen den Katalog ausserdem
+ * um Spektralklasse, Farbe und Entfernung der hellsten Objekte.
+ */
 
 export const STARS: StarObject[] = [
     { id: "sirius", kind: "star", name: "Sirius", designation: "α CMa", constellation: "Canis Major", ra: 6.7525, dec: -16.7161, magnitude: -1.46, spectral: "A1V", distanceLy: 8.6, color: "#dfe9ff" },
