@@ -51,7 +51,7 @@ export default function TrailControls() {
                 if (!response.ok) return;
                 const data = (await response.json()) as RadarResponse;
                 if (!active) return;
-                aircraftRef.current = Array.isArray(data.aircraft) ? data.aircraft : [];
+                aircraftRef.current = [...(Array.isArray(data.aircraft) ? data.aircraft : []), ...((window.__lumaRadarAreaAircraft ?? []) as unknown as NonNullable<RadarResponse["aircraft"]>)];
                 applyTrails();
             } catch {}
         }

@@ -860,28 +860,33 @@ export default function RadarClient() {
                     mapRef.current
                 );
 
-            if (area.length) {
-                const known =
-                    new Set(
-                        (data.aircraft as Aircraft[]).map(
-                            (item) => item.icao24
-                        )
-                    );
+            const known =
+                new Set(
+                    (data.aircraft as Aircraft[]).map(
+                        (item) => item.icao24
+                    )
+                );
 
+            // Nur Flugzeuge, die der Collector nicht schon liefert.
+            const extra =
+                area.filter(
+                    (item) =>
+                        !known.has(item.icao24)
+                );
+
+            if (extra.length) {
                 data.aircraft = [
                     ...data.aircraft,
-                    ...area.filter(
-                        (item) =>
-                            !known.has(item.icao24)
-                    ),
+                    ...extra,
                 ];
 
                 data.count =
                     data.aircraft.length;
             }
 
+            // Fuer Filter und Panels (Verkehrsdichte, Squawk, Airport-Ops).
             window.__lumaRadarAreaAircraft =
-                area;
+                extra;
 
             setCount(
                 data.count
@@ -1377,9 +1382,30 @@ export default function RadarClient() {
                 return;
             }
 
-            const data:
+            let data:
                 PersistentTrackResponse =
                 await response.json();
+
+            /*
+             * Ausserhalb der Schweiz (oder ohne Collector-Spur):
+             * Flugverlauf von adsb.lol.
+             */
+            if (
+                !Array.isArray(data.points) ||
+                data.points.length < 2
+            ) {
+                const trace =
+                    await fetch(
+                        `/api/radar/trace?icao24=${encodeURIComponent(
+                            icao
+                        )}`
+                    );
+
+                if (trace.ok) {
+                    data =
+                        await trace.json();
+                }
+            }
 
             const storedPoints =
                 Array.isArray(data.points)

@@ -66,7 +66,7 @@ export default function TrafficDensity() {
                     const response = await fetch("/api/radar", { cache: "no-store" });
                     if (!response.ok) return;
                     const data = (await response.json()) as RadarResponse;
-                    const aircraft = Array.isArray(data.aircraft) ? data.aircraft : [];
+                    const aircraft = [...(Array.isArray(data.aircraft) ? data.aircraft : []), ...((window.__lumaRadarAreaAircraft ?? []) as unknown as NonNullable<RadarResponse["aircraft"]>)];
                     const bounds = currentMap.getBounds();
                     const zoom = currentMap.getZoom();
                     const visible = aircraft.filter((item) =>

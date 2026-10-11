@@ -62,7 +62,7 @@ export default function AirportLiveOperations() {
                 if (!response.ok) return;
                 const data = (await response.json()) as RadarResponse;
                 if (!active) return;
-                setAircraft(Array.isArray(data.aircraft) ? data.aircraft : []);
+                setAircraft([...(Array.isArray(data.aircraft) ? data.aircraft : []), ...((window.__lumaRadarAreaAircraft ?? []) as unknown as NonNullable<RadarResponse["aircraft"]>)]);
                 setUpdated(new Date().toLocaleTimeString("de-CH"));
             } catch {
                 // Keep last good live snapshot.

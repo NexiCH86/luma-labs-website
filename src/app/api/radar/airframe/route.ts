@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
+import { fetchTrace } from "@/lib/adsb-trace";
 
 type OpenSkyRecord = {
     registration?: string | null;
@@ -103,6 +104,49 @@ async function loadShard(
     return shard;
 }
 
+/*
+ * adsb.lol-Daten gibt es nur, solange das Flugzeug fliegt: kuerzer cachen.
+ */
+const AIRFRAME_FALLBACK_CACHE =
+    "public, max-age=3600, s-maxage=21600";
+
+const AIRFRAME_MISS_CACHE =
+    "public, max-age=600, s-maxage=1800";
+
+async function adsbAirframe(
+    icao24: string
+) {
+    try {
+        const trace =
+            await fetchTrace(icao24, "recent");
+
+        if (!trace?.r && !trace?.t) {
+            return null;
+        }
+
+        const yearBuilt =
+            yearFromDate(trace.year);
+
+        return {
+            found: true,
+            icao24,
+            source: "adsb.lol",
+            registration: trace.r ?? null,
+            typeCode: trace.t ?? null,
+            model: trace.desc ?? null,
+            operator: trace.ownOp ?? null,
+            built: trace.year ?? null,
+            yearBuilt,
+            ageYears:
+                yearBuilt != null
+                    ? Math.max(0, new Date().getFullYear() - yearBuilt)
+                    : null,
+        };
+    } catch {
+        return null;
+    }
+}
+
 function yearFromDate(value?: string | null) {
     if (!value) return null;
 
@@ -142,8 +186,19 @@ export async function GET(
             shard?.[suffix];
 
         if (!record) {
+            /*
+             * Nicht in der OpenSky-Datenbank (Stand 11/2024):
+             * Stammdaten aus dem Flugverlauf von adsb.lol.
+             */
+            // lite=1: Massenabfragen (Kategorie-Filter) ohne adsb.lol.
+            const lite =
+                request.nextUrl.searchParams.get("lite") === "1";
+
+            const fallback =
+                lite ? null : await adsbAirframe(icao24);
+
             return NextResponse.json(
-                {
+                fallback ?? {
                     found: false,
                     icao24,
                     source: "OpenSky",
@@ -151,7 +206,9 @@ export async function GET(
                 {
                     headers: {
                         "Cache-Control":
-                            AIRFRAME_CACHE,
+                            fallback
+                                ? AIRFRAME_FALLBACK_CACHE
+                                : AIRFRAME_MISS_CACHE,
                     },
                 }
             );
