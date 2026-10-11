@@ -1,10 +1,10 @@
-import { Building2, Code2, Network, ShieldCheck, Leaf } from "lucide-react";
+import { Building2, Code2, Network, GitBranch, Leaf } from "lucide-react";
 
 const stats = [
   [Building2, "Engineering", "Praxisnah", "Aus realen Aufgaben"],
   [Code2, "Software", "Modular", "Sauber entwickelt"],
   [Network, "Infrastruktur", "Vernetzt", "Skalierbare Systeme"],
-  [ShieldCheck, "Qualität", "100 %", "Dokumentiert"],
+  [GitBranch, "Transparenz", "Offen", "Code & Roadmap auf GitHub"],
   [Leaf, "Zukunft", "Nachhaltig", "Langfristig gedacht"],
 ];
 

@@ -1,8 +1,11 @@
+/*
+ * Stand Oktober 2026, passend zur Roadmap weiter unten.
+ */
 const projects = [
-  ["LuMa Labs Website", "Live", "100%"],
+  ["LuMa RADAR", "Live · AIR, SAT & STARS", "90%"],
+  ["LuMa Control Center", "V1 live", "80%"],
   ["LuMa Air", "In Entwicklung", "20%"],
   ["LuMa Server", "Aktiv", "35%"],
-  ["LuMa Smart", "Im Aufbau", "15%"],
 ];
 
 export function Projects() {
