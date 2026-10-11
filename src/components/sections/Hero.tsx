@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {
   ArrowRight,
   BarChart3,
@@ -36,7 +37,15 @@ export function Hero() {
   return (
     <section className="relative min-h-[930px] overflow-hidden border-b border-white/10 pt-20 lg:min-h-[980px]">
       <div className="absolute inset-0 bg-[#03101a]">
-        <div className="absolute inset-0 bg-[url('/luma-hero-castle.jpg')] bg-cover bg-[54%_center] lg:bg-[56%_center]" />
+        {/* Eigenes Foto von Luis. next/image liefert es als WebP/AVIF in passender Groesse aus (vorher 2,2 MB JPG). */}
+        <Image
+          src="/luma-hero-castle.jpg"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-[54%_center] lg:object-[56%_center]"
+        />
 
         {/* Cinematic LuMa grading – the uploaded source image itself stays untouched. */}
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,19,31,.34)_0%,rgba(0,31,43,.30)_42%,rgba(0,12,22,.72)_100%)] mix-blend-multiply" />

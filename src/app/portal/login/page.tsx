@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { LockKeyhole, UserRound } from "lucide-react";
+import { LumaSignet } from "@/components/brand/LumaSignet";
 
 type LoginPageProps = {
     searchParams: Promise<{
@@ -22,17 +24,15 @@ export default async function LoginPage({
             <div className="w-full max-w-md">
                 <div className="mb-10 text-center">
                     <div className="mb-6 flex justify-center">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-cyan-400/20 bg-cyan-400/5">
-                            <LockKeyhole className="h-6 w-6 text-cyan-300" />
-                        </div>
+                        <LumaSignet className="h-14 w-14" gradientId="lumaSignetPortalLogin" />
                     </div>
 
-                    <p className="mb-3 text-xs font-medium uppercase tracking-[0.35em] text-cyan-300/70">
-                        Private Access
+                    <p className="mb-3 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.35em] text-cyan-300/70">
+                        <LockKeyhole className="h-3.5 w-3.5" /> Private Access
                     </p>
 
-                    <h1 className="text-4xl font-semibold tracking-tight text-white">
-                        LuMa Labs.
+                    <h1 className="text-4xl font-light tracking-tight text-white">
+                        LuMa Labs
                     </h1>
 
                     <p className="mt-4 text-sm leading-6 text-white/50">
@@ -102,7 +102,7 @@ export default async function LoginPage({
                 </form>
 
                 <p className="mt-6 text-center text-xs text-white/30">
-                    Secure Access · LuMa Labs.
+                    Secure Access · <Link href="/" className="transition hover:text-cyan-200">LuMa Labs</Link>
                 </p>
             </div>
         </main>

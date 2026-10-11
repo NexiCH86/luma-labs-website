@@ -12,9 +12,9 @@ const items = [
       "Verbindliches LM-Monogramm (Cyan/Petrol), Inter als Hausschrift, Favicon und App-Icons",
       "Eigene Bereiche für RADAR, Control Center und Intern, Navigation auch auf dem Handy",
       "Überwachung mit Uptime Kuma und Discord-Alarm",
+      "Eigene Seiten für die acht Produktlinien, Impressum und Datenschutz",
     ],
     next: [
-      "Eigene Seiten für die acht Produktlinien",
       "Roadmap automatisch aus Linear aktualisieren",
     ],
     accent: "emerald",

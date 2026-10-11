@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Logo } from "@/components/brand/Logo";
 
 export function Footer() {
@@ -10,9 +11,17 @@ export function Footer() {
             Software · BIM · AI · Smart Infrastructure · Engineering
           </p>
         </div>
-        <p className="text-sm text-slate-500">
-          © 2026 LuMa Labs. Building tools that last.
-        </p>
+        <div className="flex flex-col gap-3 text-sm text-slate-500 sm:items-end">
+          <div className="flex gap-5">
+            <Link href="/impressum" className="transition hover:text-[#00D7E6]">
+              Impressum
+            </Link>
+            <Link href="/datenschutz" className="transition hover:text-[#00D7E6]">
+              Datenschutz
+            </Link>
+          </div>
+          <p>© 2026 LuMa Labs. Building tools that last.</p>
+        </div>
       </div>
     </footer>
   );
