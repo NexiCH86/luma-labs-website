@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CARTO_ATTRIBUTION, CARTO_DARK_TILES } from "@/lib/basemap";
 
 type SatCategory = "station" | "navigation" | "constellation" | "weather" | "earth";
 
@@ -570,10 +571,10 @@ export default function SatClientV2() {
                 }).setView([24, 8], 3);
 
                 const primaryTiles = L.tileLayer(
-                    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+                    CARTO_DARK_TILES,
                     {
                         maxZoom: 20,
-                        attribution: "© OpenStreetMap © CARTO",
+                        attribution: CARTO_ATTRIBUTION,
                     }
                 );
 
