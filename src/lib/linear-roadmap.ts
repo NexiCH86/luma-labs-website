@@ -8,9 +8,14 @@
 /*
  * Roadmap-Abschnitt -> Linear-Projekte bzw. -Meilensteine (UUIDs).
  */
-const SOURCES: Record<string, { projects?: string[]; milestones?: string[] }> = {
+/*
+ * countProgress: false, wenn das Linear-Projekt nur grosse Epics enthaelt.
+ * Dann kommen nur die naechsten Schritte aus Linear, der Fortschritt bleibt
+ * von Hand gepflegt.
+ */
+const SOURCES: Record<string, { projects?: string[]; milestones?: string[]; countProgress?: false }> = {
   "roadmap-platform": { projects: ["1d760d64-bf8e-4bf2-875c-4a70bc07380a"] }, // 31 Website & Portal
-  "roadmap-control": { projects: ["903061ea-d269-4647-9ebe-57e3aaec4383"] }, // 30 Control Center & OS
+  "roadmap-control": { projects: ["903061ea-d269-4647-9ebe-57e3aaec4383"], countProgress: false }, // 30 Control Center & OS
   "roadmap-air": { milestones: ["b4c6c0eb-a394-4798-85f5-ec7010c50295"] }, // 29 RADAR · AIR
   "roadmap-sat": { milestones: ["a3ce2d4e-82a7-450e-8b07-ba2b1ca92cfc"] }, // 29 RADAR · SAT
   "roadmap-sky": { milestones: ["e2f26c83-87c5-4457-a726-4b6b7fd5e117"] }, // 29 RADAR · SKY
@@ -41,7 +46,8 @@ type Issue = {
 export type LinearProgress = {
   total: number;
   done: number;
-  progress: number;
+  /** null, wenn der Abschnitt seinen Fortschritt nicht aus Linear zaehlt */
+  progress: number | null;
   next: string[];
 };
 
@@ -111,6 +117,12 @@ export async function loadLinearProgress(): Promise<Record<string, LinearProgres
 
     for (const [section, issues] of Object.entries(issuesBySection)) {
       const relevant = issues.filter((issue) => issue.state.type !== "canceled");
+
+      // Ohne Aufgaben in Linear bleibt der von Hand gepflegte Stand.
+      if (!relevant.length) {
+        continue;
+      }
+
       const done = relevant.filter((issue) => issue.state.type === "completed").length;
       const open = relevant
         .filter((issue) => issue.state.type !== "completed")
@@ -123,7 +135,8 @@ export async function loadLinearProgress(): Promise<Record<string, LinearProgres
       progress[section] = {
         total: relevant.length,
         done,
-        progress: relevant.length ? Math.round((done / relevant.length) * 100) : 0,
+        progress:
+          SOURCES[section].countProgress === false ? null : Math.round((done / relevant.length) * 100),
         next: open.slice(0, 4).map((issue) => issue.title),
       };
     }

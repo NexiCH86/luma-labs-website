@@ -244,7 +244,7 @@ export async function Roadmap() {
 
                 <div className="mt-6">
                   <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-slate-500">
-                    <span>Fortschritt{linear ? ` · ${linear.done} von ${linear.total} Aufgaben erledigt` : ""}</span>
+                    <span>Fortschritt{linear?.progress != null ? ` · ${linear.done} von ${linear.total} Aufgaben erledigt` : ""}</span>
                     <span>{progress}%</span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
