@@ -321,6 +321,60 @@ function isRotorcraft(
     );
 }
 
+/*
+ * IATA-Airline-Code -> ICAO-Codes, erzeugt von
+ * scripts/sync-airline-codes.mjs.
+ */
+let airlineCodes: Promise<Record<string, string[]>> | null = null;
+
+function loadAirlineCodes() {
+    airlineCodes ??= fetch(
+        "/data/airlines/iata-icao.json"
+    )
+        .then((response) =>
+            response.ok ? response.json() : {}
+        )
+        .catch(() => ({}));
+
+    return airlineCodes;
+}
+
+/*
+ * Flugnummer wie auf dem Ticket: "LX 3155", "LX3155", "U2 1234",
+ * "LX 0012" (fuehrende Nullen fallen im Rufzeichen weg).
+ */
+const FLIGHT_NUMBER =
+    /^([A-Z0-9]{2})\s*0*(\d{1,4})([A-Z]?)$/;
+
+async function flightNumberCallsigns(
+    query: string
+) {
+    const match =
+        query.match(FLIGHT_NUMBER);
+
+    if (!match) {
+        return null;
+    }
+
+    const [, iata, number, suffix] =
+        match;
+
+    const icaoCodes =
+        (await loadAirlineCodes())[iata] ?? [];
+
+    if (!icaoCodes.length) {
+        return null;
+    }
+
+    return {
+        flight: `${iata} ${number}${suffix}`,
+        callsigns: icaoCodes.map(
+            (icao) =>
+                `${icao}${number}${suffix}`
+        ),
+    };
+}
+
 function getHelicopterSvg(
     color: string
 ) {
@@ -1723,7 +1777,7 @@ export default function RadarClient() {
             );
     }
 
-    function searchAircraft() {
+    async function searchAircraft() {
         const query =
             search
                 .trim()
@@ -1737,33 +1791,76 @@ export default function RadarClient() {
             return;
         }
 
-        const aircraft =
+        const compact =
+            query.replace(
+                /\s+/g,
+                ""
+            );
+
+        const all =
             Object.values(
                 aircraftData.current
-            ).find(
-                (item) => {
-                    const callsign =
-                        item.callsign
-                            ?.trim()
-                            .toUpperCase();
+            );
 
-                    const icao =
-                        item.icao24
-                            .toUpperCase();
+        const byCallsign = (
+            callsign: string
+        ) =>
+            all.find(
+                (item) =>
+                    item.callsign
+                        ?.trim()
+                        .toUpperCase() ===
+                    callsign
+            );
 
-                    return (
-                        callsign ===
-                        query ||
-                        callsign?.includes(
-                            query
-                        ) ||
-                        icao ===
-                        query ||
-                        icao.includes(
-                            query
-                        )
+        let aircraft =
+            byCallsign(compact) ??
+            all.find(
+                (item) =>
+                    item.icao24.toUpperCase() ===
+                    compact
+            );
+
+        if (!aircraft) {
+            /*
+             * Flugnummer vom Ticket ("LX 3155") in das
+             * Funk-Rufzeichen umrechnen ("SWR3155").
+             */
+            const flight =
+                await flightNumberCallsigns(
+                    query
+                );
+
+            if (flight) {
+                aircraft =
+                    flight.callsigns
+                        .map(byCallsign)
+                        .find(Boolean);
+
+                if (!aircraft) {
+                    setSearchError(
+                        `FLIGHT ${flight.flight} (${flight.callsigns.join(" / ")}) NOT IN RADAR RANGE`
                     );
+
+                    return;
                 }
+            }
+        }
+
+        aircraft ??=
+            all.find(
+                (item) =>
+                    item.callsign
+                        ?.trim()
+                        .toUpperCase()
+                        .includes(
+                            compact
+                        ) ||
+                    item.icao24
+                        .toUpperCase()
+                        .includes(
+                            compact
+                        )
             );
 
         if (!aircraft) {
@@ -1848,15 +1945,15 @@ export default function RadarClient() {
                                     event.key ===
                                     "Enter"
                                 ) {
-                                    searchAircraft();
+                                    void searchAircraft();
                                 }
                             }}
-                            placeholder="Callsign / ICAO suchen..."
+                            placeholder="Flug (LX 3155), Callsign oder ICAO suchen..."
                         />
 
                         <button
-                            onClick={
-                                searchAircraft
+                            onClick={() =>
+                                void searchAircraft()
                             }
                         >
                             SEARCH

@@ -1,15 +1,41 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { gzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 
+/*
+ * Aufruf:
+ *
+ *   node scripts/sync-opensky-aircraft.mjs [zielverzeichnis]
+ *       Build: Daten aus dem GitHub-Release holen, sonst direkt von
+ *       OpenSky. Schlaegt beides fehl, nur eine Warnung (Build laeuft
+ *       weiter, Airframe-Abfragen liefern dann "nicht gefunden").
+ *
+ *   node scripts/sync-opensky-aircraft.mjs --bundle <datei.json.gz>
+ *       Lokal: Daten von OpenSky laden und zusaetzlich als eine Datei
+ *       fuer das GitHub-Release "opensky-aircraft-data" schreiben.
+ *
+ * Hintergrund: Vercel-Build-Server erreichen s3.opensky-network.org
+ * nicht (Verbindungs-Timeout).
+ */
 const SOURCE_URL =
     "https://s3.opensky-network.org/data-samples/metadata/aircraftDatabase.csv";
 
-/*
- * Optionales Argument: anderes Zielverzeichnis (z. B. zum Testen).
- */
+const BUNDLE_URL =
+    process.env.OPENSKY_AIRCRAFT_BUNDLE_URL ??
+    "https://github.com/NexiCH86/luma-labs-website/releases/download/opensky-aircraft-data/opensky-aircraft.json.gz";
+
+const args = process.argv.slice(2);
+const bundleFlag = args.indexOf("--bundle");
+const BUNDLE_FILE =
+    bundleFlag >= 0 ? args[bundleFlag + 1] : null;
+const positional = args.filter(
+    (_, index) =>
+        bundleFlag < 0 ||
+        (index !== bundleFlag && index !== bundleFlag + 1)
+);
+
 const OUTPUT_DIR =
-    process.argv[2] ??
+    positional[0] ??
     path.join(
         process.cwd(),
         "public",
@@ -124,7 +150,7 @@ function compactRecord(fields, index) {
     );
 }
 
-async function main() {
+async function loadFromCsv() {
     console.log("Downloading OpenSky aircraft metadata...");
 
     const response = await fetch(SOURCE_URL);
@@ -134,14 +160,6 @@ async function main() {
             `OpenSky download failed: ${response.status} ${response.statusText}`
         );
     }
-
-    await rm(OUTPUT_DIR, {
-        recursive: true,
-        force: true,
-    });
-    await mkdir(OUTPUT_DIR, {
-        recursive: true,
-    });
 
     const shards = new Map();
     const rotorcraft = Object.fromEntries(
@@ -255,6 +273,67 @@ async function main() {
     record += buffer;
     processRecord(record);
 
+    return {
+        source: SOURCE_URL,
+        count,
+        shards,
+        rotorcraft,
+    };
+}
+
+async function loadFromBundle() {
+    console.log("Downloading OpenSky aircraft bundle from GitHub release...");
+
+    const response = await fetch(BUNDLE_URL, {
+        signal: AbortSignal.timeout(120_000),
+    });
+
+    if (!response.ok) {
+        throw new Error(
+            `Bundle download failed: ${response.status} ${response.statusText}`
+        );
+    }
+
+    const bundle = JSON.parse(
+        gunzipSync(
+            Buffer.from(await response.arrayBuffer())
+        ).toString("utf8")
+    );
+
+    return {
+        source: bundle.source ?? BUNDLE_URL,
+        count: bundle.count,
+        shards: new Map(Object.entries(bundle.shards)),
+        rotorcraft: bundle.rotorcraft,
+    };
+}
+
+async function writeBundle({ source, count, shards, rotorcraft }) {
+    await writeFile(
+        BUNDLE_FILE,
+        gzipSync(
+            JSON.stringify({
+                source,
+                generatedAt: new Date().toISOString(),
+                count,
+                rotorcraft,
+                shards: Object.fromEntries(shards),
+            })
+        )
+    );
+
+    console.log(`Bundle written: ${BUNDLE_FILE}`);
+}
+
+async function writeOutput({ source, count, shards, rotorcraft }) {
+    await rm(OUTPUT_DIR, {
+        recursive: true,
+        force: true,
+    });
+    await mkdir(OUTPUT_DIR, {
+        recursive: true,
+    });
+
     const writes = [];
 
     /*
@@ -294,7 +373,7 @@ async function main() {
             ),
             JSON.stringify(
                 {
-                    source: SOURCE_URL,
+                    source,
                     generatedAt:
                         new Date().toISOString(),
                     records: count,
@@ -319,6 +398,30 @@ async function main() {
 
     console.log(
         `OpenSky metadata ready: ${count.toLocaleString("en-US")} aircraft in ${shards.size} shards.`
+    );
+}
+
+async function main() {
+    if (BUNDLE_FILE) {
+        const data = await loadFromCsv();
+        await writeOutput(data);
+        await writeBundle(data);
+        return;
+    }
+
+    for (const load of [loadFromBundle, loadFromCsv]) {
+        try {
+            await writeOutput(await load());
+            return;
+        } catch (error) {
+            console.warn(
+                `OpenSky metadata source failed: ${error instanceof Error ? error.message : error}`
+            );
+        }
+    }
+
+    console.warn(
+        "OpenSky metadata unavailable. Build continues; airframe lookups will report not found."
     );
 }
 
