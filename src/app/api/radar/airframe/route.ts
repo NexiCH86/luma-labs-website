@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { gunzipSync } from "node:zlib";
 
 type OpenSkyRecord = {
     registration?: string | null;
@@ -24,6 +25,83 @@ type OpenSkyRecord = {
     engines?: string | null;
     categoryDescription?: string | null;
 };
+
+type Shard = Record<string, OpenSkyRecord>;
+
+/*
+ * Stammdaten aendern sich nur mit einem neuen Build.
+ */
+const AIRFRAME_CACHE =
+    "public, max-age=3600, s-maxage=86400";
+
+/*
+ * Entpackte Shards pro Function-Instanz. Im Schweizer
+ * Ausschnitt kommen nur wenige Praefixe vor.
+ */
+const MAX_CACHED_SHARDS = 24;
+const shardCache = new Map<string, Shard | null>();
+
+async function loadShard(
+    prefix: string
+): Promise<Shard | null> {
+    if (shardCache.has(prefix)) {
+        const cached = shardCache.get(prefix) ?? null;
+
+        // Als zuletzt benutzt markieren.
+        shardCache.delete(prefix);
+        shardCache.set(prefix, cached);
+
+        return cached;
+    }
+
+    const filePath = path.join(
+        process.cwd(),
+        "public",
+        "data",
+        "opensky-aircraft",
+        `${prefix}.json.gz`
+    );
+
+    let shard: Shard | null;
+
+    try {
+        shard = JSON.parse(
+            gunzipSync(
+                await readFile(filePath)
+            ).toString("utf8")
+        ) as Shard;
+    } catch (error) {
+        const code =
+            error &&
+            typeof error === "object" &&
+            "code" in error
+                ? String(error.code)
+                : "";
+
+        if (code !== "ENOENT") {
+            throw error;
+        }
+
+        /*
+         * Fuer diesen Praefix gibt es keine Flugzeuge in der
+         * OpenSky-Datenbank.
+         */
+        shard = null;
+    }
+
+    shardCache.set(prefix, shard);
+
+    if (shardCache.size > MAX_CACHED_SHARDS) {
+        const oldest =
+            shardCache.keys().next().value;
+
+        if (oldest !== undefined) {
+            shardCache.delete(oldest);
+        }
+    }
+
+    return shard;
+}
 
 function yearFromDate(value?: string | null) {
     if (!value) return null;
@@ -57,69 +135,54 @@ export async function GET(
     const suffix = icao24.slice(2);
 
     try {
-        const filePath = path.join(
-            process.cwd(),
-            "public",
-            "data",
-            "opensky-aircraft",
-            `${prefix}.json`
-        );
+        const shard =
+            await loadShard(prefix);
 
-        const raw = await readFile(
-            filePath,
-            "utf8"
-        );
-
-        const shard = JSON.parse(raw) as Record<
-            string,
-            OpenSkyRecord
-        >;
-
-        const record = shard[suffix];
+        const record =
+            shard?.[suffix];
 
         if (!record) {
-            return NextResponse.json({
-                found: false,
-                icao24,
-                source: "OpenSky",
-            });
+            return NextResponse.json(
+                {
+                    found: false,
+                    icao24,
+                    source: "OpenSky",
+                },
+                {
+                    headers: {
+                        "Cache-Control":
+                            AIRFRAME_CACHE,
+                    },
+                }
+            );
         }
 
         const yearBuilt =
             yearFromDate(record.built);
 
-        return NextResponse.json({
-            found: true,
-            icao24,
-            source: "OpenSky",
-            ...record,
-            yearBuilt,
-            ageYears:
-                yearBuilt != null
-                    ? Math.max(
-                        0,
-                        new Date().getFullYear() - yearBuilt
-                    )
-                    : null,
-        });
-    } catch (error) {
-        const code =
-            error &&
-            typeof error === "object" &&
-            "code" in error
-                ? String(error.code)
-                : "";
-
-        if (code === "ENOENT") {
-            return NextResponse.json({
-                found: false,
+        return NextResponse.json(
+            {
+                found: true,
                 icao24,
                 source: "OpenSky",
-                reason:
-                    "OpenSky metadata not synced",
-            });
-        }
-
+                ...record,
+                yearBuilt,
+                ageYears:
+                    yearBuilt != null
+                        ? Math.max(
+                            0,
+                            new Date().getFullYear() - yearBuilt
+                        )
+                        : null,
+            },
+            {
+                headers: {
+                    "Cache-Control":
+                        AIRFRAME_CACHE,
+                },
+            }
+        );
+    } catch (error) {
         console.error(
             "OpenSky airframe lookup error:",
             error

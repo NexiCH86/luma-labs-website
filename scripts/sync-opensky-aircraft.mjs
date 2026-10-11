@@ -1,15 +1,54 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { gunzipSync, gzipSync } from "node:zlib";
 
+/*
+ * Aufruf:
+ *
+ *   node scripts/sync-opensky-aircraft.mjs [zielverzeichnis]
+ *       Build: Daten aus dem GitHub-Release holen, sonst direkt von
+ *       OpenSky. Schlaegt beides fehl, nur eine Warnung (Build laeuft
+ *       weiter, Airframe-Abfragen liefern dann "nicht gefunden").
+ *
+ *   node scripts/sync-opensky-aircraft.mjs --bundle <datei.json.gz>
+ *       Lokal: Daten von OpenSky laden und zusaetzlich als eine Datei
+ *       fuer das GitHub-Release "opensky-aircraft-data" schreiben.
+ *
+ * Hintergrund: Vercel-Build-Server erreichen s3.opensky-network.org
+ * nicht (Verbindungs-Timeout).
+ */
 const SOURCE_URL =
     "https://s3.opensky-network.org/data-samples/metadata/aircraftDatabase.csv";
 
-const OUTPUT_DIR = path.join(
-    process.cwd(),
-    "public",
-    "data",
-    "opensky-aircraft"
+const BUNDLE_URL =
+    process.env.OPENSKY_AIRCRAFT_BUNDLE_URL ??
+    "https://github.com/NexiCH86/luma-labs-website/releases/download/opensky-aircraft-data/opensky-aircraft.json.gz";
+
+const args = process.argv.slice(2);
+const bundleFlag = args.indexOf("--bundle");
+const BUNDLE_FILE =
+    bundleFlag >= 0 ? args[bundleFlag + 1] : null;
+const positional = args.filter(
+    (_, index) =>
+        bundleFlag < 0 ||
+        (index !== bundleFlag && index !== bundleFlag + 1)
 );
+
+const OUTPUT_DIR =
+    positional[0] ??
+    path.join(
+        process.cwd(),
+        "public",
+        "data",
+        "opensky-aircraft"
+    );
+
+/*
+ * ICAO-Luftfahrzeugklasse (erster Buchstabe von icaoAircraftType):
+ * H = Helikopter, G = Tragschrauber, T = Kipprotor.
+ * Diese Liste laedt die Radar-Karte fuer eigene Symbole.
+ */
+const ROTORCRAFT_CLASSES = ["H", "G", "T"];
 
 const wantedColumns = [
     "icao24",
@@ -77,7 +116,11 @@ function compactRecord(fields, index) {
             ? null
             : clean(fields[index[name]]);
 
-    return {
+    /*
+     * Leere Felder weglassen: halbiert die Datenmenge. Die
+     * Airframe-API liefert fehlende Felder als undefined.
+     */
+    const record = {
         registration: get("registration"),
         manufacturer: get("manufacturername"),
         model: get("model"),
@@ -99,9 +142,15 @@ function compactRecord(fields, index) {
         engines: get("engines"),
         categoryDescription: get("categoryDescription"),
     };
+
+    return Object.fromEntries(
+        Object.entries(record).filter(
+            ([, value]) => value != null
+        )
+    );
 }
 
-async function main() {
+async function loadFromCsv() {
     console.log("Downloading OpenSky aircraft metadata...");
 
     const response = await fetch(SOURCE_URL);
@@ -112,15 +161,13 @@ async function main() {
         );
     }
 
-    await rm(OUTPUT_DIR, {
-        recursive: true,
-        force: true,
-    });
-    await mkdir(OUTPUT_DIR, {
-        recursive: true,
-    });
-
     const shards = new Map();
+    const rotorcraft = Object.fromEntries(
+        ROTORCRAFT_CLASSES.map((kind) => [
+            kind,
+            [],
+        ])
+    );
     const decoder = new TextDecoder();
     let buffer = "";
     let record = "";
@@ -157,6 +204,20 @@ async function main() {
             return;
         }
 
+        const compact = compactRecord(
+            fields,
+            headerIndex
+        );
+
+        if (
+            !compact.registration &&
+            !compact.typeCode &&
+            !compact.model &&
+            !compact.icaoAircraftType
+        ) {
+            return;
+        }
+
         const prefix = icao24.slice(0, 2);
         const suffix = icao24.slice(2);
         let shard = shards.get(prefix);
@@ -166,10 +227,15 @@ async function main() {
             shards.set(prefix, shard);
         }
 
-        shard[suffix] = compactRecord(
-            fields,
-            headerIndex
-        );
+        shard[suffix] = compact;
+
+        const kind =
+            compact.icaoAircraftType?.[0];
+
+        if (rotorcraft[kind]) {
+            rotorcraft[kind].push(icao24);
+        }
+
         count++;
     }
 
@@ -207,20 +273,97 @@ async function main() {
     record += buffer;
     processRecord(record);
 
+    return {
+        source: SOURCE_URL,
+        count,
+        shards,
+        rotorcraft,
+    };
+}
+
+async function loadFromBundle() {
+    console.log("Downloading OpenSky aircraft bundle from GitHub release...");
+
+    const response = await fetch(BUNDLE_URL, {
+        signal: AbortSignal.timeout(120_000),
+    });
+
+    if (!response.ok) {
+        throw new Error(
+            `Bundle download failed: ${response.status} ${response.statusText}`
+        );
+    }
+
+    const bundle = JSON.parse(
+        gunzipSync(
+            Buffer.from(await response.arrayBuffer())
+        ).toString("utf8")
+    );
+
+    return {
+        source: bundle.source ?? BUNDLE_URL,
+        count: bundle.count,
+        shards: new Map(Object.entries(bundle.shards)),
+        rotorcraft: bundle.rotorcraft,
+    };
+}
+
+async function writeBundle({ source, count, shards, rotorcraft }) {
+    await writeFile(
+        BUNDLE_FILE,
+        gzipSync(
+            JSON.stringify({
+                source,
+                generatedAt: new Date().toISOString(),
+                count,
+                rotorcraft,
+                shards: Object.fromEntries(shards),
+            })
+        )
+    );
+
+    console.log(`Bundle written: ${BUNDLE_FILE}`);
+}
+
+async function writeOutput({ source, count, shards, rotorcraft }) {
+    await rm(OUTPUT_DIR, {
+        recursive: true,
+        force: true,
+    });
+    await mkdir(OUTPUT_DIR, {
+        recursive: true,
+    });
+
     const writes = [];
 
+    /*
+     * gzip: ~19 MB statt ~108 MB, damit die Daten in das
+     * Bundle der Airframe-Function passen.
+     */
     for (const [prefix, shard] of shards) {
         writes.push(
             writeFile(
                 path.join(
                     OUTPUT_DIR,
-                    `${prefix}.json`
+                    `${prefix}.json.gz`
                 ),
-                JSON.stringify(shard),
-                "utf8"
+                gzipSync(
+                    JSON.stringify(shard)
+                )
             )
         );
     }
+
+    writes.push(
+        writeFile(
+            path.join(
+                OUTPUT_DIR,
+                "rotorcraft.json"
+            ),
+            JSON.stringify(rotorcraft),
+            "utf8"
+        )
+    );
 
     writes.push(
         writeFile(
@@ -230,11 +373,19 @@ async function main() {
             ),
             JSON.stringify(
                 {
-                    source: SOURCE_URL,
+                    source,
                     generatedAt:
                         new Date().toISOString(),
                     records: count,
                     shards: shards.size,
+                    rotorcraft: Object.fromEntries(
+                        Object.entries(rotorcraft).map(
+                            ([kind, list]) => [
+                                kind,
+                                list.length,
+                            ]
+                        )
+                    ),
                 },
                 null,
                 2
@@ -247,6 +398,30 @@ async function main() {
 
     console.log(
         `OpenSky metadata ready: ${count.toLocaleString("en-US")} aircraft in ${shards.size} shards.`
+    );
+}
+
+async function main() {
+    if (BUNDLE_FILE) {
+        const data = await loadFromCsv();
+        await writeOutput(data);
+        await writeBundle(data);
+        return;
+    }
+
+    for (const load of [loadFromBundle, loadFromCsv]) {
+        try {
+            await writeOutput(await load());
+            return;
+        } catch (error) {
+            console.warn(
+                `OpenSky metadata source failed: ${error instanceof Error ? error.message : error}`
+            );
+        }
+    }
+
+    console.warn(
+        "OpenSky metadata unavailable. Build continues; airframe lookups will report not found."
     );
 }
 
