@@ -18,12 +18,17 @@ type PhaseFilter = "ALL" | "CLIMB" | "CRUISE" | "DESCENT" | "APPROACH" | "GROUND
 type AltitudeFilter = "ALL" | "LOW" | "MID" | "HIGH" | "VERY_HIGH";
 type CategoryFilter = "ALL" | "PASSENGER" | "CARGO" | "HELICOPTER" | "MILITARY" | "PRIVATE";
 
+type AirportFilter = { code: string; name: string; latitude: number; longitude: number };
+type AirportLookup = "IDLE" | "LOADING" | "FOUND" | "NOT_FOUND";
+
 type FilterState = {
     airline: string;
     status: StatusFilter;
     phase: PhaseFilter;
     altitude: AltitudeFilter;
     category: CategoryFilter;
+    airport: AirportFilter | null;
+    radiusKm: number;
 };
 
 type AirframeMeta = {
@@ -36,7 +41,7 @@ type AirframeMeta = {
 
 declare global { interface Window { __lumaRadarMap?: any; } }
 
-const DEFAULT_FILTERS: FilterState = { airline: "", status: "ALL", phase: "ALL", altitude: "ALL", category: "ALL" };
+const DEFAULT_FILTERS: FilterState = { airline: "", status: "ALL", phase: "ALL", altitude: "ALL", category: "ALL", airport: null, radiusKm: 25 };
 const metaCache = new Map<string, AirframeMeta | null>();
 
 export default function AirFilters() {
@@ -46,18 +51,44 @@ export default function AirFilters() {
     const [phase, setPhase] = useState<PhaseFilter>("ALL");
     const [altitude, setAltitude] = useState<AltitudeFilter>("ALL");
     const [category, setCategory] = useState<CategoryFilter>("ALL");
+    const [airportCode, setAirportCode] = useState("");
+    const [airport, setAirport] = useState<AirportFilter | null>(null);
+    const [airportLookup, setAirportLookup] = useState<AirportLookup>("IDLE");
+    const [radiusKm, setRadiusKm] = useState(25);
     const [visibleCount, setVisibleCount] = useState(0);
     const [totalCount, setTotalCount] = useState(0);
     const aircraftRef = useRef<Aircraft[]>([]);
     const filtersRef = useRef<FilterState>(DEFAULT_FILTERS);
+    const airportTimer = useRef<number | null>(null);
+    const airportLookupId = useRef(0);
 
-    const filtersActive = useMemo(() => airline.trim() !== "" || status !== "ALL" || phase !== "ALL" || altitude !== "ALL" || category !== "ALL", [airline, status, phase, altitude, category]);
+    const filtersActive = useMemo(() => airline.trim() !== "" || status !== "ALL" || phase !== "ALL" || altitude !== "ALL" || category !== "ALL" || airport !== null, [airline, status, phase, altitude, category, airport]);
 
     useEffect(() => {
-        filtersRef.current = { airline, status, phase, altitude, category };
+        filtersRef.current = { airline, status, phase, altitude, category, airport, radiusKm };
         if (category !== "ALL") void warmCategoryMetadata(aircraftRef.current).then(applyFilters);
         applyFilters();
-    }, [airline, status, phase, altitude, category]);
+    }, [airline, status, phase, altitude, category, airport, radiusKm]);
+
+    function changeAirportCode(value: string) {
+        const code = value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+        setAirportCode(code);
+        if (airportTimer.current) window.clearTimeout(airportTimer.current);
+        const lookup = ++airportLookupId.current;
+        if (code.length < 3) { setAirport(null); setAirportLookup("IDLE"); return; }
+        setAirportLookup("LOADING");
+        airportTimer.current = window.setTimeout(async () => {
+            try {
+                const response = await fetch(`/api/radar/airport?code=${encodeURIComponent(code)}`);
+                const data = response.ok ? await response.json() : null;
+                if (lookup !== airportLookupId.current) return;
+                if (data?.found && Number.isFinite(data.latitude) && Number.isFinite(data.longitude)) {
+                    setAirport({ code: data.icao ?? data.ident ?? code, name: data.name ?? code, latitude: data.latitude, longitude: data.longitude });
+                    setAirportLookup("FOUND");
+                } else { setAirport(null); setAirportLookup("NOT_FOUND"); }
+            } catch { if (lookup === airportLookupId.current) { setAirport(null); setAirportLookup("NOT_FOUND"); } }
+        }, 450);
+    }
 
     useEffect(() => {
         let active = true;
@@ -92,7 +123,7 @@ export default function AirFilters() {
         if (!map) return;
         const snapshot = aircraftRef.current;
         const current = filtersRef.current;
-        const activeFilters = current.airline.trim() !== "" || current.status !== "ALL" || current.phase !== "ALL" || current.altitude !== "ALL" || current.category !== "ALL";
+        const activeFilters = current.airline.trim() !== "" || current.status !== "ALL" || current.phase !== "ALL" || current.altitude !== "ALL" || current.category !== "ALL" || current.airport !== null;
         let shown = 0;
 
         map.eachLayer((layer: any) => {
@@ -111,7 +142,7 @@ export default function AirFilters() {
 
     function resetFilters() {
         filtersRef.current = DEFAULT_FILTERS;
-        setAirline(""); setStatus("ALL"); setPhase("ALL"); setAltitude("ALL"); setCategory("ALL");
+        setAirline(""); setStatus("ALL"); setPhase("ALL"); setAltitude("ALL"); setCategory("ALL"); changeAirportCode(""); setRadiusKm(25);
         window.setTimeout(applyFilters, 0);
     }
 
@@ -124,6 +155,11 @@ export default function AirFilters() {
                         <div style={counterStyle}><span>VISIBLE</span><strong>{filtersActive ? visibleCount : totalCount}</strong><small>of {totalCount} tracked</small></div>
                         <label style={labelStyle}>AIRLINE / CALLSIGN PREFIX</label>
                         <input value={airline} onChange={(event) => setAirline(event.target.value.toUpperCase())} placeholder="SWR / SWISS / DLH / UAE..." style={inputStyle} />
+                        <div style={gridStyle}>
+                            <div style={{ minWidth: 0 }}><label style={labelStyle}>AIRPORT (ICAO / IATA)</label><input value={airportCode} onChange={(event) => changeAirportCode(event.target.value)} placeholder="LSZH / ZRH" style={inputStyle} /></div>
+                            <FilterSelect label="RADIUS" value={String(radiusKm)} onChange={(value) => setRadiusKm(Number(value))} options={[["10","10 km"],["25","25 km"],["50","50 km"],["100","100 km"]]} />
+                        </div>
+                        {airportLookup !== "IDLE" && <p style={categoryHintStyle}>{airportLookup === "LOADING" ? "Searching airport…" : airportLookup === "FOUND" && airport ? `${airport.code} · ${airport.name} · within ${radiusKm} km` : "Airport not found."}</p>}
                         <div style={gridStyle}>
                             <FilterSelect label="STATUS" value={status} onChange={(value) => setStatus(value as StatusFilter)} options={[["ALL","All"],["AIRBORNE","Airborne"],["GROUND","Ground"]]} />
                             <FilterSelect label="PHASE" value={phase} onChange={(value) => setPhase(value as PhaseFilter)} options={[["ALL","All phases"],["CLIMB","Climb"],["CRUISE","Cruise"],["DESCENT","Descent"],["APPROACH","Approach"],["GROUND","Ground"]]} />
@@ -174,7 +210,14 @@ function matchesAircraft(aircraft: Aircraft, filters: FilterState) {
     if (!matchesAltitude(altitudeFt, filters.altitude)) return false;
     if (filters.phase !== "ALL" && flightPhase(aircraft) !== filters.phase) return false;
     if (filters.category !== "ALL" && !matchesCategory(aircraft, filters.category)) return false;
+    if (filters.airport && distanceKm(aircraft.latitude, aircraft.longitude, filters.airport.latitude, filters.airport.longitude) > filters.radiusKm) return false;
     return true;
+}
+
+function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const rad = Math.PI / 180;
+    const a = Math.sin(((lat2 - lat1) * rad) / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(((lon2 - lon1) * rad) / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function matchesCategory(aircraft: Aircraft, category: CategoryFilter) {
@@ -183,7 +226,7 @@ function matchesCategory(aircraft: Aircraft, category: CategoryFilter) {
     if (!meta) return false;
     const text = [meta.categoryDescription, meta.operator, meta.owner, meta.model, meta.icaoAircraftType].filter(Boolean).join(" ").toUpperCase();
     const callsign = aircraft.callsign?.toUpperCase() ?? "";
-    if (category === "HELICOPTER") return /HELICOPTER|ROTORCRAFT|ROTOR|HELI/.test(text);
+    if (category === "HELICOPTER") return /^[HGT]/.test(meta.icaoAircraftType ?? "") || /HELICOPTER|ROTORCRAFT|ROTOR|HELI/.test(text);
     if (category === "MILITARY") return /MILITARY|AIR FORCE|ARMY|NAVY|GOVERNMENT/.test(text);
     if (category === "CARGO") return /CARGO|FREIGHT|EXPRESS|FEDEX|UPS|DHL/.test(`${text} ${callsign}`);
     if (category === "PRIVATE") return /PRIVATE|BUSINESS|CORPORATE|EXECUTIVE|JET/.test(text) && !/AIRLINES|AIRWAYS|CARGO/.test(text);

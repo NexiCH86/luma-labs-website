@@ -1,15 +1,28 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { gzipSync } from "node:zlib";
 
 const SOURCE_URL =
     "https://s3.opensky-network.org/data-samples/metadata/aircraftDatabase.csv";
 
-const OUTPUT_DIR = path.join(
-    process.cwd(),
-    "public",
-    "data",
-    "opensky-aircraft"
-);
+/*
+ * Optionales Argument: anderes Zielverzeichnis (z. B. zum Testen).
+ */
+const OUTPUT_DIR =
+    process.argv[2] ??
+    path.join(
+        process.cwd(),
+        "public",
+        "data",
+        "opensky-aircraft"
+    );
+
+/*
+ * ICAO-Luftfahrzeugklasse (erster Buchstabe von icaoAircraftType):
+ * H = Helikopter, G = Tragschrauber, T = Kipprotor.
+ * Diese Liste laedt die Radar-Karte fuer eigene Symbole.
+ */
+const ROTORCRAFT_CLASSES = ["H", "G", "T"];
 
 const wantedColumns = [
     "icao24",
@@ -77,7 +90,11 @@ function compactRecord(fields, index) {
             ? null
             : clean(fields[index[name]]);
 
-    return {
+    /*
+     * Leere Felder weglassen: halbiert die Datenmenge. Die
+     * Airframe-API liefert fehlende Felder als undefined.
+     */
+    const record = {
         registration: get("registration"),
         manufacturer: get("manufacturername"),
         model: get("model"),
@@ -99,6 +116,12 @@ function compactRecord(fields, index) {
         engines: get("engines"),
         categoryDescription: get("categoryDescription"),
     };
+
+    return Object.fromEntries(
+        Object.entries(record).filter(
+            ([, value]) => value != null
+        )
+    );
 }
 
 async function main() {
@@ -121,6 +144,12 @@ async function main() {
     });
 
     const shards = new Map();
+    const rotorcraft = Object.fromEntries(
+        ROTORCRAFT_CLASSES.map((kind) => [
+            kind,
+            [],
+        ])
+    );
     const decoder = new TextDecoder();
     let buffer = "";
     let record = "";
@@ -157,6 +186,20 @@ async function main() {
             return;
         }
 
+        const compact = compactRecord(
+            fields,
+            headerIndex
+        );
+
+        if (
+            !compact.registration &&
+            !compact.typeCode &&
+            !compact.model &&
+            !compact.icaoAircraftType
+        ) {
+            return;
+        }
+
         const prefix = icao24.slice(0, 2);
         const suffix = icao24.slice(2);
         let shard = shards.get(prefix);
@@ -166,10 +209,15 @@ async function main() {
             shards.set(prefix, shard);
         }
 
-        shard[suffix] = compactRecord(
-            fields,
-            headerIndex
-        );
+        shard[suffix] = compact;
+
+        const kind =
+            compact.icaoAircraftType?.[0];
+
+        if (rotorcraft[kind]) {
+            rotorcraft[kind].push(icao24);
+        }
+
         count++;
     }
 
@@ -209,18 +257,34 @@ async function main() {
 
     const writes = [];
 
+    /*
+     * gzip: ~19 MB statt ~108 MB, damit die Daten in das
+     * Bundle der Airframe-Function passen.
+     */
     for (const [prefix, shard] of shards) {
         writes.push(
             writeFile(
                 path.join(
                     OUTPUT_DIR,
-                    `${prefix}.json`
+                    `${prefix}.json.gz`
                 ),
-                JSON.stringify(shard),
-                "utf8"
+                gzipSync(
+                    JSON.stringify(shard)
+                )
             )
         );
     }
+
+    writes.push(
+        writeFile(
+            path.join(
+                OUTPUT_DIR,
+                "rotorcraft.json"
+            ),
+            JSON.stringify(rotorcraft),
+            "utf8"
+        )
+    );
 
     writes.push(
         writeFile(
@@ -235,6 +299,14 @@ async function main() {
                         new Date().toISOString(),
                     records: count,
                     shards: shards.size,
+                    rotorcraft: Object.fromEntries(
+                        Object.entries(rotorcraft).map(
+                            ([kind, list]) => [
+                                kind,
+                                list.length,
+                            ]
+                        )
+                    ),
                 },
                 null,
                 2

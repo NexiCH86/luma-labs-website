@@ -271,11 +271,99 @@ function distanceKm(
     );
 }
 
+/*
+ * icao24 aller Helikopter (H), Tragschrauber (G) und Kipprotoren (T)
+ * aus der OpenSky-Datenbank, erzeugt von
+ * scripts/sync-opensky-aircraft.mjs.
+ */
+let rotorcraft: Set<string> | null = null;
+
+async function loadRotorcraft() {
+    if (rotorcraft) {
+        return;
+    }
+
+    try {
+        const response =
+            await fetch(
+                "/data/opensky-aircraft/rotorcraft.json"
+            );
+
+        if (!response.ok) {
+            return;
+        }
+
+        const data =
+            (await response.json()) as Record<
+                string,
+                string[]
+            >;
+
+        rotorcraft = new Set(
+            Object.values(data).flat()
+        );
+    } catch {
+        // Ohne Liste werden alle als Flugzeuge gezeichnet.
+    }
+}
+
+function isRotorcraft(
+    icao24: string
+) {
+    return (
+        rotorcraft?.has(
+            icao24.toLowerCase()
+        ) ?? false
+    );
+}
+
+function getHelicopterSvg(
+    color: string
+) {
+    return `
+            <svg
+                width="30"
+                height="30"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+            >
+                <circle cx="12" cy="10" r="8.5" fill="none" stroke="${color}" stroke-width="0.8" opacity="0.45" />
+                <path d="M4 10 L20 10 M12 2 L12 18" stroke="${color}" stroke-width="1.4" stroke-linecap="round" />
+                <ellipse cx="12" cy="11" rx="3" ry="4.5" fill="${color}" />
+                <rect x="11.3" y="15" width="1.4" height="6" fill="${color}" />
+                <path d="M9.5 21 L14.5 21" stroke="${color}" stroke-width="1.4" stroke-linecap="round" />
+            </svg>
+    `;
+}
+
 function getPlaneSvg(
     color: string,
     heading: number,
-    selected: boolean
+    selected: boolean,
+    rotor = false
 ) {
+    if (rotor) {
+        return `
+        <div
+            class="plane-marker plane-marker-rotor ${selected
+            ? "plane-marker-selected"
+            : ""
+        }"
+            style="
+                transform: rotate(${heading}deg);
+                filter: drop-shadow(
+                    0 0 ${selected
+            ? "10px"
+            : "4px"
+        } ${color}
+                );
+            "
+        >
+            ${getHelicopterSvg(color)}
+        </div>
+    `;
+    }
+
     return `
         <div
             class="plane-marker ${selected
@@ -554,7 +642,9 @@ export default function RadarClient() {
     }, []);
 
     useEffect(() => {
-        loadAircraft();
+        void loadRotorcraft().then(
+            loadAircraft
+        );
 
         const timer =
             setInterval(
@@ -659,7 +749,10 @@ export default function RadarClient() {
                                 color,
                                 aircraft.heading ??
                                 0,
-                                selectedNow
+                                selectedNow,
+                                isRotorcraft(
+                                    aircraft.icao24
+                                )
                             ),
 
                         iconSize: [
@@ -1318,7 +1411,10 @@ export default function RadarClient() {
                                 color,
                                 aircraft.heading ??
                                 0,
-                                selectedNow
+                                selectedNow,
+                                isRotorcraft(
+                                    icao
+                                )
                             ),
 
                         iconSize: [
