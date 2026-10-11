@@ -121,7 +121,8 @@ export default function AirFilters() {
     function applyFilters() {
         const map = window.__lumaRadarMap;
         if (!map) return;
-        const snapshot = aircraftRef.current;
+        // Inklusive weltweiter Flugzeuge aus /api/radar/area (NEX-8).
+        const snapshot = [...aircraftRef.current, ...(window.__lumaRadarAreaAircraft ?? [])];
         const current = filtersRef.current;
         const activeFilters = current.airline.trim() !== "" || current.status !== "ALL" || current.phase !== "ALL" || current.altitude !== "ALL" || current.category !== "ALL" || current.airport !== null;
         let shown = 0;

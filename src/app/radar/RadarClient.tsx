@@ -321,6 +321,93 @@ function isRotorcraft(
     );
 }
 
+declare global {
+    interface Window {
+        __lumaRadarAreaAircraft?: Aircraft[];
+    }
+}
+
+/*
+ * Gebiet des Schweizer Collectors (OpenSky-Bounding-Box).
+ */
+const COLLECTOR_BOUNDS = {
+    south: 45.7,
+    west: 5.7,
+    north: 48.0,
+    east: 10.8,
+};
+
+/*
+ * Flugzeuge um die Kartenmitte von /api/radar/area (adsb.lol),
+ * sobald der sichtbare Bereich ueber die Schweiz hinausgeht.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadAreaAircraft(map: any): Promise<Aircraft[]> {
+    const bounds = map.getBounds();
+
+    const insideCollector =
+        bounds.getSouth() >= COLLECTOR_BOUNDS.south &&
+        bounds.getNorth() <= COLLECTOR_BOUNDS.north &&
+        bounds.getWest() >= COLLECTOR_BOUNDS.west &&
+        bounds.getEast() <= COLLECTOR_BOUNDS.east;
+
+    if (insideCollector) {
+        return [];
+    }
+
+    const center = map.getCenter();
+
+    // Radius bis zur Ecke des Ausschnitts in Seemeilen, max. 250 NM.
+    const radiusNm = Math.min(
+        250,
+        map.distance(center, bounds.getNorthEast()) / 1852
+    );
+
+    const url =
+        `/api/radar/area?lat=${center.lat.toFixed(1)}&lon=${center.lng.toFixed(1)}&radius=${Math.round(radiusNm / 50) * 50}`;
+
+    // Gleicher Ausschnitt hoechstens alle 15 s (adsb.lol drosselt).
+    if (
+        url === areaCache.url &&
+        Date.now() - areaCache.at < 15_000
+    ) {
+        return areaCache.aircraft;
+    }
+
+    try {
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(`area ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        areaCache = {
+            url,
+            at: Date.now(),
+            aircraft: Array.isArray(data.aircraft)
+                ? data.aircraft
+                : [],
+        };
+
+        return areaCache.aircraft;
+    } catch {
+        // Letzte Flugzeuge behalten statt sie verschwinden zu lassen.
+        return areaCache.aircraft;
+    }
+}
+
+let areaCache: {
+    url: string;
+    at: number;
+    aircraft: Aircraft[];
+} = {
+    url: "",
+    at: 0,
+    aircraft: [],
+};
+
 /*
  * IATA-Airline-Code -> ICAO-Codes, erzeugt von
  * scripts/sync-airline-codes.mjs.
@@ -605,7 +692,7 @@ export default function RadarClient() {
                             true,
 
                         minZoom:
-                            5,
+                            3,
 
                         maxZoom:
                             15,
@@ -677,6 +764,18 @@ export default function RadarClient() {
             mapRef.current =
                 map;
 
+            map.attributionControl.addAttribution(
+                "Flights: OpenSky · adsb.lol"
+            );
+
+            // Nach dem Verschieben sofort den neuen Ausschnitt laden.
+            map.on(
+                "moveend",
+                () => {
+                    void loadAircraft();
+                }
+            );
+
             setTimeout(
                 () => {
                     map.invalidateSize();
@@ -697,6 +796,8 @@ export default function RadarClient() {
                     null;
             }
         };
+        // Karte nur einmal erzeugen; loadAircraft liest nur Refs.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -747,6 +848,39 @@ export default function RadarClient() {
 
                 return;
             }
+
+            /*
+             * NEX-8: Ausserhalb des Schweizer Collector-Bereichs den
+             * sichtbaren Ausschnitt von adsb.lol dazuladen. Bei
+             * gleicher ICAO24 gewinnt der Collector.
+             */
+            const area =
+                await loadAreaAircraft(
+                    mapRef.current
+                );
+
+            if (area.length) {
+                const known =
+                    new Set(
+                        (data.aircraft as Aircraft[]).map(
+                            (item) => item.icao24
+                        )
+                    );
+
+                data.aircraft = [
+                    ...data.aircraft,
+                    ...area.filter(
+                        (item) =>
+                            !known.has(item.icao24)
+                    ),
+                ];
+
+                data.count =
+                    data.aircraft.length;
+            }
+
+            window.__lumaRadarAreaAircraft =
+                area;
 
             setCount(
                 data.count
