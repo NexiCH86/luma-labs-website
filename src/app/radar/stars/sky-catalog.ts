@@ -137,7 +137,7 @@ function parseDimension(value: [number, number] | string): [number, number] | un
 let deepStarsPromise: Promise<StarObject[]> | null = null;
 
 export function loadDeepStars(): Promise<StarObject[]> {
-    deepStarsPromise ??= fetch("/data/sky/stars-deep.json", { cache: "force-cache" })
+    deepStarsPromise ??= fetch("/data/sky/stars-deep.json", { cache: "no-cache" })
         .then((response) => {
             if (!response.ok) throw new Error(`Deep stars unavailable (${response.status})`);
             return response.json() as Promise<number[]>;
@@ -165,7 +165,8 @@ export function loadDeepStars(): Promise<StarObject[]> {
 }
 
 export async function loadSkyCatalog(): Promise<SkyCatalog> {
-    const response = await fetch("/data/sky/catalog.json", { cache: "force-cache" });
+    // no-cache: per ETag nachfragen (meist 304), damit nach einem Deploy der neue Katalog kommt.
+    const response = await fetch("/data/sky/catalog.json", { cache: "no-cache" });
 
     if (!response.ok) {
         throw new Error(`Sky catalog unavailable (${response.status})`);
