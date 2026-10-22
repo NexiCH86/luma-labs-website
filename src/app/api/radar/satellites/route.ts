@@ -35,6 +35,7 @@ type SatelliteRecord = CelesTrakRecord & { category: SatCategory; group: string;
 
 const SOURCE_DEFINITIONS: Record<string, SourceDefinition> = {
     STATIONS: { group: "STATIONS", category: "station", label: "Space Stations" },
+    VISUAL: { group: "VISUAL", category: "science", label: "100 brightest" },
     "GPS-OPS": { group: "GPS-OPS", category: "navigation", label: "GPS" },
     "GLO-OPS": { group: "GLO-OPS", category: "navigation", label: "GLONASS" },
     GALILEO: { group: "GALILEO", category: "navigation", label: "Galileo" },

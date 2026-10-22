@@ -28,6 +28,9 @@ export type Layers = {
     clusters: boolean;
     nebulae: boolean;
     smallBodies: boolean;
+    satellites: boolean;
+    starlink: boolean;
+    aircraft: boolean;
 };
 
 export type MobilePanel = "none" | "navigator" | "object";
@@ -46,6 +49,8 @@ export type StoredSettings = {
     earthKind: EarthKind;
     names: NameLanguage;
     panels: PanelState;
+    // Lichtverschmutzung am Standort (Bortle 1-9) fuer den Beobachtungs-Score
+    bortle: number;
 };
 
 export const DEFAULT_VIEW: ViewState = { zoom: 1, offsetX: 0, offsetY: 0 };
@@ -67,6 +72,9 @@ export const DEFAULT_LAYERS: Layers = {
     clusters: true,
     nebulae: true,
     smallBodies: true,
+    satellites: true,
+    starlink: false,
+    aircraft: true,
 };
 
 export const MIN_ZOOM = 0.8;

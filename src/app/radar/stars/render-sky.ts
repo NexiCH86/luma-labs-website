@@ -44,6 +44,12 @@ export type SkyMarker = {
     minZoom?: number;
     // Kometenschweif zeigt von diesem Punkt weg (Sonne, J2000)
     awayFrom?: { ra: number; dec: number };
+    // Flugzeug-Pfeil zeigt zu diesem Punkt am Himmel
+    towards?: { altitude: number; azimuth: number };
+    // Erdansicht: Position ueber der Erde und Bodenspur (Satelliten, Flugzeuge)
+    lat?: number;
+    lon?: number;
+    groundTrack?: { lat: number; lon: number }[];
 };
 
 export type SkySceneParams = {
@@ -360,7 +366,18 @@ export function drawSkyScene(params: SkySceneParams) {
         const h = frame.toHorizontal(ra, dec);
         return projectSkyDome(h.altitude, h.azimuth, width, height, view);
     };
+    const unclippedHorizontal = (altitude: number, azimuth: number) => {
+        if (skyMode) return projectSkyDome(altitude, azimuth, width, height, view);
+        const { ra, dec } = frame.fromHorizontal(altitude, azimuth);
+        return projectCatalog(ra, dec, width, height, view);
+    };
     const markers = params.markers.map((marker) => {
+        if (marker.towards && marker.altitude !== undefined && marker.azimuth !== undefined) {
+            // Pfeilspitze (Bildschirm oben = 0°) zeigt zum Punkt in Flugrichtung.
+            const from = unclippedHorizontal(marker.altitude, marker.azimuth);
+            const to = unclippedHorizontal(marker.towards.altitude, marker.towards.azimuth);
+            return { ...marker, heading: (Math.atan2(to.y - from.y, to.x - from.x) * 180) / Math.PI + 90 };
+        }
         if (!marker.awayFrom || marker.ra === undefined || marker.dec === undefined) return marker;
         const from = unclipped(marker.awayFrom.ra, marker.awayFrom.dec);
         const to = unclipped(marker.ra, marker.dec);

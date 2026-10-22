@@ -17,6 +17,13 @@ import { jupiterMoons, loadSmallBodies, smallBodyObjects, type SmallBodiesFile }
 import { useWatchlist } from "./watchlist";
 import AltitudeChart from "./AltitudeChart";
 import JupiterMoonsDiagram from "./JupiterMoonsDiagram";
+import { groundTrack, isHighlighted, loadSatellites, predictPasses, satelliteState, skyTrack, SATELLITE_GROUPS, type SatelliteEntry, type SatellitePass, type SatelliteState } from "./satellites";
+import { aircraftInSky, loadAircraftAround, type AreaAircraft } from "./aircraft";
+import { nightScore, type SkyWeather } from "./score";
+import { upcomingEvents, type KpForecast, type SkyEvent } from "./events";
+import { useSkyAlerts } from "./use-sky-alerts";
+import { ScoreCard, EventsList } from "./ScoreAndEvents";
+import { AircraftDetails, SatelliteDetails } from "./MovingDetails";
 import NavigatorPanel from "./NavigatorPanel";
 import ObjectDetails from "./ObjectDetails";
 import TimeAndTonight from "./TimeAndTonight";
@@ -111,6 +118,13 @@ export default function StarsClient() {
     const [shareStatus, setShareStatus] = useState("");
     const [smallBodiesFile, setSmallBodiesFile] = useState<SmallBodiesFile | null>(null);
     const watchlist = useWatchlist();
+    const [bortle, setBortle] = useState(initial.settings.bortle);
+    const [brightSatellites, setBrightSatellites] = useState<SatelliteEntry[]>([]);
+    const [starlinkSatellites, setStarlinkSatellites] = useState<SatelliteEntry[]>([]);
+    const [aircraftRaw, setAircraftRaw] = useState<{ key: string; list: AreaAircraft[] } | null>(null);
+    const [weather, setWeather] = useState<{ key: string; data: SkyWeather } | null>(null);
+    const [weatherError, setWeatherError] = useState(false);
+    const [kpForecast, setKpForecast] = useState<KpForecast | null>(null);
     // Auf dem Handy sind die Panels Leisten; Einklappen gilt nur am Desktop.
     const [isMobile, setIsMobile] = useState(isMobileLayout);
 
@@ -163,14 +177,34 @@ export default function StarsClient() {
     useEffect(() => {
         let active = true;
         fetch(`/api/radar/sky-weather?lat=${observer.lat.toFixed(2)}&lon=${observer.lon.toFixed(2)}`)
-            .then((response) => response.json() as Promise<{ ok: boolean; timezone?: string }>)
-            .then((data) => { if (active && data.ok && data.timezone) setSiteTimeZone({ key: observerKey, zone: data.timezone }); })
-            .catch(() => { /* Dann gilt die Zeitzone des Browsers. */ });
+            .then((response) => response.json() as Promise<{ ok: boolean } & SkyWeather>)
+            .then((data) => {
+                if (!active) return;
+                if (!data.ok) throw new Error("weather");
+                setSiteTimeZone({ key: observerKey, zone: data.timezone });
+                setWeather({ key: observerKey, data });
+                setWeatherError(false);
+            })
+            // Ohne Antwort gilt die Zeitzone des Browsers.
+            .catch(() => { if (active) setWeatherError(true); });
         return () => { active = false; };
         // observer.lat/lon stecken in observerKey.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [observerKey]);
     const timeZone = siteTimeZone?.key === observerKey ? siteTimeZone.zone : BROWSER_TIME_ZONE;
+
+    // Flugzeuge im Umkreis von 100 NM, alle 20 s (nur live und nicht in der Katalogansicht).
+    useEffect(() => {
+        if (!layers.aircraft || !liveTime || mode === "catalog") return;
+        let active = true;
+        const key = observerKey;
+        const load = () => loadAircraftAround(observer).then((list) => { if (active) setAircraftRaw({ key, list }); }).catch(() => { /* AIR-Daten voruebergehend nicht erreichbar */ });
+        void load();
+        const timer = window.setInterval(load, 20_000);
+        return () => { active = false; window.clearInterval(timer); };
+        // observer steckt in observerKey.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [layers.aircraft, liveTime, mode, observerKey]);
 
     useEffect(() => {
         if (!liveTime) return;
@@ -185,8 +219,33 @@ export default function StarsClient() {
     }, [playing, playSpeed]);
 
     useEffect(() => {
-        writeSettings({ mode, layers, magnitudeLimit, observer, observerLabel, nightMode, earthKind, names, panels });
-    }, [mode, layers, magnitudeLimit, observer, observerLabel, nightMode, earthKind, names, panels]);
+        writeSettings({ mode, layers, magnitudeLimit, observer, observerLabel, nightMode, earthKind, names, panels, bortle });
+    }, [mode, layers, magnitudeLimit, observer, observerLabel, nightMode, earthKind, names, panels, bortle]);
+
+    // Satelliten (Raumstationen + 100 hellste), Starlink nur auf Wunsch.
+    useEffect(() => {
+        if (!layers.satellites || brightSatellites.length > 0) return;
+        let active = true;
+        loadSatellites(SATELLITE_GROUPS.bright).then((list) => { if (active) setBrightSatellites(list); }).catch(() => { /* ohne Satelliten */ });
+        return () => { active = false; };
+    }, [layers.satellites, brightSatellites.length]);
+
+    useEffect(() => {
+        if (!layers.starlink || starlinkSatellites.length > 0) return;
+        let active = true;
+        loadSatellites(SATELLITE_GROUPS.starlink).then((list) => { if (active) setStarlinkSatellites(list); }).catch(() => { /* ohne Starlink */ });
+        return () => { active = false; };
+    }, [layers.starlink, starlinkSatellites.length]);
+
+    // Kp-Index fuer die Polarlicht-Aussicht.
+    useEffect(() => {
+        let active = true;
+        fetch("/api/radar/space-weather")
+            .then((response) => response.json() as Promise<{ ok: boolean; kp: { time: string; kp: number; observed: boolean }[] }>)
+            .then((data) => { if (active && data.ok) setKpForecast(data.kp.map((entry) => ({ time: new Date(entry.time), kp: entry.kp, observed: entry.observed }))); })
+            .catch(() => { /* ohne Polarlicht-Aussicht */ });
+        return () => { active = false; };
+    }, []);
 
     // Canvas-Groesse nur bei echter Groessenaenderung neu setzen.
     useEffect(() => {
@@ -380,6 +439,73 @@ export default function StarsClient() {
         return object.magnitude <= magnitudeLimit + 2.5;
     }, [layers.smallBodies, magnitudeLimit, selectedId]);
 
+    // Satelliten: helle Gruppe jede Sekunde, Starlink (tausende) alle 5 s.
+    const satelliteById = useMemo(
+        () => new Map([...brightSatellites, ...(layers.starlink ? starlinkSatellites : [])].map((entry) => [entry.id, entry])),
+        [brightSatellites, starlinkSatellites, layers.starlink]
+    );
+    const brightStates = useMemo(
+        () => (layers.satellites ? brightSatellites.map((entry) => satelliteState(entry, skyTime, observer)).filter((state): state is SatelliteState => state !== null) : []),
+        [layers.satellites, brightSatellites, skyTime, observer]
+    );
+    const starlinkKey = Math.floor(skyTime.getTime() / 5000);
+    const starlinkStates = useMemo(
+        () => (layers.starlink
+            ? starlinkSatellites
+                .map((entry) => satelliteState(entry, new Date(starlinkKey * 5000), observer))
+                .filter((state): state is SatelliteState => state !== null && (mode === "earth" || state.altitude > 0))
+            : []),
+        [layers.starlink, starlinkSatellites, starlinkKey, observer, mode]
+    );
+    const satelliteStates = useMemo(() => [...brightStates, ...starlinkStates], [brightStates, starlinkStates]);
+
+    const planesInSky = useMemo(
+        () => (layers.aircraft && aircraftRaw?.key === observerKey ? aircraftInSky(aircraftRaw.list, observer) : []),
+        [layers.aircraft, aircraftRaw, observerKey, observer]
+    );
+
+    // Sonnenhoehe zu einem Zeitpunkt (fuer die Sichtbarkeit von Ueberfluegen).
+    const sunAltitudeAt = useCallback((date: Date) => {
+        const sun = solarSystemObjects(date, observer).find((body) => body.id === "sun");
+        return sun ? createSkyFrame(date, observer).toHorizontal(sun.ra, sun.dec).altitude : -90;
+    }, [observer]);
+
+    // Ueberfluege von ISS, Tiangong und Hubble fuer 3 Tage, alle 10 Minuten neu.
+    const passSatellites = useMemo(() => brightSatellites.filter((entry) => isHighlighted(entry.norad)), [brightSatellites]);
+    const passes = useMemo<SatellitePass[]>(
+        () => passSatellites
+            .flatMap((entry) => predictPasses(entry, new Date(tenMinuteKey * 10 * MINUTE), observer, sunAltitudeAt, 72))
+            .sort((a, b) => a.rise.getTime() - b.rise.getTime()),
+        [passSatellites, tenMinuteKey, observer, sunAltitudeAt]
+    );
+
+    const selectedSatellite = useMemo(
+        () => (selectedId?.startsWith("sat-") ? satelliteStates.find((state) => state.id === selectedId) ?? null : null),
+        [selectedId, satelliteStates]
+    );
+    const selectedSatellitePasses = useMemo(() => {
+        if (!selectedId?.startsWith("sat-")) return [];
+        const entry = satelliteById.get(selectedId);
+        if (!entry) return [];
+        if (isHighlighted(entry.norad)) return passes.filter((pass) => pass.id.startsWith(`${entry.id}-`));
+        return predictPasses(entry, new Date(tenMinuteKey * 10 * MINUTE), observer, sunAltitudeAt, 72);
+    }, [selectedId, satelliteById, passes, tenMinuteKey, observer, sunAltitudeAt]);
+    const selectedAircraft = useMemo(
+        () => (selectedId?.startsWith("air-") ? planesInSky.find((plane) => plane.id === selectedId) ?? null : null),
+        [selectedId, planesInSky]
+    );
+
+    const score = useMemo(
+        () => nightScore(weather?.key === observerKey ? weather.data : null, observer, night, bortle),
+        [weather, observerKey, observer, night, bortle]
+    );
+
+    const events = useMemo(
+        () => upcomingEvents(new Date(tenMinuteKey * 10 * MINUTE), observer, passes, kpForecast),
+        [tenMinuteKey, observer, passes, kpForecast]
+    );
+    const alerts = useSkyAlerts(events);
+
     const jupiter = useMemo(() => jupiterMoons(new Date(minuteKey * MINUTE)), [minuteKey]);
 
     // Zusaetzliche Marker: Kometen (Schweif von der Sonne weg), Kleinplaneten, Jupitermonde.
@@ -402,8 +528,50 @@ export default function StarsClient() {
                 list.push({ id: moon.id, label: moon.name, color: "#f3ead2", shape: "dot", size: 1.5, ra: moon.ra, dec: moon.dec, minZoom: 25 });
             }
         }
+        // Satelliten: hell, wenn beschienen und dunkel genug; ISS & Co. mit Spur.
+        const siteDark = sunAltitude < -6;
+        for (const state of satelliteStates) {
+            const highlighted = state.id === selectedId;
+            const entry = satelliteById.get(state.id);
+            const important = isHighlighted(state.norad);
+            if (mode !== "earth" && state.altitude < 0 && !highlighted) continue;
+            const visible = state.sunlit && siteDark;
+            list.push({
+                id: state.id,
+                label: important || highlighted ? state.name.replace(/s*(.*)$/, "") : "",
+                color: state.category === "constellation" ? "#b9c4d8" : visible ? "#e9fbff" : "#7d8aa3",
+                shape: "dot",
+                size: important ? 3.4 : state.category === "constellation" ? 1.4 : 2.2,
+                altitude: state.altitude,
+                azimuth: state.azimuth,
+                lat: state.lat,
+                lon: state.lon,
+                highlighted,
+                track: (important || highlighted) && entry && mode !== "earth" && state.altitude > -5 ? skyTrack(entry, skyTime, observer, 6, 20) : undefined,
+                groundTrack: (important || highlighted) && entry && mode === "earth" ? groundTrack(entry, skyTime, 45, 45, 1) : undefined,
+            });
+        }
+        for (const plane of planesInSky) {
+            list.push({
+                id: plane.id,
+                // Nur hoch stehende oder gewaehlte Flugzeuge beschriften, sonst wird es am Horizont eng.
+                label: plane.altitude >= 30 || plane.id === selectedId ? plane.callsign : "",
+                color: "#ffb26b",
+                shape: "plane",
+                size: 4,
+                altitude: plane.altitude,
+                azimuth: plane.azimuth,
+                lat: plane.lat,
+                lon: plane.lon,
+                heading: plane.heading ?? 0,
+                towards: plane.ahead ?? undefined,
+                highlighted: plane.id === selectedId,
+            });
+        }
         return list;
-    }, [minorBodies, minorVisible, planets, jupiter, layers.planets, selectedId]);
+        // skyTime steckt in satelliteStates (Sekundentakt).
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [minorBodies, minorVisible, planets, jupiter, layers.planets, selectedId, satelliteStates, satelliteById, planesInSky, mode, sunAltitude, observer]);
 
     /*
      * Bildschirmposition fuer die aktuelle Ansicht, null = unter dem
@@ -457,6 +625,37 @@ export default function StarsClient() {
         draw();
     }, [draw]);
 
+    // Bildschirmposition eines Markers in der aktuellen Ansicht (fuer Klicks).
+    function markerScreenPoint(marker: SkyMarker, width: number, height: number): Point | null {
+        if (mode === "earth") {
+            if (marker.lat !== undefined && marker.lon !== undefined) {
+                const point = earthProjectionFor(width, height).project(marker.lat, marker.lon);
+                return point.visible ? { x: point.x, y: point.y } : null;
+            }
+            return marker.ra !== undefined && marker.dec !== undefined ? project(marker.ra, marker.dec, width, height) : null;
+        }
+        if (marker.altitude !== undefined && marker.azimuth !== undefined) {
+            if (mode === "sky") return marker.altitude < -1 ? null : projectSkyDome(marker.altitude, marker.azimuth, width, height, view);
+            const { ra, dec } = frame.fromHorizontal(marker.altitude, marker.azimuth);
+            return projectCatalog(ra, dec, width, height, view);
+        }
+        return marker.ra !== undefined && marker.dec !== undefined ? project(marker.ra, marker.dec, width, height) : null;
+    }
+
+    // Ereignis gewaehlt: Zeit darauf stellen und das Objekt auswaehlen.
+    function showEvent(event: SkyEvent) {
+        setPlaying(false);
+        setLiveTime(false);
+        setSkyTime(event.time);
+        if (event.objectId) {
+            setSelectedId(event.objectId);
+            setSelectedConstellationId(null);
+        }
+        if (mode === "catalog") setMode("sky");
+        if (mode !== "earth") setView(DEFAULT_VIEW);
+        if (isMobileLayout()) setMobilePanel("object");
+    }
+
     function pickObject(clientX: number, clientY: number) {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -484,6 +683,14 @@ export default function StarsClient() {
             // Planeten und helle Objekte gewinnen knappe Faelle.
             const weighted = distance - (object.kind === "planet" ? 4 : 0) + Math.max(0, object.magnitude) * 0.2;
             if (distance <= 14 && (!best || weighted < best.distance)) best = { id: object.id, distance: weighted };
+        }
+        // Satelliten und Flugzeuge haben keine Katalogkoordinaten: ueber die Marker pruefen.
+        for (const marker of markers) {
+            if (!marker.id.startsWith("sat-") && !marker.id.startsWith("air-")) continue;
+            const p = markerScreenPoint(marker, rect.width, rect.height);
+            if (!p) continue;
+            const distance = Math.hypot(p.x - x, p.y - y) - 3;
+            if (distance <= 14 && (!best || distance < best.distance)) best = { id: marker.id, distance };
         }
         if (!best) return;
         setSelectedId(best.id);
@@ -761,7 +968,7 @@ export default function StarsClient() {
                     onMode={switchMode}
                     layers={layers}
                     onLayers={setLayers}
-                    counts={{ stars: visibleStars.length, planets: planets.length, constellations: catalog.constellations.length, dsos: catalog.dsos.length, smallBodies: minorBodies.length }}
+                    counts={{ stars: visibleStars.length, planets: planets.length, constellations: catalog.constellations.length, dsos: catalog.dsos.length, smallBodies: minorBodies.length, satellites: brightStates.filter((state) => state.altitude > 0).length, aircraft: planesInSky.length }}
                     magnitudeLimit={magnitudeLimit}
                     onMagnitudeLimit={setMagnitudeLimit}
                     deepStarsLoaded={deepStars.length > 0}
@@ -813,7 +1020,7 @@ export default function StarsClient() {
                     </div>
                     <div className="stars-mobile-tabs">
                         <button className={mobilePanel === "navigator" ? "is-active" : undefined} onClick={() => toggleMobilePanel("navigator")}>Navigator</button>
-                        <button className={mobilePanel === "object" ? "is-active" : undefined} onClick={() => toggleMobilePanel("object")}>{selected ? objectName(selected, names) : "Details"}</button>
+                        <button className={mobilePanel === "object" ? "is-active" : undefined} onClick={() => toggleMobilePanel("object")}>{selected ? objectName(selected, names) : selectedSatellite ? selectedSatellite.name : selectedAircraft ? selectedAircraft.callsign : "Details"}</button>
                     </div>
                     <div className="stars-canvas-controls">
                         <button onClick={() => zoomBy(1.25)} aria-label="Zoom in">+</button>
@@ -828,6 +1035,11 @@ export default function StarsClient() {
                             Object Intelligence
                             <button className="stars-collapse-button" onClick={() => setPanels((current) => ({ ...current, right: false }))} aria-label="Hide details panel" title="Hide details">›</button>
                         </div>
+                        {selectedSatellite ? (
+                            <SatelliteDetails state={selectedSatellite} passes={selectedSatellitePasses} timeZone={timeZone} skyTime={skyTime} siteDark={sunAltitude < -6} />
+                        ) : selectedAircraft ? (
+                            <AircraftDetails plane={selectedAircraft} />
+                        ) : (
                         <ObjectDetails
                             selected={selected}
                             selectedConstellation={selectedConstellation}
@@ -866,6 +1078,7 @@ export default function StarsClient() {
                                 </div>
                             )}
                         </ObjectDetails>
+                        )}
                         <TimeAndTonight
                             skyTime={skyTime}
                             timeZone={timeZone}
@@ -887,6 +1100,12 @@ export default function StarsClient() {
                             onTonightEntry={showTonightEntry}
                             names={names}
                         />
+
+                        <div className="stars-section-label">Observing score tonight</div>
+                        <ScoreCard score={score} bortle={bortle} onBortle={setBortle} timeZone={timeZone} skyTime={skyTime} weatherError={weatherError} />
+
+                        <div className="stars-section-label">Upcoming events</div>
+                        <EventsList events={events} timeZone={timeZone} skyTime={skyTime} notify={alerts.enabled} onNotify={() => void alerts.toggle()} notifyStatus={alerts.status} onPick={showEvent} />
 
                         <div className="stars-section-label">My list · {watchlist.entries.filter((entry) => entry.seen).length}/{watchlist.entries.length} seen</div>
                         {watchlist.entries.length === 0 ? (
