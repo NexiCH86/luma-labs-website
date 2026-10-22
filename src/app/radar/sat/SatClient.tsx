@@ -308,6 +308,7 @@ export default function SatClient() {
                             <div className="sat-clock"><small>UTC</small><b>{now.toLocaleTimeString("de-CH", { timeZone: "UTC" })}</b></div>
                             {viewToggles}
                             <div className="sat-bar-count">★ <b>{watchlist.length}</b> WATCHED</div>
+                            <a className="sat-bar-credit" href="https://celestrak.org" target="_blank" rel="noreferrer">ORBIT DATA: CELESTRAK</a>
                             {failed.length > 0 && <button className="sat-bar-warning" onClick={() => setRightTab("status")}>{failed.map(groupLabel).join(", ")} OFFLINE</button>}
                             {staleAges.length > 0 && <button className="sat-bar-warning" onClick={() => setRightTab("status")}>DATA {formatAge(Math.max(...staleAges))} OLD</button>}
                         </div>

@@ -1443,6 +1443,8 @@ export default function StarsClient() {
             <footer className="stars-footer">
                 <span>Drag to pan · Wheel or pinch to zoom · Space plays time · / searches</span>
                 <span>Stars, constellations, Milky Way & Messier: d3-celestial · Star data: HYG · Sun, Moon & planets: astronomy-engine</span>
+                {/* Eigenes Element, damit die Quelle der Satelliten auch auf dem Handy sichtbar bleibt. */}
+                <a className="stars-footer-orbit" href="https://celestrak.org" target="_blank" rel="noreferrer">Orbit data: CelesTrak</a>
             </footer>
         </main>
     );

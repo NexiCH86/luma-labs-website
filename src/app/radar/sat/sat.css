@@ -1093,6 +1093,24 @@
     letter-spacing: 0.1em;
 }
 
+.sat-section-title a {
+    color: var(--sat-accent);
+    text-decoration: none;
+}
+
+.sat-bar-credit {
+    padding: 0 8px;
+    color: var(--sat-muted);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.sat-bar-credit:hover {
+    color: var(--sat-accent);
+}
+
 .sat-bar-warning {
     min-height: 32px;
     padding: 0 10px;

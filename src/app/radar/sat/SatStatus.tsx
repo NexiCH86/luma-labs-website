@@ -50,7 +50,7 @@ export default function SatStatus({ enabled, groups, observer, now, onRetry }: P
 
     return (
         <section className="sat-status" aria-label="Data status">
-            <div className="sat-section-title"><strong>DATA STATUS</strong><span>CelesTrak GP</span></div>
+            <div className="sat-section-title"><strong>DATA STATUS</strong><span>Orbit data: <a href="https://celestrak.org" target="_blank" rel="noreferrer">CelesTrak</a></span></div>
             <div className="sat-status-rows">
                 {enabled.map((group) => {
                     const state = groups[group];
