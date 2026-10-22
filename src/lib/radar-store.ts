@@ -299,6 +299,71 @@ export async function readTrack(
     return points;
 }
 
+/*
+ * Allgemeiner Speicher fuer weitere RADAR-Modi, z. B. die
+ * SAT-Bahndaten (gleiche Komprimierung wie Snapshot und Spuren).
+ */
+export function hasRadarStore() {
+    return Boolean(process.env.RADAR_REDIS_URL);
+}
+
+export async function readStoredJson<T>(
+    key: string
+) {
+    const redis =
+        await getRadarRedis();
+
+    return unpack<T>(
+        await redis.get(key)
+    );
+}
+
+export async function writeStoredJson(
+    key: string,
+    value: unknown,
+    ttlSeconds: number
+) {
+    const redis =
+        await getRadarRedis();
+
+    await redis.set(
+        key,
+        pack(value),
+        {
+            expiration: {
+                type: "EX",
+                value: ttlSeconds,
+            },
+        }
+    );
+}
+
+/*
+ * Kurze Sperre ueber alle Function-Instanzen (SET NX). Gibt true
+ * zurueck, wenn diese Instanz die Sperre erhalten hat.
+ */
+export async function acquireStoreLock(
+    key: string,
+    ttlSeconds: number
+) {
+    const redis =
+        await getRadarRedis();
+
+    const result = await redis.set(
+        key,
+        "1",
+        {
+            condition: "NX",
+            expiration: {
+                type: "EX",
+                value: ttlSeconds,
+            },
+        }
+    );
+
+    return result === "OK";
+}
+
 function frameKey(
     bucket: number
 ) {

@@ -4,6 +4,8 @@ Holt alle 25 Sekunden die Flugzeuge über der Schweiz bei OpenSky (Bounding Box 
 
 Er läuft ausserhalb von Vercel, weil OpenSky Anfragen aus Cloud-Rechenzentren blockiert. Weltweite Flugzeuge kommen nicht von hier, sondern direkt von adsb.lol (`/api/radar/area`).
 
+Zusätzlich lädt er alle 2 Stunden die SAT-Bahndaten aller Gruppen (Starlink, GPS, Stationen …) bei CelesTrak und schickt sie gzip-komprimiert an `https://lumalabs.ch/api/radar/satellites/ingest` (gleicher Schlüssel `RADAR_INGEST_SECRET`). Von Vercel aus sperrt CelesTrak grosse Gruppen wie Starlink, weil sich dort viele Projekte dieselbe Adresse teilen. Antwortet CelesTrak mit 403, gibt es seit dem letzten Abruf keine neuen Daten; der Collector überspringt die Gruppe dann. Log-Zeilen: `[SAT] STARLINK: 9123 stored`. Kontrolle: `https://lumalabs.ch/api/radar/sat-health`.
+
 ## Wo er läuft
 
 | | |
