@@ -43,6 +43,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
     earthKind: "globe",
     names: "en",
     panels: { left: true, right: true },
+    bortle: 6,
 };
 
 /*
@@ -70,6 +71,7 @@ export function readSettings(): StoredSettings {
                 earthKind: saved.earthKind === "map" ? "map" : "globe",
                 names: saved.names === "de" ? "de" : "en",
                 panels: { left: saved.panels?.left !== false, right: saved.panels?.right !== false },
+                bortle: Number.isFinite(saved.bortle) ? clamp(Math.round(Number(saved.bortle)), 1, 9) : defaults.bortle,
             };
         }
 

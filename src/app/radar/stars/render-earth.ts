@@ -204,7 +204,37 @@ export function drawEarthScene(params: EarthSceneParams) {
         }
     }
 
+    // Bodenspuren (Satelliten) vor den Markern zeichnen.
+    for (const marker of params.markers) {
+        if (!marker.groundTrack?.length) continue;
+        ctx.save();
+        ctx.strokeStyle = marker.color;
+        ctx.globalAlpha = 0.55;
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        let drawing = false;
+        let previousLon = marker.groundTrack[0].lon;
+        for (const point of marker.groundTrack) {
+            const projected = projection.project(point.lat, point.lon);
+            const jump = projection.kind === "map" && Math.abs(point.lon - previousLon) > 180;
+            if (!projected.visible || jump) drawing = false;
+            if (projected.visible) {
+                if (drawing) ctx.lineTo(projected.x, projected.y);
+                else ctx.moveTo(projected.x, projected.y);
+                drawing = true;
+            }
+            previousLon = point.lon;
+        }
+        ctx.stroke();
+        ctx.restore();
+    }
+
     drawMarkers(ctx, params.markers, params.zoom, (marker) => {
+        if (marker.lat !== undefined && marker.lon !== undefined) {
+            const point = projection.project(marker.lat, marker.lon);
+            return point.visible ? { x: point.x, y: point.y } : null;
+        }
         if (marker.ra !== undefined && marker.dec !== undefined) return project(marker.ra, marker.dec);
         return null;
     }, null, inView, layers.labels);

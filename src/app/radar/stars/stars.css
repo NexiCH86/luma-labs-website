@@ -366,3 +366,50 @@
 .stars-watchlist input { accent-color: #72ebb2; }
 .stars-watchlist button { padding: 2px 0; border: 0; color: #edf4ff; background: transparent; font-size: 10px; text-align: left; cursor: pointer; }
 .stars-watchlist .stars-watch-remove { color: rgba(240, 176, 176, .7); font-size: 13px; text-align: center; }
+
+/* Phase 4c: Beobachtungs-Score, Ereignisse, Satelliten, Flugzeuge */
+.stars-score-card { padding: 10px; border: 1px solid rgba(138, 170, 255, .12); border-radius: 8px; background: rgba(255, 255, 255, .025); }
+.stars-score-card p { margin: 6px 0; color: rgba(228, 236, 255, .78); font-size: 10px; }
+.stars-score-head { display: grid; grid-template-columns: 12px 1fr auto; align-items: center; gap: 8px; }
+.stars-score-head strong { font-size: 13px; }
+.stars-score-head b { font-family: ui-monospace, monospace; font-size: 18px; }
+.stars-score-light { width: 10px; height: 10px; border-radius: 50%; }
+.stars-score-head.is-great .stars-score-light { background: #72ebb2; box-shadow: 0 0 10px #72ebb2; }
+.stars-score-head.is-good .stars-score-light { background: #c6eb72; box-shadow: 0 0 10px #c6eb72; }
+.stars-score-head.is-fair .stars-score-light { background: #f7c768; box-shadow: 0 0 10px #f7c768; }
+.stars-score-head.is-poor .stars-score-light { background: #df7d7d; box-shadow: 0 0 10px #df7d7d; }
+.stars-score-bars { display: flex; align-items: flex-end; gap: 2px; height: 44px; margin-top: 4px; }
+.stars-score-bars span { flex: 1; min-width: 3px; border-radius: 2px 2px 0 0; }
+.stars-score-bars .is-great { background: #72ebb2; }
+.stars-score-bars .is-good { background: #c6eb72; }
+.stars-score-bars .is-fair { background: #f7c768; }
+.stars-score-bars .is-poor { background: rgba(223, 125, 125, .7); }
+.stars-score-axis { display: flex; justify-content: space-between; color: rgba(200, 214, 248, .45); font-family: ui-monospace, monospace; font-size: 8px; }
+.stars-bortle { display: grid; gap: 4px; margin-top: 8px; color: rgba(193, 210, 247, .55); font-size: 9px; }
+.stars-bortle select { padding: 6px; border: 1px solid rgba(139, 171, 255, .2); border-radius: 6px; color: #eef4ff; background: #071026; font-size: 10px; }
+
+.stars-notify-button { width: 100%; margin-bottom: 6px; padding: 8px; border: 1px solid rgba(139, 171, 255, .2); border-radius: 7px; color: #edf4ff; background: rgba(112, 146, 235, .08); font-size: 10px; cursor: pointer; }
+.stars-notify-button.is-active { border-color: rgba(114, 235, 178, .55); color: #9cf4c7; background: rgba(86, 220, 145, .08); }
+.stars-events-list { display: grid; gap: 4px; }
+.stars-events-list button { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: center; padding: 7px 8px; border: 1px solid rgba(138, 170, 255, .1); border-radius: 7px; color: #edf4ff; background: rgba(255, 255, 255, .02); text-align: left; cursor: pointer; }
+.stars-events-list button:hover { background: rgba(113, 153, 255, .1); }
+.stars-event-icon { color: #9db6f7; font-size: 13px; text-align: center; }
+.stars-events-list .is-eclipse .stars-event-icon,
+.stars-events-list .is-aurora .stars-event-icon { color: #f7c768; }
+.stars-events-list .is-pass .stars-event-icon { color: #9cf4c7; }
+.stars-event-text { display: grid; min-width: 0; }
+.stars-event-text strong { font-size: 10px; font-weight: 600; }
+.stars-event-text small { overflow: hidden; color: rgba(204, 218, 250, .5); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.stars-event-when { display: grid; justify-items: end; color: #9db6f7; font-family: ui-monospace, monospace; font-size: 8px; }
+.stars-event-when small { color: rgba(204, 218, 250, .45); }
+
+.stars-pass-list { display: grid; gap: 3px; margin-bottom: 10px; }
+.stars-pass-list div { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 5px 8px; border: 1px solid rgba(138, 170, 255, .1); border-radius: 6px; font-size: 9px; }
+.stars-pass-list strong { font-family: ui-monospace, monospace; font-size: 9px; }
+.stars-pass-list span { color: rgba(204, 218, 250, .6); }
+.stars-pass-list em { color: rgba(204, 218, 250, .4); font-style: normal; font-size: 8px; }
+.stars-pass-list .is-visible { border-color: rgba(114, 235, 178, .35); }
+.stars-pass-list .is-visible em { color: #9cf4c7; }
+.stars-link-button { display: block; box-sizing: border-box; color: #edf4ff; text-align: center; text-decoration: none; }
+
+.stars-pass-label { margin-top: 12px; }
