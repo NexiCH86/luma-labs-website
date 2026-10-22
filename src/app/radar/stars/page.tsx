@@ -1,5 +1,5 @@
 import RadarModeSwitch from "../RadarModeSwitch";
-import StarsClient from "./StarsClient";
+import StarsClientOnly from "./StarsClientOnly";
 import "../radar.css";
 import "../radar-mode-switch.css";
 import "./stars.css";
@@ -7,7 +7,7 @@ import "./stars.css";
 export default function StarsRadarPage() {
     return (
         <>
-            <StarsClient />
+            <StarsClientOnly />
             <RadarModeSwitch />
         </>
     );

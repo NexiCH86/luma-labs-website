@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { access, copyFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 /*
@@ -44,10 +44,40 @@ const round = (value, digits) =>
 const raHours = (lon) =>
     round((((lon % 360) + 360) % 360) / 15, 4);
 
+/*
+ * Ist d3-celestial nicht erreichbar, soll der Build trotzdem laufen:
+ * Eine vorhandene catalog.json bleibt stehen, sonst kommt die
+ * eingecheckte Kopie in scripts/data zum Einsatz.
+ */
+const FALLBACK_FILE = path.join(
+    process.cwd(),
+    "scripts",
+    "data",
+    "sky-catalog.fallback.json"
+);
+
+async function keepExistingCatalog(error) {
+    console.warn(`Sky catalog download failed: ${error.message}`);
+
+    try {
+        await access(OUTPUT_FILE);
+        console.warn("Keeping the existing public/data/sky/catalog.json.");
+        return;
+    } catch {
+        // Noch kein Katalog vorhanden, Fallback kopieren.
+    }
+
+    await mkdir(path.dirname(OUTPUT_FILE), { recursive: true });
+    await copyFile(FALLBACK_FILE, OUTPUT_FILE);
+    console.warn("Using the bundled fallback catalog (scripts/data).");
+}
+
 console.log("Downloading sky catalog (d3-celestial)...");
 
-const [stars, starNames, constellations, lines, messier, brightDsos] =
-    await Promise.all([
+let sources;
+
+try {
+    sources = await Promise.all([
         download("stars.6.json"),
         download("starnames.json"),
         download("constellations.json"),
@@ -55,6 +85,12 @@ const [stars, starNames, constellations, lines, messier, brightDsos] =
         download("messier.json"),
         download("dsos.bright.json"),
     ]);
+} catch (error) {
+    await keepExistingCatalog(error);
+    process.exit(0);
+}
+
+const [stars, starNames, constellations, lines, messier, brightDsos] = sources;
 
 /*
  * [hip, ra (h), dec (deg), magnitude, B-V-Farbindex]
