@@ -4,10 +4,12 @@ import { describe, expect, it } from "vitest";
 import { json2satrec, propagate, twoline2satrec } from "satellite.js";
 import {
     buildSatelliteResponse,
+    createMemorySatelliteStore,
     FRESH_MS,
     loadGroup,
     parseOmmJson,
     parseTle,
+    RETRY_AFTER_MS,
     saveGroup,
     SOURCE_DEFINITIONS,
     STALE_AFTER_MS,
@@ -162,6 +164,36 @@ describe("loadGroup", () => {
         expect(result.records[0].groupLabel).toBe("Starlink");
         expect(calls).toHaveLength(0);
         expect(statuses.get("STARLINK")).toMatchObject({ count: 1, lastError: null });
+    });
+
+    it("pauses after a failed download instead of asking CelesTrak on every request", async () => {
+        const { fetcher, calls } = fakeFetch({ json: new Error("timeout"), tle: new Error("timeout") });
+        const { store } = memoryStore();
+        await expect(loadGroup(stations, { store, fetcher, now: NOW })).rejects.toThrow(/timeout/);
+        expect(calls).toHaveLength(2);
+        await expect(loadGroup(stations, { store, fetcher, now: NOW + RETRY_AFTER_MS / 2 })).rejects.toThrow(/timeout/);
+        expect(calls).toHaveLength(2);
+        await expect(loadGroup(stations, { store, fetcher, now: NOW + RETRY_AFTER_MS + 1 })).rejects.toThrow(/timeout/);
+        expect(calls).toHaveLength(4);
+    });
+
+    it("shares one download between simultaneous requests", async () => {
+        const { fetcher, calls } = fakeFetch({ json: { status: 200, body: OMM_JSON } });
+        const store = createMemorySatelliteStore();
+        const [a, b] = await Promise.all([loadGroup(stations, { store, fetcher, now: NOW }), loadGroup(stations, { store, fetcher, now: NOW })]);
+        expect(a.records).toHaveLength(1);
+        expect(b.records).toHaveLength(1);
+        expect(calls).toHaveLength(1);
+    });
+
+    it("keeps data in the process store without Redis and honours the 2-hour rule", async () => {
+        const { fetcher, calls } = fakeFetch({ json: { status: 200, body: OMM_JSON } });
+        const store = createMemorySatelliteStore();
+        await loadGroup(stations, { store, fetcher, now: NOW });
+        const again = await loadGroup(stations, { store, fetcher, now: NOW + FRESH_MS - 1 });
+        expect(again.origin).toBe("cache");
+        expect(calls).toHaveLength(1);
+        expect(await store.lock("STATIONS")).toBe(false);
     });
 
     it("keeps working when the store itself is down", async () => {
