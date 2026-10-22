@@ -411,3 +411,5 @@
 .stars-pass-list .is-visible { border-color: rgba(114, 235, 178, .35); }
 .stars-pass-list .is-visible em { color: #9cf4c7; }
 .stars-link-button { display: block; box-sizing: border-box; color: #edf4ff; text-align: center; text-decoration: none; }
+
+.stars-pass-label { margin-top: 12px; }

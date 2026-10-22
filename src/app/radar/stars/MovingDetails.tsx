@@ -10,12 +10,13 @@ import { type SatellitePass, type SatelliteState } from "./satellites";
  * Ueberfluegen) und Flugzeuge ueber dem Standort.
  */
 
-export function SatelliteDetails({ state, passes, timeZone, skyTime, siteDark }: {
+export function SatelliteDetails({ state, passes, timeZone, skyTime, siteDark, onShowOnGlobe }: {
     state: SatelliteState;
     passes: SatellitePass[];
     timeZone: string;
     skyTime: Date;
     siteDark: boolean;
+    onShowOnGlobe: () => void;
 }) {
     const above = state.altitude > 0;
     const visible = above && state.sunlit && siteDark;
@@ -36,7 +37,8 @@ export function SatelliteDetails({ state, passes, timeZone, skyTime, siteDark }:
                 <div><dt>Above</dt><dd>{state.lat.toFixed(2)}°, {state.lon.toFixed(2)}°</dd></div>
                 <div><dt>Sunlight</dt><dd>{state.sunlit ? "Sunlit" : "In Earth's shadow"}</dd></div>
             </dl>
-            <div className="stars-mini-label">Passes next 3 days (above 10°)</div>
+            <button className="stars-primary-button" onClick={onShowOnGlobe}>Show on globe</button>
+            <div className="stars-mini-label stars-pass-label">Passes next 3 days (above 10°)</div>
             {passes.length === 0 ? <p className="stars-muted">No passes above 10°.</p> : (
                 <div className="stars-pass-list">
                     {passes.slice(0, 8).map((pass) => (

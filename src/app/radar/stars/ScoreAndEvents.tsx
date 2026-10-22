@@ -71,7 +71,7 @@ export function ScoreCard({ score, bortle, onBortle, timeZone, skyTime, weatherE
     );
 }
 
-const EVENT_ICONS: Record<SkyEvent["kind"], string> = { moon: "◐", meteor: "☄", conjunction: "⚭", eclipse: "◑", pass: "✈", aurora: "≋" };
+const EVENT_ICONS: Record<SkyEvent["kind"], string> = { moon: "◐", meteor: "☄", conjunction: "⚭", eclipse: "◑", pass: "🛰", aurora: "≋" };
 
 export function EventsList({ events, timeZone, skyTime, notify, onNotify, notifyStatus, onPick }: {
     events: SkyEvent[];

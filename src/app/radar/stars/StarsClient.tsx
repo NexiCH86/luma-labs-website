@@ -538,7 +538,8 @@ export default function StarsClient() {
             const visible = state.sunlit && siteDark;
             list.push({
                 id: state.id,
-                label: important || highlighted ? state.name.replace(/s*(.*)$/, "") : "",
+                // "ISS (ZARYA)" -> "ISS"
+                label: important || highlighted ? state.name.replace(/\s*\(.*\)$/, "") : "",
                 color: state.category === "constellation" ? "#b9c4d8" : visible ? "#e9fbff" : "#7d8aa3",
                 shape: "dot",
                 size: important ? 3.4 : state.category === "constellation" ? 1.4 : 2.2,
@@ -1036,7 +1037,20 @@ export default function StarsClient() {
                             <button className="stars-collapse-button" onClick={() => setPanels((current) => ({ ...current, right: false }))} aria-label="Hide details panel" title="Hide details">›</button>
                         </div>
                         {selectedSatellite ? (
-                            <SatelliteDetails state={selectedSatellite} passes={selectedSatellitePasses} timeZone={timeZone} skyTime={skyTime} siteDark={sunAltitude < -6} />
+                            <SatelliteDetails
+                                state={selectedSatellite}
+                                passes={selectedSatellitePasses}
+                                timeZone={timeZone}
+                                skyTime={skyTime}
+                                siteDark={sunAltitude < -6}
+                                onShowOnGlobe={() => {
+                                    // Globus ueber den Satelliten drehen.
+                                    setMode("earth");
+                                    setEarthKind("globe");
+                                    setView(DEFAULT_VIEW);
+                                    setGlobeCenter({ lat: selectedSatellite.lat, lon: selectedSatellite.lon });
+                                }}
+                            />
                         ) : selectedAircraft ? (
                             <AircraftDetails plane={selectedAircraft} />
                         ) : (
