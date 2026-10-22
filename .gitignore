@@ -48,5 +48,8 @@ next-env.d.ts
 .vercel
 .env*
 
+# Lokale Claude-Code-Einstellungen (Startkonfiguration des Dev-Servers)
+/.claude/
+
 # Vorlage ohne Werte fuer den Radar-Collector (nach .env*, damit die Ausnahme greift)
 !collector/.env.example
