@@ -87,7 +87,7 @@ export function dsoGroup(typeCode: string | undefined): DsoGroup {
  * Kugelsternhaufen mit Kreuz, Planetarischer Nebel mit Strahlen,
  * Nebel als abgerundetes Quadrat.
  */
-export function drawDso(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, axisRatio: number, typeCode: string | undefined, highlighted: boolean) {
+export function drawDso(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, axisRatio: number, typeCode: string | undefined, highlighted: boolean, rotation = -Math.PI / 6) {
     const r = Math.max(highlighted ? 6 : 3.5, radius);
     ctx.save();
     ctx.strokeStyle = highlighted ? "#f7c768" : "rgba(112,224,255,.75)";
@@ -99,7 +99,7 @@ export function drawDso(ctx: CanvasRenderingContext2D, x: number, y: number, rad
     if (group === "galaxy") {
         ctx.strokeStyle = highlighted ? "#f7c768" : "rgba(255,170,200,.8)";
         ctx.fillStyle = highlighted ? "rgba(247,199,104,.18)" : "rgba(255,170,200,.08)";
-        ctx.ellipse(x, y, r, Math.max(2, r * clamp(axisRatio, 0.25, 1)), -Math.PI / 6, 0, Math.PI * 2);
+        ctx.ellipse(x, y, r, Math.max(2, r * clamp(axisRatio, 0.25, 1)), rotation, 0, Math.PI * 2);
         ctx.fill(); ctx.stroke();
     } else if (typeCode === "oc") {
         ctx.setLineDash([2, 2.5]);

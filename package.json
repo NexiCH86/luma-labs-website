@@ -13,7 +13,8 @@
     "radar:sync-airspace": "node scripts/sync-airspace.mjs",
     "radar:sync-airlines": "node scripts/sync-airline-codes.mjs",
     "radar:sync-sky": "node scripts/sync-sky-catalog.mjs",
-    "radar:sync-earth": "node scripts/sync-earth-map.mjs"
+    "radar:sync-earth": "node scripts/sync-earth-map.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -41,6 +42,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

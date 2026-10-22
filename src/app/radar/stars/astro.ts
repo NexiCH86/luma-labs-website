@@ -4,24 +4,98 @@ import {
     Illumination,
     MoonPhase,
     Observer as AstroObserver,
+    Refraction,
+    Rotation_EQJ_EQD,
     SearchAltitude,
     SearchHourAngle,
     SearchRiseSet,
+    SiderealTime,
 } from "astronomy-engine";
 import { type SkyObject } from "./stars-data";
 import { type Observer } from "./sky-catalog";
 
 /*
  * Rechenhilfen fuer den STARS-Modus: Koordinaten, Auf-/Untergang,
- * Daemmerung und Mond. Zeiten sind Date-Objekte und werden in der
- * Zeitzone des Browsers angezeigt.
+ * Daemmerung und Mond. Zeiten sind Date-Objekte; angezeigt werden sie
+ * in der Zeitzone des Standorts (format.ts).
  */
 
 const OBLIQUITY = 23.4393;
 const HOUR = 3_600_000;
+const RAD = Math.PI / 180;
 
 export function clamp(value: number, min: number, max: number) {
     return Math.min(max, Math.max(min, value));
+}
+
+export type Horizontal = { altitude: number; azimuth: number };
+
+/*
+ * Koordinatenrahmen fuer einen Zeitpunkt und Standort. Kataloge und
+ * Planeten liegen in J2000 vor; der Rahmen rechnet mit Praezession und
+ * Nutation (astronomy-engine) auf das Datum um, nutzt die scheinbare
+ * Sternzeit und hebt Objekte am Horizont um die Lichtbrechung an.
+ * Eine 3x3-Matrix fasst J2000 -> Datum -> Horizont zusammen, damit
+ * auch 40'000 Sterne pro Bild schnell gehen.
+ */
+export type SkyFrame = {
+    date: Date;
+    // Sternzeit in Stunden: scheinbar in Greenwich und am Standort
+    gast: number;
+    lst: number;
+    toHorizontal: (ra: number, dec: number) => Horizontal;
+    toDate: (ra: number, dec: number) => { ra: number; dec: number };
+    fromHorizontal: (altitude: number, azimuth: number) => { ra: number; dec: number };
+};
+
+export function createSkyFrame(date: Date, observer: Observer, refraction = true): SkyFrame {
+    // RotateVector-Konvention von astronomy-engine: out[j] = sum_i rot[i][j] * v[i]
+    const rot = Rotation_EQJ_EQD(date).rot;
+    const gast = SiderealTime(date);
+    const lst = (((gast + observer.lon / 15) % 24) + 24) % 24;
+    const theta = lst * 15 * RAD;
+    const phi = observer.lat * RAD;
+    const north = [-Math.sin(phi) * Math.cos(theta), -Math.sin(phi) * Math.sin(theta), Math.cos(phi)];
+    const east = [-Math.sin(theta), Math.cos(theta), 0];
+    const up = [Math.cos(phi) * Math.cos(theta), Math.cos(phi) * Math.sin(theta), Math.sin(phi)];
+    // m[k][i]: Anteil der J2000-Komponente i an Nord/Ost/Oben
+    const m = [north, east, up].map((row) => [0, 1, 2].map((i) => row[0] * rot[i][0] + row[1] * rot[i][1] + row[2] * rot[i][2]));
+
+    const unit = (ra: number, dec: number) => {
+        const a = ra * 15 * RAD;
+        const d = dec * RAD;
+        const cd = Math.cos(d);
+        return [cd * Math.cos(a), cd * Math.sin(a), Math.sin(d)];
+    };
+
+    return {
+        date,
+        gast,
+        lst,
+        toHorizontal: (ra, dec) => {
+            const v = unit(ra, dec);
+            const n = m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2];
+            const e = m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2];
+            const u = m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2];
+            let altitude = Math.asin(clamp(u, -1, 1)) / RAD;
+            if (refraction && altitude > -1) altitude += Refraction("normal", altitude);
+            const azimuth = ((Math.atan2(e, n) / RAD) + 360) % 360;
+            return { altitude, azimuth };
+        },
+        toDate: (ra, dec) => {
+            const v = unit(ra, dec);
+            const out = [0, 1, 2].map((j) => rot[0][j] * v[0] + rot[1][j] * v[1] + rot[2][j] * v[2]);
+            return { ra: (((Math.atan2(out[1], out[0]) / RAD / 15) % 24) + 24) % 24, dec: Math.asin(clamp(out[2], -1, 1)) / RAD };
+        },
+        fromHorizontal: (altitude, azimuth) => {
+            const h = altitude * RAD;
+            const z = azimuth * RAD;
+            const local = [Math.cos(h) * Math.cos(z), Math.cos(h) * Math.sin(z), Math.sin(h)];
+            // m ist orthonormal: die Transponierte fuehrt zurueck nach J2000.
+            const v = [0, 1, 2].map((i) => m[0][i] * local[0] + m[1][i] * local[1] + m[2][i] * local[2]);
+            return { ra: (((Math.atan2(v[1], v[0]) / RAD / 15) % 24) + 24) % 24, dec: Math.asin(clamp(v[2], -1, 1)) / RAD };
+        },
+    };
 }
 
 export function julianDate(date: Date) {
