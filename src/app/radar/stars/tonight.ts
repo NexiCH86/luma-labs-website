@@ -1,6 +1,6 @@
 import { type SkyObject } from "./stars-data";
 import { solarSystemObjects, type Observer } from "./sky-catalog";
-import { horizontal, localSiderealTime, type NightInfo } from "./astro";
+import { createSkyFrame, type NightInfo, type SkyFrame } from "./astro";
 
 /*
  * "Tonight's best": die lohnendsten Objekte der Nacht fuer den Standort.
@@ -40,18 +40,18 @@ export function tonightsBest(candidates: SkyObject[], observer: Observer, night:
     if (samples.length === 0) return [];
 
     const best = new Map<string, { object: SkyObject; altitude: number; time: Date }>();
-    const consider = (object: SkyObject, time: Date, lst: number) => {
-        const { altitude } = horizontal(object.ra, object.dec, lst, observer.lat);
+    const consider = (object: SkyObject, time: Date, frame: SkyFrame) => {
+        const { altitude } = frame.toHorizontal(object.ra, object.dec);
         const current = best.get(object.id);
         if (!current || altitude > current.altitude) best.set(object.id, { object, altitude, time });
     };
 
     for (const time of samples) {
-        const lst = localSiderealTime(time, observer.lon);
-        for (const object of candidates) consider(object, time, lst);
+        const frame = createSkyFrame(time, observer);
+        for (const object of candidates) consider(object, time, frame);
         // Planeten wandern, deshalb je Zeitpunkt neu berechnet (ohne Sonne und Mond).
         for (const planet of solarSystemObjects(time, observer)) {
-            if (planet.id !== "sun" && planet.id !== "moon" && planet.magnitude < 7) consider(planet, time, lst);
+            if (planet.id !== "sun" && planet.id !== "moon" && planet.magnitude < 7) consider(planet, time, frame);
         }
     }
 

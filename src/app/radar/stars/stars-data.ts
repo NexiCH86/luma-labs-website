@@ -26,6 +26,8 @@ export type DeepSkyObject = {
     // Kurzcode aus d3-celestial (s, e, oc, gc, pn, en ...) und Ausdehnung in Bogenminuten
     typeCode?: string;
     size?: [number, number];
+    // Lage der grossen Achse in Grad, von Nord ueber Ost (OpenNGC)
+    positionAngle?: number;
 };
 
 export type PlanetObject = {

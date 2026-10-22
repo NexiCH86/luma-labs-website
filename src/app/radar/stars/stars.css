@@ -53,7 +53,16 @@
 }
 .stars-left-panel { border-right: 1px solid rgba(137, 168, 255, .12); }
 .stars-right-panel { border-left: 1px solid rgba(137, 168, 255, .12); }
-.stars-panel-title { margin-bottom: 17px; color: rgba(171, 195, 255, .78); font-size: 9px; font-weight: 700; }
+.stars-panel-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 17px; color: rgba(171, 195, 255, .78); font-size: 9px; font-weight: 700; }
+
+/* Einklappbare Seitenpanels (Zustand wird gespeichert) */
+.stars-collapse-button { width: 24px; height: 24px; border: 1px solid rgba(139, 171, 255, .2); border-radius: 6px; color: #b8c9f5; background: rgba(112, 146, 235, .08); font-size: 14px; line-height: 1; cursor: pointer; }
+.stars-collapse-button:hover { background: rgba(112, 146, 235, .18); }
+.stars-panel.is-collapsed { display: flex; justify-content: center; padding: 14px 0; overflow: hidden; }
+.stars-layout.left-collapsed { grid-template-columns: 40px minmax(0, 1fr) 310px; }
+.stars-layout.right-collapsed { grid-template-columns: 286px minmax(0, 1fr) 40px; }
+.stars-layout.left-collapsed.right-collapsed { grid-template-columns: 40px minmax(0, 1fr) 40px; }
+.stars-mode-controls.stars-two-columns { grid-template-columns: 1fr 1fr; }
 .stars-section-label { margin: 22px 0 10px; color: rgba(182, 200, 242, .48); font-size: 8px; font-weight: 700; }
 
 .stars-search-wrap { position: relative; }
@@ -277,6 +286,8 @@
 
 @media (max-width: 1100px) {
     .stars-layout { grid-template-columns: 235px minmax(0, 1fr) 270px; }
+    .stars-layout.left-collapsed { grid-template-columns: 40px minmax(0, 1fr) 270px; }
+    .stars-layout.right-collapsed { grid-template-columns: 235px minmax(0, 1fr) 40px; }
     .stars-panel { padding: 14px; }
 }
 
@@ -287,7 +298,11 @@
 @media (max-width: 820px) {
     .stars-topbar { height: 64px; padding: 0 14px; }
     .stars-topbar h1 { font-size: 17px; }
-    .stars-layout { inset: 64px 0 34px; grid-template-columns: 1fr; }
+    .stars-layout,
+    .stars-layout.left-collapsed,
+    .stars-layout.right-collapsed,
+    .stars-layout.left-collapsed.right-collapsed { inset: 64px 0 34px; grid-template-columns: 1fr; }
+    .stars-collapse-button { display: none; }
     .stars-left-panel,
     .stars-right-panel {
         position: fixed;
