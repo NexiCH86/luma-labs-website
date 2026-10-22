@@ -334,3 +334,35 @@
     .stars-status-row span:not(.stars-live-dot):not(:first-of-type) { display: none; }
     .stars-footer span:last-child { display: none; }
 }
+
+/* Phase 4b: Beobachtungsliste, Hoehenkurve, Jupitermonde, Sternbild-Sterne */
+.stars-watch-button { width: 100%; margin: 0 0 12px; padding: 8px; border: 1px solid rgba(247, 199, 104, .3); border-radius: 7px; color: #f7d38d; background: rgba(247, 199, 104, .06); font-size: 10px; font-weight: 600; cursor: pointer; }
+.stars-watch-button.is-active { border-color: rgba(247, 199, 104, .65); background: rgba(247, 199, 104, .14); }
+.stars-altitude-chart,
+.stars-jupiter-moons { margin: 0 0 12px; padding: 8px; border: 1px solid rgba(138, 170, 255, .12); border-radius: 8px; background: rgba(255, 255, 255, .02); }
+.stars-altitude-chart figcaption,
+.stars-jupiter-moons figcaption,
+.stars-mini-label { margin-bottom: 4px; color: rgba(193, 210, 247, .55); font-family: ui-monospace, monospace; font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.stars-altitude-chart svg,
+.stars-jupiter-moons svg { display: block; width: 100%; height: auto; }
+.stars-altitude-chart text,
+.stars-jupiter-moons text { fill: rgba(200, 214, 248, .5); font-family: ui-monospace, monospace; font-size: 7px; }
+.stars-altitude-chart .grid { stroke: rgba(140, 170, 255, .12); stroke-width: .6; }
+.stars-altitude-chart .horizon { stroke: rgba(99, 255, 227, .55); stroke-width: .8; }
+.stars-altitude-chart .curve { fill: none; stroke: #f7c768; stroke-width: 1.5; }
+.stars-altitude-chart .now { stroke: rgba(118, 239, 180, .85); stroke-width: 1; stroke-dasharray: 2 2; }
+.stars-altitude-chart .best { fill: #ffe3a6; }
+.stars-jupiter-moons .axis { stroke: rgba(140, 170, 255, .2); stroke-width: .6; }
+.stars-jupiter-moons .planet { fill: #f3dfb0; }
+.stars-jupiter-moons .moon { fill: #eef4ff; }
+.stars-constellation-stars { display: grid; gap: 3px; margin-bottom: 12px; }
+.stars-constellation-stars button { display: flex; justify-content: space-between; gap: 8px; padding: 6px 8px; border: 1px solid rgba(138, 170, 255, .1); border-radius: 6px; color: #edf4ff; background: rgba(255, 255, 255, .02); text-align: left; cursor: pointer; }
+.stars-constellation-stars button:hover { background: rgba(113, 153, 255, .1); }
+.stars-constellation-stars strong { font-size: 10px; font-weight: 600; }
+.stars-constellation-stars span { color: rgba(204, 218, 250, .5); font-family: ui-monospace, monospace; font-size: 8px; }
+.stars-watchlist { display: grid; gap: 3px; }
+.stars-watchlist div { display: grid; grid-template-columns: 18px 1fr 22px; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid rgba(138, 170, 255, .1); border-radius: 6px; }
+.stars-watchlist div.is-seen button:not(.stars-watch-remove) { color: rgba(156, 244, 199, .75); text-decoration: line-through; }
+.stars-watchlist input { accent-color: #72ebb2; }
+.stars-watchlist button { padding: 2px 0; border: 0; color: #edf4ff; background: transparent; font-size: 10px; text-align: left; cursor: pointer; }
+.stars-watchlist .stars-watch-remove { color: rgba(240, 176, 176, .7); font-size: 13px; text-align: center; }

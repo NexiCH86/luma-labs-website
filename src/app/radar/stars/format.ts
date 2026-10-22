@@ -121,7 +121,11 @@ export function constellationName(constellation: Constellation, names: NameLangu
 
 export function objectSubtitle(object: SkyObject) {
     if (object.kind === "dso") return [object.catalog, object.constellation].filter(Boolean).join(" · ");
-    if (object.kind === "planet") return object.id === "sun" ? "Star · Solar system" : object.id === "moon" ? "Moon · Solar system" : "Planet · Solar system";
+    if (object.kind === "planet") {
+        if (object.id.startsWith("comet-")) return "Comet · Solar system";
+        if (object.id.startsWith("asteroid-")) return "Asteroid · Solar system";
+        return object.id === "sun" ? "Star · Solar system" : object.id === "moon" ? "Moon · Solar system" : "Planet · Solar system";
+    }
     return `${object.designation ?? "Star"} · ${object.constellation}`;
 }
 
@@ -137,6 +141,8 @@ export function shortPlaceLabel(label: string) {
  */
 export function wikipediaTitles(object: SkyObject): string[] {
     if (object.kind === "planet") {
+        if (object.id.startsWith("asteroid-")) return [`${object.name} (asteroid)`, `${object.id.slice(9)} ${object.name}`];
+        if (object.id.startsWith("comet-")) return [object.name];
         return object.id === "mercury" ? ["Mercury (planet)"] : [object.name];
     }
     if (object.kind === "dso") {

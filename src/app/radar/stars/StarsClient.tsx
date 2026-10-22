@@ -13,6 +13,10 @@ import { projectCatalog, projectSkyDome, zoomAround } from "./projection";
 import { drawSkyScene, type SkyMarker } from "./render-sky";
 import { drawEarthScene, earthObjectPoint } from "./render-earth";
 import { useCanvasGestures, useKeyboardShortcuts } from "./use-canvas-gestures";
+import { jupiterMoons, loadSmallBodies, smallBodyObjects, type SmallBodiesFile } from "./kepler";
+import { useWatchlist } from "./watchlist";
+import AltitudeChart from "./AltitudeChart";
+import JupiterMoonsDiagram from "./JupiterMoonsDiagram";
 import NavigatorPanel from "./NavigatorPanel";
 import ObjectDetails from "./ObjectDetails";
 import TimeAndTonight from "./TimeAndTonight";
@@ -105,6 +109,8 @@ export default function StarsClient() {
     // Zeitzone des Standorts (Open-Meteo), bis dahin die des Browsers.
     const [siteTimeZone, setSiteTimeZone] = useState<{ key: string; zone: string } | null>(null);
     const [shareStatus, setShareStatus] = useState("");
+    const [smallBodiesFile, setSmallBodiesFile] = useState<SmallBodiesFile | null>(null);
+    const watchlist = useWatchlist();
     // Auf dem Handy sind die Panels Leisten; Einklappen gilt nur am Desktop.
     const [isMobile, setIsMobile] = useState(isMobileLayout);
 
@@ -132,6 +138,15 @@ export default function StarsClient() {
             .catch(() => { /* Ohne die Datei bleibt die Karte bei Helligkeit 6. */ });
         return () => { active = false; };
     }, [magnitudeLimit, deepStars.length]);
+
+    // Kometen und Kleinplaneten (Bahnelemente, 15 KB).
+    useEffect(() => {
+        let active = true;
+        loadSmallBodies()
+            .then((loaded) => { if (active) setSmallBodiesFile(loaded); })
+            .catch(() => { /* Ohne Datei fehlen nur Kometen und Kleinplaneten. */ });
+        return () => { active = false; };
+    }, []);
 
     // Weltkarte erst laden, wenn die Erdansicht geoeffnet wird.
     useEffect(() => {
@@ -212,7 +227,10 @@ export default function StarsClient() {
 
     const planets = useMemo(() => solarSystemObjects(skyTime, observer), [skyTime, observer]);
 
-    const allObjects = useMemo<SkyObject[]>(() => [...planets, ...catalog.dsos, ...catalog.stars, ...deepStars], [planets, catalog, deepStars]);
+    // Kometen und Kleinplaneten bewegen sich langsam: einmal pro Minute rechnen.
+    const minorBodies = useMemo(() => smallBodyObjects(smallBodiesFile, new Date(minuteKey * MINUTE)), [smallBodiesFile, minuteKey]);
+
+    const allObjects = useMemo<SkyObject[]>(() => [...planets, ...minorBodies, ...catalog.dsos, ...catalog.stars, ...deepStars], [planets, minorBodies, catalog, deepStars]);
 
     const selected = useMemo(() => allObjects.find((item) => item.id === selectedId) ?? null, [allObjects, selectedId]);
 
@@ -312,6 +330,12 @@ export default function StarsClient() {
             });
     }, [infoKey, selected, selectedConstellation]);
 
+    // Hellste Sterne des gewaehlten Sternbilds.
+    const constellationStars = useMemo(
+        () => (selectedConstellation ? catalog.stars.filter((star) => star.constellation === selectedConstellation.name && !star.name.startsWith("HIP ")).sort((a, b) => a.magnitude - b.magnitude).slice(0, 6) : []),
+        [catalog, selectedConstellation]
+    );
+
     // Kandidaten fuer "Tonight's best": Messier, helle Objekte mit Eigennamen, helle benannte Sterne.
     const tonightCandidates = useMemo<SkyObject[]>(
         () => [
@@ -344,8 +368,42 @@ export default function StarsClient() {
         return object.magnitude <= [7.5, 9.5, 12][level];
     }, [layers.galaxies, layers.clusters, layers.nebulae, view.zoom]);
 
-    // Zusaetzliche Marker (Kometen, Satelliten, Flugzeuge, Monde) folgen in eigenen Modulen.
-    const markers = useMemo<SkyMarker[]>(() => [], []);
+    /*
+     * Welche Kometen und Kleinplaneten sichtbar sind: Kometen bis etwas
+     * ueber der Grenzhelligkeit (hoechstens 13), Kleinplaneten bis 2,5
+     * darueber; das gewaehlte Objekt immer.
+     */
+    const minorVisible = useCallback((object: SkyObject) => {
+        if (object.id === selectedId) return true;
+        if (!layers.smallBodies) return false;
+        if (object.id.startsWith("comet-")) return object.magnitude <= Math.min(13, magnitudeLimit + 5);
+        return object.magnitude <= magnitudeLimit + 2.5;
+    }, [layers.smallBodies, magnitudeLimit, selectedId]);
+
+    const jupiter = useMemo(() => jupiterMoons(new Date(minuteKey * MINUTE)), [minuteKey]);
+
+    // Zusaetzliche Marker: Kometen (Schweif von der Sonne weg), Kleinplaneten, Jupitermonde.
+    const markers = useMemo<SkyMarker[]>(() => {
+        const sun = planets.find((planet) => planet.id === "sun");
+        const list: SkyMarker[] = minorBodies.filter(minorVisible).map((body) => ({
+            id: body.id,
+            // "C/2025 A1 (Lemmon)" -> "Lemmon"
+            label: body.name.match(/\(([^)]+)\)$/)?.[1] ?? body.name,
+            color: body.minorKind === "comet" ? "#9ff3ff" : "#e5c9ff",
+            shape: body.minorKind === "comet" ? "comet" : "diamond",
+            size: body.minorKind === "comet" ? 3 : 2.6,
+            ra: body.ra,
+            dec: body.dec,
+            awayFrom: body.minorKind === "comet" && sun ? { ra: sun.ra, dec: sun.dec } : undefined,
+            highlighted: body.id === selectedId,
+        }));
+        if (layers.planets) {
+            for (const moon of jupiter.moons) {
+                list.push({ id: moon.id, label: moon.name, color: "#f3ead2", shape: "dot", size: 1.5, ra: moon.ra, dec: moon.dec, minZoom: 25 });
+            }
+        }
+        return list;
+    }, [minorBodies, minorVisible, planets, jupiter, layers.planets, selectedId]);
 
     /*
      * Bildschirmposition fuer die aktuelle Ansicht, null = unter dem
@@ -419,7 +477,7 @@ export default function StarsClient() {
         for (const object of allObjects) {
             if (object.kind === "star" && (!layers.stars || (object.magnitude > magnitudeLimit && object.id !== selectedId))) continue;
             if (object.kind === "dso" && (!layers.dso || (!dsoVisible(object) && object.id !== selectedId))) continue;
-            if (object.kind === "planet" && !layers.planets) continue;
+            if (object.kind === "planet" && (object.id.startsWith("comet-") || object.id.startsWith("asteroid-")) ? !minorVisible(object) : object.kind === "planet" && !layers.planets) continue;
             const p = project(object.ra, object.dec, rect.width, rect.height);
             if (!p) continue;
             const distance = Math.hypot(p.x - x, p.y - y);
@@ -703,7 +761,7 @@ export default function StarsClient() {
                     onMode={switchMode}
                     layers={layers}
                     onLayers={setLayers}
-                    counts={{ stars: visibleStars.length, planets: planets.length, constellations: catalog.constellations.length, dsos: catalog.dsos.length }}
+                    counts={{ stars: visibleStars.length, planets: planets.length, constellations: catalog.constellations.length, dsos: catalog.dsos.length, smallBodies: minorBodies.length }}
                     magnitudeLimit={magnitudeLimit}
                     onMagnitudeLimit={setMagnitudeLimit}
                     deepStarsLoaded={deepStars.length > 0}
@@ -783,7 +841,31 @@ export default function StarsClient() {
                             names={names}
                             onCenterObject={focusObject}
                             onCenterConstellation={focusConstellation}
-                        />
+                        >
+                            {selected && (
+                                <>
+                                    <button
+                                        className={`stars-watch-button${watchlist.has(selected.id) ? " is-active" : ""}`}
+                                        onClick={() => (watchlist.has(selected.id) ? watchlist.remove(selected.id) : watchlist.add({ id: selected.id, name: objectName(selected, names), kind: selected.kind }))}
+                                    >
+                                        {watchlist.has(selected.id) ? "★ On my list" : "☆ Add to my list"}
+                                    </button>
+                                    {selected.id !== "sun" && <AltitudeChart object={selected} observer={observer} night={night} skyTime={skyTime} timeZone={timeZone} />}
+                                    {selected.id === "jupiter" && <JupiterMoonsDiagram moons={jupiter.moons} />}
+                                </>
+                            )}
+                            {!selected && selectedConstellation && constellationStars.length > 0 && (
+                                <div className="stars-constellation-stars">
+                                    <div className="stars-mini-label">Brightest stars</div>
+                                    {constellationStars.map((star) => (
+                                        <button key={star.id} onClick={() => focusObject(star)}>
+                                            <strong>{star.name}</strong>
+                                            <span>{star.designation !== star.name ? `${star.designation} · ` : ""}mag {star.magnitude.toFixed(1)}{star.distanceLy ? ` · ${star.distanceLy.toLocaleString("de-CH")} ly` : ""}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </ObjectDetails>
                         <TimeAndTonight
                             skyTime={skyTime}
                             timeZone={timeZone}
@@ -805,6 +887,21 @@ export default function StarsClient() {
                             onTonightEntry={showTonightEntry}
                             names={names}
                         />
+
+                        <div className="stars-section-label">My list · {watchlist.entries.filter((entry) => entry.seen).length}/{watchlist.entries.length} seen</div>
+                        {watchlist.entries.length === 0 ? (
+                            <p className="stars-muted">Select an object and press “Add to my list”.</p>
+                        ) : (
+                            <div className="stars-watchlist">
+                                {watchlist.entries.map((entry) => (
+                                    <div key={entry.id} className={entry.seen ? "is-seen" : undefined}>
+                                        <input type="checkbox" checked={entry.seen} onChange={() => watchlist.toggleSeen(entry.id)} aria-label={`Mark ${entry.name} as seen`} />
+                                        <button onClick={() => { const object = allObjects.find((item) => item.id === entry.id); if (object) focusObject(object); }}>{entry.name}</button>
+                                        <button className="stars-watch-remove" onClick={() => watchlist.remove(entry.id)} aria-label={`Remove ${entry.name}`}>×</button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </aside>
                 ) : (
                     <aside className="stars-panel stars-right-panel is-collapsed">

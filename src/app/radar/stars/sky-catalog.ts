@@ -36,6 +36,8 @@ type CatalogFile = {
         mag: number | null;
         // [grosse, kleine Achse] in Bogenminuten; aeltere Kataloge: "190x60"
         dim: [number, number] | string;
+        // Positionswinkel aus OpenNGC (Grad, Nord ueber Ost)
+        pa?: number;
         ra: number;
         dec: number;
     }[];
@@ -211,6 +213,7 @@ export async function loadSkyCatalog(): Promise<SkyCatalog> {
         distanceLy: curatedDsos.get(item.id)?.distanceLy,
         typeCode: item.type,
         size: parseDimension(item.dim),
+        positionAngle: item.pa,
     }));
 
     return {

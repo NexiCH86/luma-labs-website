@@ -218,6 +218,44 @@ for (const feature of [...messier.features, ...brightDsos.features, ...dsos14.fe
 }
 
 /*
+ * Lage der grossen Achse (Positionswinkel, Grad von Nord ueber Ost) aus
+ * OpenNGC von Mattia Verga (CC BY-SA 4.0). Fehlt der Download, bleiben
+ * die Objekte ohne Ausrichtung.
+ */
+const OPEN_NGC_URL =
+    "https://raw.githubusercontent.com/mattiaverga/OpenNGC/master/database_files/NGC.csv";
+
+const openNgcKey = (value) => normalizeDesignation(value).replace(/^(NGC|IC)0*(\d)/, "$1$2");
+
+try {
+    const response = await fetch(OPEN_NGC_URL, { signal: AbortSignal.timeout(60_000) });
+    if (!response.ok) throw new Error(`OpenNGC ${response.status}`);
+    const lines = (await response.text()).split(/\r?\n/);
+    const header = lines.shift().split(";");
+    const [NAME, POS_ANG, MESSIER] = ["Name", "PosAng", "M"].map((name) => header.indexOf(name));
+    const angles = new Map();
+
+    for (const line of lines) {
+        const fields = line.split(";");
+        const angle = Number(fields[POS_ANG]);
+        if (!fields[POS_ANG] || !Number.isFinite(angle)) continue;
+        angles.set(openNgcKey(fields[NAME]), angle);
+        if (fields[MESSIER]) angles.set(`M${Number(fields[MESSIER])}`, angle);
+    }
+
+    let matched = 0;
+    for (const row of dsoRows) {
+        const angle = angles.get(openNgcKey(row.id)) ?? angles.get(openNgcKey(row.desig));
+        if (angle === undefined) continue;
+        row.pa = angle;
+        matched++;
+    }
+    console.log(`OpenNGC position angles: ${matched} of ${dsoRows.length} deep-sky objects.`);
+} catch (error) {
+    console.warn(`OpenNGC skipped: ${error.message}`);
+}
+
+/*
  * Milchstrasse: d3-celestial liefert fuenf Helligkeitsstufen als
  * Polygone. Gerastert auf ein flaechentreues 1,5°-Raster, damit die
  * Karte sie in jeder Projektion als weiche Punkte zeichnen kann.

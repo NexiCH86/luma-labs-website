@@ -168,8 +168,10 @@ function astroObserver(observer: Observer) {
  * Sterne von astronomy-engine (Body.Star1), Planeten direkt.
  */
 function bodyFor(object: SkyObject) {
-    if (object.kind === "planet") return PLANET_BODIES[object.id] ?? null;
-    DefineStar(Body.Star1, object.ra, object.dec, object.distanceLy && object.distanceLy > 0 ? object.distanceLy : 1000);
+    // Kometen und Kleinplaneten: fuer Auf-/Untergang genuegt die momentane Position.
+    if (object.kind === "planet" && PLANET_BODIES[object.id]) return PLANET_BODIES[object.id];
+    const distanceLy = object.kind === "planet" ? 1000 : object.distanceLy && object.distanceLy > 0 ? object.distanceLy : 1000;
+    DefineStar(Body.Star1, object.ra, object.dec, distanceLy);
     return Body.Star1;
 }
 

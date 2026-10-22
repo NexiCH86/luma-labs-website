@@ -20,7 +20,7 @@ export type NavigatorPanelProps = {
     onMode: (mode: ViewMode) => void;
     layers: Layers;
     onLayers: (update: (current: Layers) => Layers) => void;
-    counts: { stars: number; planets: number; constellations: number; dsos: number };
+    counts: { stars: number; planets: number; constellations: number; dsos: number; smallBodies: number };
     magnitudeLimit: number;
     onMagnitudeLimit: (value: number) => void;
     deepStarsLoaded: boolean;
@@ -52,6 +52,7 @@ export default function NavigatorPanel({ searchInputRef, ...props }: NavigatorPa
         ["planets", "Sun, Moon & planets", props.counts.planets],
         ["constellations", "Constellations", props.counts.constellations],
         ["dso", "Deep sky", props.counts.dsos],
+        ["smallBodies", "Comets & asteroids", props.counts.smallBodies],
         ["milkyWay", "Milky Way", ""],
         ["labels", "Labels", "Auto"],
     ];

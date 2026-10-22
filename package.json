@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "npm run radar:sync-airports && npm run radar:sync-airspace && npm run radar:sync-opensky && npm run radar:sync-airlines && npm run radar:sync-sky && npm run radar:sync-earth && next build",
+    "vercel-build": "npm run radar:sync-airports && npm run radar:sync-airspace && npm run radar:sync-opensky && npm run radar:sync-airlines && npm run radar:sync-sky && npm run radar:sync-earth && npm run radar:sync-small-bodies && next build",
     "start": "next start",
     "lint": "eslint",
     "radar:sync-opensky": "node scripts/sync-opensky-aircraft.mjs",
@@ -14,7 +14,8 @@
     "radar:sync-airlines": "node scripts/sync-airline-codes.mjs",
     "radar:sync-sky": "node scripts/sync-sky-catalog.mjs",
     "radar:sync-earth": "node scripts/sync-earth-map.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "radar:sync-small-bodies": "node scripts/sync-small-bodies.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

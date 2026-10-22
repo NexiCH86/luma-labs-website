@@ -42,6 +42,8 @@ export type SkyMarker = {
     track?: { altitude: number; azimuth: number }[];
     // nur ab diesem Zoom zeigen (Jupitermonde)
     minZoom?: number;
+    // Kometenschweif zeigt von diesem Punkt weg (Sonne, J2000)
+    awayFrom?: { ra: number; dec: number };
 };
 
 export type SkySceneParams = {
@@ -284,11 +286,12 @@ export function drawSkyScene(params: SkySceneParams) {
                 // Schneller Weg fuer die vielen lichtschwachen Sterne: ohne Glow und Beschriftung.
                 ctx.globalAlpha = 0.45 * (1 - brightness * 0.75);
                 ctx.fillStyle = star.color ?? "#ffffff";
-                ctx.fillRect(p.x - 0.6, p.y - 0.6, 1.2 * Math.sqrt(view.zoom), 1.2 * Math.sqrt(view.zoom));
+                ctx.fillRect(p.x - 0.6, p.y - 0.6, 1.2 * Math.sqrt(Math.min(view.zoom, 8)), 1.2 * Math.sqrt(Math.min(view.zoom, 8)));
                 ctx.globalAlpha = 1;
                 continue;
             }
-            const radius = clamp((6.2 - star.magnitude) * 0.55, 0.55, 5.3) * Math.sqrt(view.zoom);
+            // Sterne wachsen nur bis Zoom 8 mit, sonst werden sie beim Hineinzoomen zu Scheiben.
+            const radius = clamp((6.2 - star.magnitude) * 0.55, 0.55, 5.3) * Math.sqrt(Math.min(view.zoom, 8));
             ctx.save();
             // Glow nur fuer helle Sterne, sonst wird das Zeichnen von 5000 Sternen traege.
             ctx.shadowBlur = selectedStar ? 22 : star.magnitude < 2 ? radius * 3 : 0;
@@ -351,7 +354,20 @@ export function drawSkyScene(params: SkySceneParams) {
         }
     }
 
-    drawMarkers(ctx, params.markers, view.zoom, (marker) => {
+    // Schweifrichtung: auf dem Bildschirm von der Sonne weg, auch wenn sie unter dem Horizont steht.
+    const unclipped = (ra: number, dec: number) => {
+        if (!skyMode) return projectCatalog(ra, dec, width, height, view);
+        const h = frame.toHorizontal(ra, dec);
+        return projectSkyDome(h.altitude, h.azimuth, width, height, view);
+    };
+    const markers = params.markers.map((marker) => {
+        if (!marker.awayFrom || marker.ra === undefined || marker.dec === undefined) return marker;
+        const from = unclipped(marker.awayFrom.ra, marker.awayFrom.dec);
+        const to = unclipped(marker.ra, marker.dec);
+        return { ...marker, heading: (Math.atan2(to.y - from.y, to.x - from.x) * 180) / Math.PI - 90 };
+    });
+
+    drawMarkers(ctx, markers, view.zoom, (marker) => {
         if (marker.altitude !== undefined && marker.azimuth !== undefined) return projectHorizontal(marker.altitude, marker.azimuth);
         if (marker.ra !== undefined && marker.dec !== undefined) return project(marker.ra, marker.dec);
         return null;
