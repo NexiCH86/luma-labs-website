@@ -142,7 +142,7 @@
 /* Nachtsicht: alles in Rot, damit die Augen dunkeladaptiert bleiben. */
 .stars-workspace.is-night { filter: grayscale(1) sepia(1) hue-rotate(-50deg) saturate(5) brightness(.72); }
 
-.stars-mode-controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.stars-mode-controls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .stars-mode-controls button,
 .stars-place-row button,
 .stars-mobile-tabs button {

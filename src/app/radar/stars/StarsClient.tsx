@@ -7,9 +7,10 @@ import { clamp, createSkyFrame, moonInfo, nightFor, riseTransitSet } from "./ast
 import { dsoGroup } from "./sky-draw";
 import { tonightsBest } from "./tonight";
 import { earthProjection, loadEarthMap, normalizeLon, subpoint, type EarthKind, type EarthMap, type GeoPoint } from "./earth-view";
-import { BROWSER_TIME_ZONE, constellationName, formatCoordinate, objectName, shortPlaceLabel, wikipediaTitles } from "./format";
+import { BROWSER_TIME_ZONE, constellationName, dateLabel, formatCoordinate, objectName, shortPlaceLabel, timeLabel, timeZoneLabel, toZonedInput, wikipediaTitles } from "./format";
 import { buildShareQuery, normalizeObserver, readSettings, readUrlState, writeSettings } from "./settings";
-import { projectCatalog, projectSkyDome, zoomAround } from "./projection";
+import { horizonProjector, projectCatalog, projectSkyDome, zoomAround, type HorizonView } from "./projection";
+import { lookFromOrientation } from "./device-orientation";
 import { drawSkyScene, type SkyMarker } from "./render-sky";
 import { drawEarthScene, earthObjectPoint } from "./render-earth";
 import { useCanvasGestures, useKeyboardShortcuts } from "./use-canvas-gestures";
@@ -125,6 +126,11 @@ export default function StarsClient() {
     const [weather, setWeather] = useState<{ key: string; data: SkyWeather } | null>(null);
     const [weatherError, setWeatherError] = useState(false);
     const [kpForecast, setKpForecast] = useState<KpForecast | null>(null);
+    // Rundblick: Blickrichtung (Azimut, Hoehe) und Rollwinkel; im AR-Modus vom Handy gesteuert.
+    const [look, setLook] = useState({ azimuth: 180, altitude: 25, roll: 0 });
+    const [arActive, setArActive] = useState(false);
+    const [arStatus, setArStatus] = useState("");
+    const lookTargetRef = useRef(look);
     // Auf dem Handy sind die Panels Leisten; Einklappen gilt nur am Desktop.
     const [isMobile, setIsMobile] = useState(isMobileLayout);
 
@@ -578,13 +584,21 @@ export default function StarsClient() {
      * Bildschirmposition fuer die aktuelle Ansicht, null = unter dem
      * Horizont bzw. auf der Rueckseite des Globus.
      */
+    // Bildwinkel im Rundblick: 100° bei Zoom 1, mit dem Zoom enger (Fernglas/Teleskop).
+    const horizonLook = useMemo<HorizonView>(() => ({ ...look, fov: clamp(100 / view.zoom, 0.8, 120) }), [look, view.zoom]);
+
     const project = useCallback((ra: number, dec: number, width: number, height: number, state: ViewState = view): Point | null => {
         if (mode === "catalog") return projectCatalog(ra, dec, width, height, state);
+        if (mode === "horizon") {
+            const { altitude, azimuth } = frame.toHorizontal(ra, dec);
+            if (altitude < -1) return null;
+            return horizonProjector({ ...horizonLook, fov: clamp(100 / state.zoom, 0.8, 120) }, width, height).project(altitude, azimuth);
+        }
         if (mode === "earth") return earthObjectPoint(earthProjectionFor(width, height, state), frame, ra, dec);
         const { altitude, azimuth } = frame.toHorizontal(ra, dec);
         if (altitude < -1) return null;
         return projectSkyDome(altitude, azimuth, width, height, state);
-    }, [mode, view, frame, earthProjectionFor]);
+    }, [mode, view, frame, earthProjectionFor, horizonLook]);
 
     const draw = useCallback(() => {
         const canvas = canvasRef.current;
@@ -614,13 +628,111 @@ export default function StarsClient() {
             return;
         }
 
+        const projector = horizonProjector(horizonLook, width, height);
         drawSkyScene({
             ctx, width, height, mode, view, frame,
+            horizon: mode === "horizon" ? { look: horizonLook, project: projector.project, pixelsPerDegree: projector.pixelsPerDegree } : undefined,
             project: (ra, dec) => project(ra, dec, width, height),
             catalog, layers, stars: drawnStars, planets, moon, sunAltitude,
             selectedId, selectedConstellationId, dsoVisible, names, observer, observerLabel, markers,
         });
-    }, [catalog, drawnStars, dsoVisible, earthMap, earthProjectionFor, frame, layers, markers, mode, moon, names, observer, observerLabel, planets, project, selected, selectedConstellationId, selectedId, size, sunAltitude, view]);
+    }, [catalog, drawnStars, dsoVisible, earthMap, earthProjectionFor, frame, horizonLook, layers, markers, mode, moon, names, observer, observerLabel, planets, project, selected, selectedConstellationId, selectedId, size, sunAltitude, view]);
+
+    /*
+     * AR-Modus: Lage des Handys -> Blickrichtung. Die Sensorwerte kommen
+     * sehr oft; geglaettet und hoechstens 20-mal pro Sekunde gezeichnet.
+     */
+    useEffect(() => {
+        if (!arActive) return;
+        let frameTimer = 0;
+        const smooth = (current: number, target: number, factor: number) => current + (target - current) * factor;
+        const onOrientation = (event: DeviceOrientationEvent) => {
+            const compass = (event as DeviceOrientationEvent & { webkitCompassHeading?: number }).webkitCompassHeading;
+            if (event.beta == null || event.gamma == null || (event.alpha == null && compass == null)) return;
+            // iOS liefert den Kompasskurs (im Uhrzeigersinn), sonst alpha (gegen den Uhrzeigersinn).
+            const alpha = compass != null ? 360 - compass : event.alpha ?? 0;
+            const screenAngle = window.screen.orientation?.angle ?? 0;
+            const target = lookFromOrientation({ alpha, beta: event.beta, gamma: event.gamma }, screenAngle);
+            const previous = lookTargetRef.current;
+            let deltaAz = target.azimuth - previous.azimuth;
+            if (deltaAz > 180) deltaAz -= 360;
+            if (deltaAz < -180) deltaAz += 360;
+            lookTargetRef.current = {
+                azimuth: (previous.azimuth + deltaAz * 0.35 + 360) % 360,
+                altitude: smooth(previous.altitude, target.altitude, 0.35),
+                roll: smooth(previous.roll, target.roll, 0.35),
+            };
+            if (!frameTimer) frameTimer = window.setTimeout(() => { frameTimer = 0; setLook(lookTargetRef.current); }, 50);
+        };
+        const absolute = "ondeviceorientationabsolute" in window;
+        const eventName = absolute ? "deviceorientationabsolute" : "deviceorientation";
+        window.addEventListener(eventName, onOrientation as EventListener);
+        return () => {
+            window.removeEventListener(eventName, onOrientation as EventListener);
+            window.clearTimeout(frameTimer);
+        };
+    }, [arActive]);
+
+    async function toggleAr() {
+        if (arActive) {
+            setArActive(false);
+            setLook((current) => ({ ...current, roll: 0 }));
+            setArStatus("");
+            return;
+        }
+        if (typeof DeviceOrientationEvent === "undefined") {
+            setArStatus("This device has no orientation sensor.");
+            return;
+        }
+        // iOS fragt beim ersten Mal nach der Erlaubnis.
+        const request = (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<"granted" | "denied"> }).requestPermission;
+        if (request) {
+            try {
+                if ((await request()) !== "granted") {
+                    setArStatus("Motion & orientation access was denied.");
+                    return;
+                }
+            } catch {
+                setArStatus("Motion & orientation access was denied.");
+                return;
+            }
+        }
+        setMode("horizon");
+        setView({ zoom: 100 / 70, offsetX: 0, offsetY: 0 });
+        setArActive(true);
+        setArStatus("Hold your phone up to the sky.");
+    }
+
+    /*
+     * Bild der aktuellen Ansicht herunterladen, mit Datum, Ort und
+     * Ansicht als Fusszeile (z. B. der Himmel am Geburtstag).
+     */
+    function downloadSnapshot() {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const footer = 46;
+        const out = document.createElement("canvas");
+        out.width = canvas.width;
+        out.height = canvas.height + footer * (canvas.width / Math.max(1, size.width));
+        const ctx = out.getContext("2d");
+        if (!ctx) return;
+        const scale = canvas.width / Math.max(1, size.width);
+        ctx.fillStyle = "#01030b";
+        ctx.fillRect(0, 0, out.width, out.height);
+        ctx.drawImage(canvas, 0, 0);
+        ctx.scale(scale, scale);
+        ctx.fillStyle = "#eef4ff";
+        ctx.font = "600 14px Inter, ui-sans-serif, system-ui";
+        ctx.fillText(`${dateLabel(skyTime, timeZone)} · ${timeLabel(skyTime, timeZone)} (${timeZoneLabel(skyTime, timeZone)})`, 16, size.height + 20);
+        ctx.fillStyle = "rgba(200,214,248,.7)";
+        ctx.font = "11px ui-monospace, Menlo, monospace";
+        ctx.fillText(`${observerLabel || "Custom"} · ${observer.lat.toFixed(2)}°, ${observer.lon.toFixed(2)}° · LuMa RADAR STARS · lumalabs.ch`, 16, size.height + 38);
+        const link = document.createElement("a");
+        const stamp = toZonedInput(skyTime, timeZone).replace(/[:T]/g, "-");
+        link.download = `luma-sky-${stamp}-${(observerLabel || "custom").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`;
+        link.href = out.toDataURL("image/png");
+        link.click();
+    }
 
     useEffect(() => {
         draw();
@@ -636,6 +748,7 @@ export default function StarsClient() {
             return marker.ra !== undefined && marker.dec !== undefined ? project(marker.ra, marker.dec, width, height) : null;
         }
         if (marker.altitude !== undefined && marker.azimuth !== undefined) {
+            if (mode === "horizon") return marker.altitude < -1 ? null : horizonProjector(horizonLook, width, height).project(marker.altitude, marker.azimuth);
             if (mode === "sky") return marker.altitude < -1 ? null : projectSkyDome(marker.altitude, marker.azimuth, width, height, view);
             const { ra, dec } = frame.fromHorizontal(marker.altitude, marker.azimuth);
             return projectCatalog(ra, dec, width, height, view);
@@ -720,8 +833,16 @@ export default function StarsClient() {
             }
             return;
         }
+        if (mode === "horizon") {
+            // Rundblick: in die Richtung des Objekts schauen (unter dem Horizont: Katalogansicht).
+            const { altitude, azimuth } = frame.toHorizontal(ra, dec);
+            if (altitude > -1) {
+                if (!arActive) setLook((current) => ({ ...current, azimuth, altitude: clamp(altitude, -5, 90) }));
+                return;
+            }
+        }
         const zoomed = { zoom: 1.9, offsetX: 0, offsetY: 0 };
-        let base = project(ra, dec, rect.width, rect.height, zoomed);
+        let base = mode === "horizon" ? null : project(ra, dec, rect.width, rect.height, zoomed);
         if (!base) {
             setMode("catalog");
             base = projectCatalog(ra, dec, rect.width, rect.height, zoomed);
@@ -875,6 +996,13 @@ export default function StarsClient() {
 
     const gestures = useCanvasGestures(canvasRef, {
         onPan: (dx, dy, rect) => {
+            if (mode === "horizon") {
+                // Ziehen dreht den Blick; im AR-Modus steuert das Handy.
+                if (arActive) return;
+                const degreesPerPixel = horizonLook.fov / rect.width;
+                setLook((current) => ({ ...current, azimuth: (current.azimuth - dx * degreesPerPixel + 360) % 360, altitude: clamp(current.altitude + dy * degreesPerPixel, -5, 90) }));
+                return;
+            }
             if (mode === "earth" && earthKind === "globe") {
                 // Globus drehen: ein Erdradius Zeigerweg entspricht etwa 57°.
                 const radius = earthProjectionFor(rect.width, rect.height).radius;
@@ -922,6 +1050,7 @@ export default function StarsClient() {
 
     const moonUp = moonObject ? frame.toHorizontal(moonObject.ra, moonObject.dec).altitude > 0 : false;
     const timeStatus = liveTime ? "LIVE SKY" : playing ? `TIME LAPSE · ${SPEEDS.find(([value]) => value === playSpeed)?.[1] ?? ""}` : "TIME SHIFT";
+    const horizonBadge = arStatus ? arStatus.toUpperCase() : arActive ? "AR · HOLD YOUR PHONE UP TO THE SKY" : "LOOK AROUND · DRAG TO TURN, ZOOM FOR BINOCULARS";
     const domeBadge = sunAltitude > 0 ? "SKY NOW · DAYLIGHT – STARS NOT VISIBLE TO THE EYE"
         : sunAltitude > -18 ? "SKY NOW · TWILIGHT · ZENITH CENTER, NORTH UP"
             : "SKY NOW · ZENITH CENTER · NORTH UP, EAST LEFT";
@@ -946,6 +1075,9 @@ export default function StarsClient() {
                         <span className="stars-separator">•</span>
                         <span>{catalog.dsos.length} deep-sky</span>
                     </div>
+                    <button className="stars-night-toggle" onClick={downloadSnapshot} title="Download this view as an image">
+                        Image
+                    </button>
                     <button className="stars-night-toggle" onClick={() => void shareView()} title="Copy a link to this view">
                         {shareStatus || "Share"}
                     </button>
@@ -995,14 +1127,20 @@ export default function StarsClient() {
                 <div ref={wrapperRef} className={`stars-canvas-wrap${pickingLocation && mode === "earth" ? " is-picking" : ""}${mode === "earth" && earthKind === "globe" ? " is-globe" : ""}`}>
                     <canvas ref={canvasRef} {...gestures} />
                     <div className={`stars-canvas-badge${pickingLocation && mode === "earth" ? " is-picking" : ""}`}>
-                        {mode === "sky" ? domeBadge : mode === "earth" ? earthBadge : "EQUATORIAL · J2000 CATALOG VIEW"}
+                        {mode === "sky" ? domeBadge : mode === "earth" ? earthBadge : mode === "horizon" ? horizonBadge : "EQUATORIAL · J2000 CATALOG VIEW"}
                     </div>
                     <div className="stars-view-switch">
                         <div className="stars-segmented" role="group" aria-label="View">
                             <button onClick={() => switchMode("sky")} className={mode === "sky" ? "is-active" : undefined}>Sky</button>
                             <button onClick={() => switchMode("catalog")} className={mode === "catalog" ? "is-active" : undefined}>Catalog</button>
+                            <button onClick={() => switchMode("horizon")} className={mode === "horizon" ? "is-active" : undefined}>Look</button>
                             <button onClick={() => switchMode("earth")} className={mode === "earth" ? "is-active" : undefined}>Earth</button>
                         </div>
+                        {mode === "horizon" && (
+                            <button className={`stars-pick-button${arActive ? " is-active" : ""}`} onClick={() => void toggleAr()} aria-pressed={arActive}>
+                                {arActive ? "Stop AR" : "AR (phone)"}
+                            </button>
+                        )}
                         {mode === "earth" && (
                             <>
                                 <div className="stars-segmented" role="group" aria-label="Earth projection">
