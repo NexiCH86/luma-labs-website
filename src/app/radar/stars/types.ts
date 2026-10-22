@@ -27,6 +27,7 @@ export type Layers = {
     galaxies: boolean;
     clusters: boolean;
     nebulae: boolean;
+    smallBodies: boolean;
 };
 
 export type MobilePanel = "none" | "navigator" | "object";
@@ -65,10 +66,12 @@ export const DEFAULT_LAYERS: Layers = {
     galaxies: true,
     clusters: true,
     nebulae: true,
+    smallBodies: true,
 };
 
 export const MIN_ZOOM = 0.8;
-export const MAX_ZOOM = 8;
+// Bis 150x (Teleskopblick), damit sich die Jupitermonde trennen lassen.
+export const MAX_ZOOM = 150;
 export const SETTINGS_KEY = "luma-radar-stars-settings-v1";
 export const SAT_LOCATION_KEY = "luma-radar-sat-manual-location";
 export const MOBILE_QUERY = "(max-width: 820px)";
