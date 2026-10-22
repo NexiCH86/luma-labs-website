@@ -37,6 +37,8 @@ type CatalogFile = {
         ra: number;
         dec: number;
     }[];
+    milkyWay?: number[];
+    bounds?: { id: string; rings: number[][] }[];
 };
 
 export type Constellation = {
@@ -48,10 +50,16 @@ export type Constellation = {
     lines: [number, number][][];
 };
 
+/*
+ * milkyWay: flach [ra (h), dec, Stufe 1..5, ...]
+ * bounds: Sternbildgrenzen, je Ring flach [ra (h), dec, ...]
+ */
 export type SkyCatalog = {
     stars: StarObject[];
     dsos: DeepSkyObject[];
     constellations: Constellation[];
+    milkyWay: number[];
+    bounds: { id: string; rings: number[][] }[];
     complete: boolean;
 };
 
@@ -105,6 +113,8 @@ export function fallbackCatalog(): SkyCatalog {
                 .filter((pair): pair is [StarObject, StarObject] => Boolean(pair[0] && pair[1]))
                 .map(([a, b]) => [[a.ra, a.dec], [b.ra, b.dec]] as [number, number][]),
         })),
+        milkyWay: [],
+        bounds: [],
         complete: false,
     };
 }
@@ -166,6 +176,8 @@ export async function loadSkyCatalog(): Promise<SkyCatalog> {
             dec: item.dec,
             lines: item.lines,
         })),
+        milkyWay: data.milkyWay ?? [],
+        bounds: data.bounds ?? [],
         complete: true,
     };
 }

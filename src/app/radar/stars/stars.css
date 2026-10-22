@@ -114,7 +114,26 @@
 .stars-primary-button { width: 100%; margin-top: 14px; padding: 10px; border-color: rgba(137, 171, 255, .34); background: linear-gradient(180deg, rgba(100, 137, 239, .23), rgba(75, 103, 189, .14)); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
 .stars-secondary-button { width: 100%; margin-top: 8px; padding: 8px; font-size: 9px; }
 
-.stars-mode-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.stars-topbar-right { display: flex; align-items: center; gap: 14px; }
+.stars-live-dot.is-paused { background: #f7c768; box-shadow: 0 0 12px rgba(247, 199, 104, .7); }
+.stars-night-toggle,
+.stars-segmented button,
+.stars-pick-button,
+.stars-speed-row button,
+.stars-time-controls button.is-active {
+    border: 1px solid rgba(139, 171, 255, .2);
+    border-radius: 7px;
+    color: #edf4ff;
+    background: rgba(112, 146, 235, .08);
+    cursor: pointer;
+}
+.stars-night-toggle { padding: 7px 12px; font-family: ui-monospace, monospace; font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.stars-night-toggle.is-active { border-color: rgba(255, 92, 92, .6); color: #ff8a8a; background: rgba(255, 60, 60, .1); }
+
+/* Nachtsicht: alles in Rot, damit die Augen dunkeladaptiert bleiben. */
+.stars-workspace.is-night { filter: grayscale(1) sepia(1) hue-rotate(-50deg) saturate(5) brightness(.72); }
+
+.stars-mode-controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .stars-mode-controls button,
 .stars-place-row button,
 .stars-mobile-tabs button {
@@ -151,7 +170,52 @@
 .stars-place-results span { color: rgba(220, 230, 255, .48); font-family: ui-monospace, monospace; font-size: 9px; }
 .stars-observer-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 
+.stars-shortcuts { margin-top: 16px; color: rgba(200, 214, 248, .32); font-family: ui-monospace, monospace; font-size: 8px; line-height: 1.6; }
+
+.stars-events { display: grid; gap: 1px; margin-bottom: 12px; overflow: hidden; border: 1px solid rgba(138, 170, 255, .12); border-radius: 8px; }
+.stars-events div { display: flex; justify-content: space-between; gap: 10px; padding: 7px 9px; background: rgba(255, 255, 255, .025); }
+.stars-events span { color: rgba(193, 210, 247, .5); font-size: 9px; }
+.stars-events strong { color: #eef4ff; font-family: ui-monospace, monospace; font-size: 10px; font-weight: 600; }
+.stars-events .stars-event-note { color: #9cf4c7; font-family: ui-monospace, monospace; font-size: 9px; }
+
+.stars-datetime {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 7px;
+    padding: 7px 8px;
+    border: 1px solid rgba(139, 171, 255, .17);
+    border-radius: 8px;
+    color: #eef4ff;
+    background: rgba(255, 255, 255, .035);
+    color-scheme: dark;
+    font-family: ui-monospace, monospace;
+    font-size: 10px;
+}
+.stars-time-controls.stars-time-controls-wide { grid-template-columns: repeat(5, 1fr); }
+.stars-time-controls button.is-active,
+.stars-speed-row button.is-active,
+.stars-segmented button.is-active,
+.stars-pick-button.is-active { border-color: rgba(99, 255, 227, .55); color: #63ffe3; background: rgba(99, 255, 227, .08); }
+.stars-speed-row { display: grid; grid-template-columns: 34px repeat(4, 1fr); gap: 5px; margin-top: 6px; }
+.stars-speed-row button { padding: 7px 2px; font-size: 8px; }
+.stars-speed-row .stars-play-button { font-size: 10px; }
+
+.stars-night-grid dd { text-align: right; }
+.stars-moon-card { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: center; margin-top: 10px; padding: 8px 10px; border: 1px solid rgba(138, 170, 255, .12); border-radius: 8px; background: rgba(255, 255, 255, .025); }
+.stars-moon-card div { display: grid; gap: 2px; }
+.stars-moon-card strong { font-size: 11px; }
+.stars-moon-card span { color: rgba(204, 218, 250, .55); font-family: ui-monospace, monospace; font-size: 9px; }
+
+.stars-view-switch { position: absolute; z-index: 5; top: 12px; right: 12px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: calc(100% - 24px); }
+.stars-segmented { display: flex; overflow: hidden; border: 1px solid rgba(139, 171, 255, .2); border-radius: 8px; background: rgba(4, 10, 26, .82); backdrop-filter: blur(10px); }
+.stars-segmented button { padding: 7px 11px; border: 0; border-radius: 0; background: transparent; font-size: 10px; font-weight: 600; }
+.stars-segmented button + button { border-left: 1px solid rgba(139, 171, 255, .16); }
+.stars-pick-button { padding: 7px 11px; background: rgba(4, 10, 26, .82); backdrop-filter: blur(10px); font-size: 10px; font-weight: 600; }
+.stars-canvas-badge.is-picking { border-color: rgba(99, 255, 227, .5); color: #63ffe3; font-size: 9px; }
+
 .stars-canvas-wrap { position: relative; min-width: 0; cursor: crosshair; overflow: hidden; }
+.stars-canvas-wrap.is-globe { cursor: grab; }
+.stars-canvas-wrap.is-picking { cursor: copy; }
 .stars-canvas-wrap canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .stars-mobile-tabs { position: absolute; top: 12px; right: 12px; display: none; gap: 6px; }
 .stars-mobile-tabs button { max-width: 130px; padding: 8px 11px; overflow: hidden; background: rgba(4, 10, 26, .82); backdrop-filter: blur(10px); font-size: 10px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
@@ -219,7 +283,10 @@
     .stars-left-panel.is-open,
     .stars-right-panel.is-open { transform: none; visibility: visible; }
     .stars-mobile-tabs { display: flex; }
-    .stars-canvas-badge { top: 56px; max-width: calc(100% - 28px); }
+    .stars-view-switch { top: 12px; left: 12px; right: auto; flex-direction: column; align-items: flex-start; }
+    .stars-canvas-badge { display: none; }
+    .stars-canvas-badge.is-picking { display: block; top: auto; bottom: 120px; left: 12px; right: 12px; text-align: center; }
+    .stars-topbar-right .stars-status-row { display: none; }
     .stars-canvas-controls button { width: 40px; height: 40px; }
     .stars-search-wrap input,
     .stars-place-row input,
