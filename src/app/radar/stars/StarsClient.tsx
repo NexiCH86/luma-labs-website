@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type SkyObject } from "./stars-data";
-import { fallbackCatalog, loadSkyCatalog, solarSystemObjects, type Constellation, type Observer, type SkyCatalog } from "./sky-catalog";
+import { fallbackCatalog, loadDeepStars, loadSkyCatalog, solarSystemObjects, type Constellation, type Observer, type SkyCatalog } from "./sky-catalog";
 import { azimuthLabel, clamp, eclipticToEquatorial, horizontal, localSiderealTime, moonInfo, nightFor, riseTransitSet } from "./astro";
-import { drawMoon, skyBrightness, skyColors } from "./sky-draw";
+import { drawDso, drawMoon, dsoGroup, skyBrightness, skyColors } from "./sky-draw";
+import { tonightsBest } from "./tonight";
+import { type DeepSkyObject, type StarObject } from "./stars-data";
 import { drawEarth, earthProjection, loadEarthMap, normalizeLon, subpoint, type EarthKind, type EarthMap, type GeoPoint } from "./earth-view";
 
 type ViewState = { zoom: number; offsetX: number; offsetY: number };
@@ -23,7 +25,11 @@ type Layers = {
     equator: boolean;
     meridian: boolean;
     grid: boolean;
+    galaxies: boolean;
+    clusters: boolean;
+    nebulae: boolean;
 };
+type SkyInfo = { title: string; extract: string; image: string | null; url: string | null };
 type MobilePanel = "none" | "navigator" | "object";
 type PlaceResult = { id: number; label: string; latitude: number; longitude: number };
 type SearchResult = { key: string; title: string; subtitle: string; object?: SkyObject; constellation?: Constellation };
@@ -53,6 +59,9 @@ const DEFAULT_LAYERS: Layers = {
     equator: false,
     meridian: false,
     grid: true,
+    galaxies: true,
+    clusters: true,
+    nebulae: true,
 };
 const CARDINALS: [string, number][] = [["N", 0], ["E", 90], ["S", 180], ["W", 270]];
 const MIN_ZOOM = 0.8;
@@ -65,6 +74,30 @@ const HOUR = 3_600_000;
 // Zeitraffer: simulierte Sekunden pro echter Sekunde.
 const SPEEDS: [number, string][] = [[60, "1 min/s"], [600, "10 min/s"], [3600, "1 h/s"], [86400, "1 d/s"]];
 const PLAY_TICK_MS = 100;
+// Ueber Helligkeit 6 werden die lichtschwachen Sterne (bis 8) nachgeladen.
+const MAX_MAGNITUDE = 8;
+const DEEP_STAR_LIMIT = 6;
+
+/*
+ * Wikipedia-Titel fuer ein Objekt, der erste passende Artikel gewinnt.
+ */
+function wikipediaTitles(object: SkyObject): string[] {
+    if (object.kind === "planet") {
+        return object.id === "mercury" ? ["Mercury (planet)"] : [object.name];
+    }
+    if (object.kind === "dso") {
+        const titles: string[] = [];
+        const messier = object.catalog.match(/^M(\d+)$/);
+        if (messier) titles.push(`Messier ${messier[1]}`);
+        if (object.name && object.name !== object.catalog) titles.push(object.name);
+        titles.push(object.catalog);
+        if (object.constellation && /^(NGC|IC) /.test(object.constellation)) titles.push(object.constellation);
+        return titles;
+    }
+    // Sterne nur mit Eigennamen, sonst fuehrt die Suche zu Zufallstreffern.
+    if (!object.name || object.name === object.designation || object.name.startsWith("HIP ")) return [];
+    return [`${object.name} (star)`, object.name];
+}
 
 /*
  * Breite knapp vor den Polen begrenzen (dort ist der Azimut nicht
@@ -102,7 +135,7 @@ function readSettings(): StoredSettings {
             return {
                 mode: saved.mode === "catalog" || saved.mode === "earth" ? saved.mode : "sky",
                 layers,
-                magnitudeLimit: Number.isFinite(saved.magnitudeLimit) ? clamp(Number(saved.magnitudeLimit), 1, 6.5) : defaults.magnitudeLimit,
+                magnitudeLimit: Number.isFinite(saved.magnitudeLimit) ? clamp(Number(saved.magnitudeLimit), 1, MAX_MAGNITUDE) : defaults.magnitudeLimit,
                 observer: validObserver(saved.observer) ?? DEFAULT_OBSERVER,
                 observerLabel: typeof saved.observerLabel === "string" ? saved.observerLabel : DEFAULT_OBSERVER_LABEL,
                 nightMode: saved.nightMode === true,
@@ -250,6 +283,21 @@ export default function StarsClient() {
     const [earthMap, setEarthMap] = useState<EarthMap | null>(null);
     const [pickingLocation, setPickingLocation] = useState(false);
 
+    const [deepStars, setDeepStars] = useState<StarObject[]>([]);
+    // Wikipedia-Infos je Objekt-ID; null = kein Artikel gefunden.
+    const [skyInfos, setSkyInfos] = useState<Record<string, SkyInfo | null>>({});
+    const skyInfoRequested = useRef(new Set<string>());
+
+    // Lichtschwache Sterne erst laden, wenn die Grenzhelligkeit ueber 6 steht.
+    useEffect(() => {
+        if (magnitudeLimit <= DEEP_STAR_LIMIT || deepStars.length > 0) return;
+        let active = true;
+        loadDeepStars()
+            .then((loaded) => { if (active) setDeepStars(loaded); })
+            .catch(() => { /* Ohne die Datei bleibt die Karte bei Helligkeit 6. */ });
+        return () => { active = false; };
+    }, [magnitudeLimit, deepStars.length]);
+
     // Weltkarte erst laden, wenn die Erdansicht geoeffnet wird.
     useEffect(() => {
         if (mode !== "earth" || earthMap) return;
@@ -365,7 +413,7 @@ export default function StarsClient() {
 
     const planets = useMemo(() => solarSystemObjects(skyTime, observer), [skyTime, observer]);
 
-    const allObjects = useMemo<SkyObject[]>(() => [...planets, ...catalog.dsos, ...catalog.stars], [planets, catalog]);
+    const allObjects = useMemo<SkyObject[]>(() => [...planets, ...catalog.dsos, ...catalog.stars, ...deepStars], [planets, catalog, deepStars]);
 
     const selected = useMemo(() => allObjects.find((item) => item.id === selectedId) ?? null, [allObjects, selectedId]);
 
@@ -374,7 +422,10 @@ export default function StarsClient() {
         [catalog, selectedConstellationId]
     );
 
-    const visibleStars = useMemo(() => catalog.stars.filter((star) => star.magnitude <= magnitudeLimit), [catalog, magnitudeLimit]);
+    const visibleStars = useMemo(
+        () => [...catalog.stars, ...(magnitudeLimit > DEEP_STAR_LIMIT ? deepStars : [])].filter((star) => star.magnitude <= magnitudeLimit),
+        [catalog, deepStars, magnitudeLimit]
+    );
 
     // Ein gesuchter Stern bleibt sichtbar, auch wenn er dunkler als die Grenzhelligkeit ist.
     const drawnStars = useMemo(
@@ -456,6 +507,56 @@ export default function StarsClient() {
         // Nur pro Minute und Objekt neu suchen, nicht bei jedem Sekundentakt.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedId, minuteKey, observer]);
+
+    // Bild und Kurzbeschreibung zum gewaehlten Objekt, einmal pro Objekt geladen.
+    useEffect(() => {
+        if (!selected || skyInfoRequested.current.has(selected.id)) return;
+        const titles = wikipediaTitles(selected);
+        if (titles.length === 0) return;
+        skyInfoRequested.current.add(selected.id);
+        const id = selected.id;
+        fetch(`/api/radar/sky-info?titles=${encodeURIComponent(titles.join("|"))}`)
+            .then((response) => response.json() as Promise<{ ok: boolean } & SkyInfo>)
+            .then((data) => setSkyInfos((current) => ({ ...current, [id]: data.ok ? { title: data.title, extract: data.extract, image: data.image, url: data.url } : null })))
+            .catch(() => {
+                // Beim naechsten Auswaehlen erneut versuchen.
+                skyInfoRequested.current.delete(id);
+            });
+    }, [selected]);
+
+    const selectedInfo = selected ? skyInfos[selected.id] : undefined;
+
+    // Kandidaten fuer "Tonight's best": Messier, helle Objekte mit Eigennamen, helle benannte Sterne.
+    const tonightCandidates = useMemo<SkyObject[]>(
+        () => [
+            ...catalog.dsos.filter((dso) => /^M\d+$/.test(dso.catalog) || (dso.name !== dso.catalog && dso.magnitude <= 6 && dsoGroup(dso.typeCode) !== "nebula")),
+            ...catalog.stars.filter((star) => star.magnitude <= 1.5 && !star.name.startsWith("HIP ")),
+        ],
+        [catalog]
+    );
+
+    const tonight = useMemo(
+        () => tonightsBest(tonightCandidates, observer, night, new Date(tenMinuteKey * 10 * MINUTE)),
+        // Die Nacht aendert sich nur mit night/observer, der Anker dient dem Polarsommer.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [tonightCandidates, observer, night]
+    );
+
+    /*
+     * Welche Deep-Sky-Objekte gezeichnet werden: Typ-Filter, Messier immer,
+     * sonst mit dem Zoom immer mehr. Galaxien und Haufen nach Helligkeit,
+     * Nebel nach Groesse (ihre Helligkeitswerte sind oft unbrauchbar).
+     */
+    const dsoVisible = useCallback((object: DeepSkyObject) => {
+        const group = dsoGroup(object.typeCode);
+        if (group === "galaxy" && !layers.galaxies) return false;
+        if (group === "cluster" && !layers.clusters) return false;
+        if (group === "nebula" && !layers.nebulae) return false;
+        if (/^M\d+$/.test(object.catalog)) return true;
+        const level = view.zoom >= 2.5 ? 2 : view.zoom >= 1.6 ? 1 : 0;
+        if (group === "nebula" && object.typeCode !== "pn") return (object.size?.[0] ?? 0) >= [120, 60, 30][level];
+        return object.magnitude <= [7.5, 9.5, 12][level];
+    }, [layers.galaxies, layers.clusters, layers.nebulae, view.zoom]);
 
     /*
      * Bildschirmposition fuer die aktuelle Ansicht, null = unter dem Horizont.
@@ -627,13 +728,18 @@ export default function StarsClient() {
 
         if (layers.milkyWay && catalog.milkyWay.length > 0 && brightness < 1) {
             ctx.save();
+            if (skyMode) {
+                // Nicht ueber den Horizontkreis hinaus zeichnen.
+                ctx.beginPath(); ctx.arc(domeCenter.x, domeCenter.y, horizonRadius, 0, Math.PI * 2); ctx.clip();
+            }
             const points = catalog.milkyWay;
-            const radius = Math.max(1.5, pixelsPerDegree * 1.25);
+            // Grosse, blasse Punkte ueberlappen stark und ergeben ein weiches Band ohne Raster.
+            const radius = Math.max(1.5, pixelsPerDegree * 1.75);
             const fade = 1 - brightness;
             for (let i = 0; i < points.length; i += 3) {
                 const p = project(points[i], points[i + 1], width, height);
                 if (!inView(p, radius)) continue;
-                ctx.fillStyle = `rgba(176,196,255,${(0.045 + points[i + 2] * 0.035) * fade})`;
+                ctx.fillStyle = `rgba(176,196,255,${(0.025 + points[i + 2] * 0.02) * fade})`;
                 ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill();
             }
             ctx.restore();
@@ -739,19 +845,19 @@ export default function StarsClient() {
         if (layers.dso) {
             for (const object of catalog.dsos) {
                 const selectedObject = object.id === selectedId;
-                if (object.magnitude > magnitudeLimit + 4 && !selectedObject) continue;
+                if (!selectedObject && !dsoVisible(object)) continue;
                 const p = project(object.ra, object.dec, width, height);
-                if (!inView(p)) continue;
+                if (!inView(p, 60)) continue;
+                const [major, minor] = object.size ?? [0, 0];
+                const radius = ((major / 60) / 2) * pixelsPerDegree;
                 ctx.save();
                 ctx.globalAlpha = selectedObject ? 1 : 1 - brightness * 0.7;
-                ctx.strokeStyle = selectedObject ? "#f7c768" : "rgba(112,224,255,.75)";
-                ctx.fillStyle = selectedObject ? "rgba(247,199,104,.22)" : "rgba(112,224,255,.08)";
-                ctx.lineWidth = selectedObject ? 2 : 1;
-                ctx.beginPath(); ctx.arc(p.x, p.y, selectedObject ? 7 : 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-                if (layers.labels && (selectedObject || object.magnitude <= 6 || view.zoom >= 2)) {
+                drawDso(ctx, p.x, p.y, radius, major > 0 ? minor / major : 1, object.typeCode, selectedObject);
+                const messier = /^M\d+$/.test(object.catalog);
+                if (layers.labels && (selectedObject || (messier && view.zoom >= 1.3) || object.magnitude <= 5 || view.zoom >= 2.5)) {
                     ctx.fillStyle = selectedObject ? "#ffe3a6" : "rgba(184,232,255,.7)";
                     ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
-                    ctx.fillText(object.catalog, p.x + 8, p.y - 6);
+                    ctx.fillText(object.catalog, p.x + Math.max(radius, 4) + 4, p.y - 6);
                 }
                 ctx.restore();
             }
@@ -763,6 +869,14 @@ export default function StarsClient() {
                 const p = project(star.ra, star.dec, width, height);
                 if (!inView(p)) continue;
                 const selectedStar = star.id === selectedId;
+                if (star.magnitude > DEEP_STAR_LIMIT && !selectedStar) {
+                    // Schneller Weg fuer die vielen lichtschwachen Sterne: ohne Glow und Beschriftung.
+                    ctx.globalAlpha = 0.45 * (1 - brightness * 0.75);
+                    ctx.fillStyle = star.color ?? "#ffffff";
+                    ctx.fillRect(p.x - 0.6, p.y - 0.6, 1.2 * Math.sqrt(view.zoom), 1.2 * Math.sqrt(view.zoom));
+                    ctx.globalAlpha = 1;
+                    continue;
+                }
                 const radius = clamp((6.2 - star.magnitude) * 0.55, 0.55, 5.3) * Math.sqrt(view.zoom);
                 ctx.save();
                 // Glow nur fuer helle Sterne, sonst wird das Zeichnen von 5000 Sternen traege.
@@ -840,7 +954,7 @@ export default function StarsClient() {
             ctx.textAlign = "left";
             ctx.fillText(`${observerLabel ? observerLabel.toUpperCase() + " · " : ""}LAT ${observer.lat.toFixed(2)}° · LON ${observer.lon.toFixed(2)}° · LST ${hoursLabel(lst)}`, 14, height - 16);
         }
-    }, [catalog, drawnStars, earthMap, earthProjectionFor, earthStars, gmst, layers, lst, magnitudeLimit, mode, moon, observer, observerLabel, planets, project, selected, selectedConstellation, selectedConstellationId, selectedId, size, sunAltitude, view]);
+    }, [catalog, drawnStars, dsoVisible, earthMap, earthProjectionFor, earthStars, gmst, layers, lst, mode, moon, observer, observerLabel, planets, project, selected, selectedConstellation, selectedConstellationId, selectedId, size, sunAltitude, view]);
 
     useEffect(() => {
         draw();
@@ -868,7 +982,7 @@ export default function StarsClient() {
             // In der Erdansicht nur die gezeichneten Bildpunkte anklickbar.
             if (earthIds && object.kind !== "planet" && !earthIds.has(object.id)) continue;
             if (object.kind === "star" && (!layers.stars || (object.magnitude > magnitudeLimit && object.id !== selectedId))) continue;
-            if (object.kind === "dso" && !layers.dso) continue;
+            if (object.kind === "dso" && (!layers.dso || (!dsoVisible(object) && object.id !== selectedId))) continue;
             if (object.kind === "planet" && !layers.planets) continue;
             const p = project(object.ra, object.dec, rect.width, rect.height);
             if (!p) continue;
@@ -942,6 +1056,18 @@ export default function StarsClient() {
 
     function zoomBy(factor: number) {
         setView((v) => zoomAround(v, factor, size.width / 2, size.height / 2, size));
+    }
+
+    // Objekt aus "Tonight's best": Zeit auf den besten Moment stellen und auswaehlen.
+    function showTonightEntry(object: SkyObject, bestTime: Date) {
+        setPlaying(false);
+        setLiveTime(false);
+        setSkyTime(bestTime);
+        setSelectedId(object.id);
+        setSelectedConstellationId(null);
+        if (mode === "catalog") setMode("sky");
+        if (mode !== "earth") setView(DEFAULT_VIEW);
+        if (isMobileLayout()) setMobilePanel("object");
     }
 
     function shiftTime(milliseconds: number) {
@@ -1184,6 +1310,20 @@ export default function StarsClient() {
                         </label>
                     ))}
 
+                    <div className="stars-chip-row" role="group" aria-label="Deep-sky types">
+                        {([["galaxies", "Galaxies"], ["clusters", "Clusters"], ["nebulae", "Nebulae"]] as [keyof Layers, string][]).map(([key, label]) => (
+                            <button
+                                key={key}
+                                className={layers[key] ? "is-active" : undefined}
+                                onClick={() => setLayers((current) => ({ ...current, [key]: !current[key] }))}
+                                aria-pressed={layers[key]}
+                                disabled={!layers.dso}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+
                     <div className="stars-section-label">Lines</div>
                     {lineToggles.map(([key, label, note]) => (
                         <label key={key} className="stars-toggle">
@@ -1195,9 +1335,12 @@ export default function StarsClient() {
 
                     <div className="stars-section-label">Magnitude limit</div>
                     <div className="stars-range-row">
-                        <input type="range" min="1" max="6.5" step="0.25" value={magnitudeLimit} onChange={(e) => setMagnitudeLimit(Number(e.target.value))} aria-label="Magnitude limit" />
+                        <input type="range" min="1" max={MAX_MAGNITUDE} step="0.25" value={magnitudeLimit} onChange={(e) => setMagnitudeLimit(Number(e.target.value))} aria-label="Magnitude limit" />
                         <span>{magnitudeLimit.toFixed(2)}</span>
                     </div>
+                    {magnitudeLimit > DEEP_STAR_LIMIT && (
+                        <p className="stars-muted stars-hint">{deepStars.length ? "Binocular stars (mag 6–8) loaded." : "Loading binocular stars (mag 6–8)…"}</p>
+                    )}
 
                     <div className="stars-section-label">Observer · {observerLabel || "Custom"}</div>
                     <div className="stars-place-row">
@@ -1311,6 +1454,17 @@ export default function StarsClient() {
                             <div className={`stars-visibility ${visibleNow ? "is-visible" : "is-below"}`}>
                                 <span />{visibleNow ? "ABOVE HORIZON" : "BELOW HORIZON"}
                             </div>
+                            {selectedInfo && (
+                                <div className="stars-info-card">
+                                    {selectedInfo.image && (
+                                        // Externes Wikipedia-Bild, wie die Flugzeugfotos im AIR-Modus.
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={selectedInfo.image} alt={selectedInfo.title} loading="lazy" referrerPolicy="no-referrer" />
+                                    )}
+                                    <p>{selectedInfo.extract.length > 340 ? `${selectedInfo.extract.slice(0, 340).replace(/\s+\S*$/, "")} …` : selectedInfo.extract}</p>
+                                    {selectedInfo.url && <a href={selectedInfo.url} target="_blank" rel="noreferrer">Wikipedia · {selectedInfo.title}</a>}
+                                </div>
+                            )}
                             {selectedEvents && (
                                 <div className="stars-events">
                                     {selectedEvents.status === "circumpolar" ? (
@@ -1435,6 +1589,28 @@ export default function StarsClient() {
                             )}
                         </div>
                     </div>
+
+                    <div className="stars-section-label">Tonight&apos;s best · {observerLabel || "Custom"}</div>
+                    {tonight.length === 0 ? (
+                        <p className="stars-muted">Nothing climbs above 25° in tonight&apos;s dark hours.</p>
+                    ) : (
+                        <div className="stars-tonight-list">
+                            {tonight.map((entry) => (
+                                <button
+                                    key={entry.object.id}
+                                    className={entry.object.id === selectedId ? "is-active" : undefined}
+                                    onClick={() => showTonightEntry(entry.object, entry.bestTime)}
+                                >
+                                    <span className={`stars-tonight-dot ${entry.object.kind}`} />
+                                    <span className="stars-tonight-name">
+                                        <strong>{entry.object.kind === "dso" && entry.object.name !== entry.object.catalog ? `${entry.object.catalog} · ${entry.object.name}` : entry.object.kind === "dso" ? entry.object.catalog : entry.object.name}</strong>
+                                        <small>{entry.reason}</small>
+                                    </span>
+                                    <span className="stars-tonight-time">{timeLabel(entry.bestTime, skyTime)}<small>{entry.maxAltitude.toFixed(0)}°</small></span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </aside>
             </section>
 

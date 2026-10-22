@@ -70,3 +70,66 @@ export function drawMoon(ctx: CanvasRenderingContext2D, x: number, y: number, ra
     ctx.beginPath(); ctx.arc(0, 0, highlighted ? radius + 7 : radius, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
 }
+
+export type DsoGroup = "galaxy" | "cluster" | "nebula" | "other";
+
+export function dsoGroup(typeCode: string | undefined): DsoGroup {
+    if (!typeCode) return "other";
+    if (["s", "s0", "sd", "e", "i", "g"].includes(typeCode)) return "galaxy";
+    if (typeCode === "oc" || typeCode === "gc") return "cluster";
+    if (["en", "bn", "rn", "snr", "sfr", "pn"].includes(typeCode)) return "nebula";
+    return "other";
+}
+
+/*
+ * Deep-Sky-Symbol in echter Winkelgroesse (radius in Pixel, mindestens
+ * ein paar Pixel): Galaxie als Ellipse, offener Haufen gestrichelt,
+ * Kugelsternhaufen mit Kreuz, Planetarischer Nebel mit Strahlen,
+ * Nebel als abgerundetes Quadrat.
+ */
+export function drawDso(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, axisRatio: number, typeCode: string | undefined, highlighted: boolean) {
+    const r = Math.max(highlighted ? 6 : 3.5, radius);
+    ctx.save();
+    ctx.strokeStyle = highlighted ? "#f7c768" : "rgba(112,224,255,.75)";
+    ctx.fillStyle = highlighted ? "rgba(247,199,104,.18)" : "rgba(112,224,255,.07)";
+    ctx.lineWidth = highlighted ? 2 : 1;
+    ctx.beginPath();
+
+    const group = dsoGroup(typeCode);
+    if (group === "galaxy") {
+        ctx.strokeStyle = highlighted ? "#f7c768" : "rgba(255,170,200,.8)";
+        ctx.fillStyle = highlighted ? "rgba(247,199,104,.18)" : "rgba(255,170,200,.08)";
+        ctx.ellipse(x, y, r, Math.max(2, r * clamp(axisRatio, 0.25, 1)), -Math.PI / 6, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+    } else if (typeCode === "oc") {
+        ctx.setLineDash([2, 2.5]);
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+    } else if (typeCode === "gc") {
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x - r, y); ctx.lineTo(x + r, y);
+        ctx.moveTo(x, y - r); ctx.lineTo(x, y + r);
+        ctx.stroke();
+    } else if (typeCode === "pn") {
+        ctx.strokeStyle = highlighted ? "#f7c768" : "rgba(140,255,190,.85)";
+        ctx.arc(x, y, r * 0.7, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+        ctx.beginPath();
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            ctx.moveTo(x + dx * r * 0.7, y + dy * r * 0.7);
+            ctx.lineTo(x + dx * (r + 3), y + dy * (r + 3));
+        }
+        ctx.stroke();
+    } else if (group === "nebula") {
+        ctx.strokeStyle = highlighted ? "#f7c768" : "rgba(140,255,190,.38)";
+        ctx.fillStyle = highlighted ? "rgba(247,199,104,.18)" : "rgba(140,255,190,.04)";
+        ctx.roundRect(x - r, y - r, r * 2, r * 2, Math.min(4, r / 2));
+        ctx.fill(); ctx.stroke();
+    } else {
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+    }
+    ctx.restore();
+}
