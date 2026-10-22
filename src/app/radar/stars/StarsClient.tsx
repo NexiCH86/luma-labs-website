@@ -25,6 +25,9 @@ import { upcomingEvents, type KpForecast, type SkyEvent } from "./events";
 import { useSkyAlerts } from "./use-sky-alerts";
 import { ScoreCard, EventsList } from "./ScoreAndEvents";
 import { AircraftDetails, SatelliteDetails } from "./MovingDetails";
+import { gridTexture, loadSatellitePhoto, loadWeatherGrid, timeIndex as weatherTimeIndex, type Texture, type WeatherGrid, type WeatherLayer } from "./weather-layers";
+import WindLayer from "./WindLayer";
+import { WeatherDetails, WeatherLegend } from "./WeatherPanel";
 import NavigatorPanel from "./NavigatorPanel";
 import ObjectDetails from "./ObjectDetails";
 import TimeAndTonight from "./TimeAndTonight";
@@ -131,6 +134,14 @@ export default function StarsClient() {
     const [arActive, setArActive] = useState(false);
     const [arStatus, setArStatus] = useState("");
     const lookTargetRef = useRef(look);
+    // Wetter in der Erdansicht
+    const [weatherLayer, setWeatherLayer] = useState<WeatherLayer>(initial.settings.weatherLayer);
+    const [windAnimation, setWindAnimation] = useState(initial.settings.windAnimation);
+    const [weatherGrid, setWeatherGrid] = useState<WeatherGrid | null>(null);
+    const [weatherPhoto, setWeatherPhoto] = useState<Texture | null>(null);
+    const [weatherStatus, setWeatherStatus] = useState("");
+    const [weatherPoint, setWeatherPoint] = useState<{ lat: number; lon: number } | null>(null);
+    const earthProjectRef = useRef<((lat: number, lon: number) => Point | null) | null>(null);
     // Auf dem Handy sind die Panels Leisten; Einklappen gilt nur am Desktop.
     const [isMobile, setIsMobile] = useState(isMobileLayout);
 
@@ -225,8 +236,28 @@ export default function StarsClient() {
     }, [playing, playSpeed]);
 
     useEffect(() => {
-        writeSettings({ mode, layers, magnitudeLimit, observer, observerLabel, nightMode, earthKind, names, panels, bortle });
-    }, [mode, layers, magnitudeLimit, observer, observerLabel, nightMode, earthKind, names, panels, bortle]);
+        writeSettings({ mode, layers, magnitudeLimit, observer, observerLabel, nightMode, earthKind, names, panels, bortle, weatherLayer, windAnimation });
+    }, [mode, layers, magnitudeLimit, observer, observerLabel, nightMode, earthKind, names, panels, bortle, weatherLayer, windAnimation]);
+
+    // Wetter-Raster nur laden, wenn in der Erdansicht eine Daten-Ebene oder der Wind an ist.
+    const needsGrid = mode === "earth" && ((weatherLayer !== "none" && weatherLayer !== "satellite") || windAnimation);
+    useEffect(() => {
+        if (!needsGrid) return;
+        let active = true;
+        loadWeatherGrid()
+            .then((grid) => { if (active) { setWeatherGrid(grid); setWeatherStatus(""); } })
+            .catch(() => { if (active) setWeatherStatus("Weather data unavailable right now."); });
+        return () => { active = false; };
+    }, [needsGrid]);
+
+    useEffect(() => {
+        if (mode !== "earth" || weatherLayer !== "satellite" || weatherPhoto) return;
+        let active = true;
+        loadSatellitePhoto()
+            .then((photo) => { if (active) setWeatherPhoto(photo); })
+            .catch(() => { if (active) setWeatherStatus("Satellite image unavailable right now."); });
+        return () => { active = false; };
+    }, [mode, weatherLayer, weatherPhoto]);
 
     // Satelliten (Raumstationen + 100 hellste), Starlink nur auf Wunsch.
     useEffect(() => {
@@ -313,6 +344,13 @@ export default function StarsClient() {
     const drawnStars = useMemo(
         () => (selected?.kind === "star" && selected.magnitude > magnitudeLimit ? [...visibleStars, selected] : visibleStars),
         [selected, visibleStars, magnitudeLimit]
+    );
+
+    // Wetter zur gewaehlten Zeit (naechste Stunde, nur innerhalb der 12-h-Vorhersage).
+    const weatherHour = weatherGrid ? weatherTimeIndex(weatherGrid, skyTime) : -1;
+    const weatherTexture = useMemo(
+        () => (weatherGrid && weatherHour >= 0 && weatherLayer !== "none" && weatherLayer !== "satellite" ? gridTexture(weatherGrid, weatherLayer, weatherHour) : null),
+        [weatherGrid, weatherHour, weatherLayer]
     );
 
     const earthProjectionFor = useCallback(
@@ -624,6 +662,8 @@ export default function StarsClient() {
                 frame, map: earthMap, catalog, layers,
                 stars: drawnStars, planets, moon, selected, selectedConstellationId, dsoVisible,
                 names, observer, observerLabel, zoom: view.zoom, markers,
+                photo: weatherLayer === "satellite" ? weatherPhoto : null,
+                weatherTexture,
             });
             return;
         }
@@ -636,7 +676,17 @@ export default function StarsClient() {
             catalog, layers, stars: drawnStars, planets, moon, sunAltitude,
             selectedId, selectedConstellationId, dsoVisible, names, observer, observerLabel, markers,
         });
-    }, [catalog, drawnStars, dsoVisible, earthMap, earthProjectionFor, frame, horizonLook, layers, markers, mode, moon, names, observer, observerLabel, planets, project, selected, selectedConstellationId, selectedId, size, sunAltitude, view]);
+    }, [catalog, drawnStars, dsoVisible, earthMap, earthProjectionFor, frame, horizonLook, layers, markers, mode, moon, names, observer, observerLabel, planets, project, selected, selectedConstellationId, selectedId, size, sunAltitude, view, weatherLayer, weatherPhoto, weatherTexture]);
+
+    // Projektion fuer die Windpartikel aktuell halten (eigene Zeichenflaeche).
+    useEffect(() => {
+        earthProjectRef.current = mode === "earth"
+            ? (lat: number, lon: number) => {
+                const point = earthProjectionFor(size.width, size.height).project(lat, lon);
+                return point.visible ? { x: point.x, y: point.y } : null;
+            }
+            : null;
+    }, [mode, earthProjectionFor, size]);
 
     /*
      * AR-Modus: Lage des Handys -> Blickrichtung. Die Sensorwerte kommen
@@ -806,7 +856,20 @@ export default function StarsClient() {
             const distance = Math.hypot(p.x - x, p.y - y) - 3;
             if (distance <= 14 && (!best || distance < best.distance)) best = { id: marker.id, distance };
         }
-        if (!best) return;
+        if (!best) {
+            // Erdansicht mit Wetter: Klick ins Leere zeigt das Wetter an dieser Stelle.
+            if (mode === "earth" && (weatherLayer !== "none" || windAnimation)) {
+                const ground = earthProjectionFor(rect.width, rect.height).invert(x, y);
+                if (ground) {
+                    setWeatherPoint({ lat: ground.lat, lon: ground.lon });
+                    setSelectedId(null);
+                    setSelectedConstellationId(null);
+                    if (isMobileLayout()) setMobilePanel("object");
+                }
+            }
+            return;
+        }
+        setWeatherPoint(null);
         setSelectedId(best.id);
         setSelectedConstellationId(null);
         if (isMobileLayout()) setMobilePanel("object");
@@ -1154,9 +1217,37 @@ export default function StarsClient() {
                                 >
                                     {pickingLocation ? "Cancel" : "Set my position"}
                                 </button>
+                                <div className="stars-segmented stars-weather-switch" role="group" aria-label="Weather layer">
+                                    {([["none", "No weather"], ["satellite", "Satellite"], ["clouds", "Clouds"], ["rain", "Rain"], ["gusts", "Gusts"], ["temperature", "Temp"]] as [WeatherLayer, string][]).map(([value, label]) => (
+                                        <button key={value} onClick={() => setWeatherLayer(value)} className={weatherLayer === value ? "is-active" : undefined}>{label}</button>
+                                    ))}
+                                </div>
+                                <button className={`stars-pick-button${windAnimation ? " is-active" : ""}`} onClick={() => setWindAnimation((current) => !current)} aria-pressed={windAnimation}>
+                                    Wind
+                                </button>
                             </>
                         )}
                     </div>
+                    {mode === "earth" && windAnimation && weatherGrid && weatherHour >= 0 && (
+                        <WindLayer
+                            grid={weatherGrid}
+                            timeIndex={weatherHour}
+                            projectRef={earthProjectRef}
+                            viewKey={`${earthKind}|${globeCenter.lat.toFixed(2)}|${globeCenter.lon.toFixed(2)}|${view.zoom}|${view.offsetX}|${view.offsetY}|${size.width}x${size.height}`}
+                            width={size.width}
+                            height={size.height}
+                        />
+                    )}
+                    {mode === "earth" && (weatherLayer !== "none" || windAnimation) && (
+                        <WeatherLegend
+                            layer={weatherLayer}
+                            wind={windAnimation}
+                            status={weatherStatus || (weatherGrid && weatherHour < 0 ? "Forecast covers the next 12 hours only" : "")}
+                            hour={weatherGrid && weatherHour >= 0 ? new Date(weatherGrid.times[weatherHour]) : null}
+                            photoDate={weatherLayer === "satellite" ? weatherPhoto?.key.split("|")[1] ?? null : null}
+                            timeZone={timeZone}
+                        />
+                    )}
                     <div className="stars-mobile-tabs">
                         <button className={mobilePanel === "navigator" ? "is-active" : undefined} onClick={() => toggleMobilePanel("navigator")}>Navigator</button>
                         <button className={mobilePanel === "object" ? "is-active" : undefined} onClick={() => toggleMobilePanel("object")}>{selected ? objectName(selected, names) : selectedSatellite ? selectedSatellite.name : selectedAircraft ? selectedAircraft.callsign : "Details"}</button>
@@ -1174,7 +1265,9 @@ export default function StarsClient() {
                             Object Intelligence
                             <button className="stars-collapse-button" onClick={() => setPanels((current) => ({ ...current, right: false }))} aria-label="Hide details panel" title="Hide details">›</button>
                         </div>
-                        {selectedSatellite ? (
+                        {weatherPoint && !selected && !selectedSatellite && !selectedAircraft && !selectedConstellation ? (
+                            <WeatherDetails point={weatherPoint} onClose={() => setWeatherPoint(null)} />
+                        ) : selectedSatellite ? (
                             <SatelliteDetails
                                 state={selectedSatellite}
                                 passes={selectedSatellitePasses}

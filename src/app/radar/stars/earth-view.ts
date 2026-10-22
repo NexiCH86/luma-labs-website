@@ -177,6 +177,8 @@ export type EarthDrawOptions = {
     map: EarthMap | null;
     sun: GeoPoint | null;
     nightShade: boolean;
+    // Ersetzt die Landflaechen (z. B. Satellitenfoto); Grenzen bleiben darueber.
+    underlay?: () => void;
 };
 
 /*
@@ -215,14 +217,16 @@ export function drawEarth(ctx: CanvasRenderingContext2D, projection: EarthProjec
         strokeGeoLine(ctx, projection, Array.from({ length: 37 }, (_, i) => ({ lat: -90 + i * 5, lon })));
     }
 
+    if (options.underlay) options.underlay();
+
     if (options.map) {
         ctx.fillStyle = "#28546a";
-        ctx.strokeStyle = "rgba(150,230,240,.55)";
+        ctx.strokeStyle = options.underlay ? "rgba(220,240,255,.35)" : "rgba(150,230,240,.55)";
         ctx.lineWidth = 0.8;
         for (const ring of options.map.land) {
             ctx.beginPath();
             tracePath(ctx, projection, ring, true);
-            ctx.fill();
+            if (!options.underlay) ctx.fill();
             ctx.stroke();
         }
         ctx.strokeStyle = "rgba(140,220,230,.22)";

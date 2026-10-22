@@ -413,3 +413,21 @@
 .stars-link-button { display: block; box-sizing: border-box; color: #edf4ff; text-align: center; text-decoration: none; }
 
 .stars-pass-label { margin-top: 12px; }
+
+/* Wetter in der Erdansicht */
+.stars-wind-layer { position: absolute; inset: 0; pointer-events: none; }
+.stars-weather-switch button { padding: 7px 9px; }
+.stars-weather-legend { position: absolute; z-index: 5; left: 14px; bottom: 34px; display: grid; gap: 4px; width: min(300px, calc(100% - 90px)); padding: 8px 10px; border: 1px solid rgba(139, 171, 255, .2); border-radius: 8px; color: #eef4ff; background: rgba(4, 10, 26, .82); backdrop-filter: blur(10px); pointer-events: none; }
+.stars-weather-legend strong { font-size: 10px; font-weight: 600; }
+.stars-weather-bar { display: block; height: 8px; border-radius: 4px; }
+.stars-weather-ticks { display: flex; justify-content: space-between; color: rgba(204, 218, 250, .6); font-family: ui-monospace, monospace; font-size: 8px; }
+.stars-weather-ticks em { font-style: normal; }
+.stars-weather-wind,
+.stars-weather-status { color: rgba(204, 218, 250, .7); font-size: 9px; }
+.stars-weather-status { color: #f7c768; }
+.stars-weather-legend small { color: rgba(204, 218, 250, .4); font-size: 8px; }
+
+@media (max-width: 820px) {
+    .stars-weather-legend { bottom: 70px; left: 12px; }
+    .stars-weather-switch { flex-wrap: wrap; max-width: 220px; }
+}

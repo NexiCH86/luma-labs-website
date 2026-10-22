@@ -44,6 +44,8 @@ export const DEFAULT_SETTINGS: StoredSettings = {
     names: "en",
     panels: { left: true, right: true },
     bortle: 6,
+    weatherLayer: "none",
+    windAnimation: false,
 };
 
 /*
@@ -72,6 +74,8 @@ export function readSettings(): StoredSettings {
                 names: saved.names === "de" ? "de" : "en",
                 panels: { left: saved.panels?.left !== false, right: saved.panels?.right !== false },
                 bortle: Number.isFinite(saved.bortle) ? clamp(Math.round(Number(saved.bortle)), 1, 9) : defaults.bortle,
+                weatherLayer: ["satellite", "clouds", "rain", "gusts", "temperature"].includes(saved.weatherLayer as string) ? (saved.weatherLayer as StoredSettings["weatherLayer"]) : "none",
+                windAnimation: saved.windAnimation === true,
             };
         }
 
