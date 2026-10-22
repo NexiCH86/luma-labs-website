@@ -52,6 +52,9 @@ export type StoredSettings = {
     panels: PanelState;
     // Lichtverschmutzung am Standort (Bortle 1-9) fuer den Beobachtungs-Score
     bortle: number;
+    // Wetter in der Erdansicht
+    weatherLayer: "none" | "satellite" | "clouds" | "rain" | "gusts" | "temperature";
+    windAnimation: boolean;
 };
 
 export const DEFAULT_VIEW: ViewState = { zoom: 1, offsetX: 0, offsetY: 0 };

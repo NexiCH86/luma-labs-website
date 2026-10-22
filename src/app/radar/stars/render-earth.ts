@@ -6,6 +6,7 @@ import { type Observer, type SkyCatalog } from "./sky-catalog";
 import { drawDso, drawMoon } from "./sky-draw";
 import { type DeepSkyObject, type PlanetObject, type SkyObject, type StarObject } from "./stars-data";
 import { DEEP_STAR_LIMIT, type Layers, type NameLanguage, type Point } from "./types";
+import { drawTexture, type Texture } from "./weather-layers";
 
 /*
  * Erdansicht: Weltkarte bzw. Globus, darueber der ganze Himmel als
@@ -34,6 +35,9 @@ export type EarthSceneParams = {
     observerLabel: string;
     zoom: number;
     markers: SkyMarker[];
+    // Wetter: Satellitenfoto als Untergrund, Daten-Ebene (Wolken, Regen, Boeen, Temperatur) darueber
+    photo?: Texture | null;
+    weatherTexture?: Texture | null;
 };
 
 export function drawEarthScene(params: EarthSceneParams) {
@@ -73,7 +77,21 @@ export function drawEarthScene(params: EarthSceneParams) {
     };
 
     const sun = planets.find((planet) => planet.id === "sun");
-    drawEarth(ctx, projection, width, height, { map: params.map, sun: sun ? groundPoint(sun.ra, sun.dec) : null, nightShade: true });
+    const photo = params.photo;
+    drawEarth(ctx, projection, width, height, {
+        map: params.map,
+        sun: sun ? groundPoint(sun.ra, sun.dec) : null,
+        nightShade: true,
+        underlay: photo ? () => drawTexture(ctx, projection, photo) : undefined,
+    });
+    if (params.weatherTexture) {
+        ctx.save();
+        if (projection.kind === "globe") {
+            ctx.beginPath(); ctx.arc(projection.center.x, projection.center.y, projection.radius, 0, Math.PI * 2); ctx.clip();
+        }
+        drawTexture(ctx, projection, params.weatherTexture);
+        ctx.restore();
+    }
 
     // Der Himmel liegt halbtransparent ueber der Karte, damit die Laender lesbar bleiben.
     ctx.save();
