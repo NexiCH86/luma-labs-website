@@ -209,8 +209,8 @@ export default function AircraftCard() {
     }, [callsign, icao24]);
 
     useEffect(() => {
+        // Leer nur beim Mount: Die Auswahl wird nie wieder geleert, und der State ist dann noch null.
         if (!callsign) {
-            setFlightInfo(null);
             return;
         }
 
@@ -258,8 +258,8 @@ export default function AircraftCard() {
     }, [callsign]);
 
     useEffect(() => {
+        // Leer nur beim Mount: Die Auswahl wird nie wieder geleert, und der State ist dann noch null.
         if (!icao24) {
-            setAirframeInfo(null);
             return;
         }
 

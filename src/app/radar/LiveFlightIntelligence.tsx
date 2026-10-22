@@ -220,8 +220,8 @@ export default function LiveFlightIntelligence() {
     }, [callsign, icao24]);
 
     useEffect(() => {
+        // Leer nur beim Mount: Die Auswahl wird nie wieder geleert, und der State ist dann noch null.
         if (!callsign && !icao24) {
-            setAircraft(null);
             return;
         }
 
@@ -280,10 +280,8 @@ export default function LiveFlightIntelligence() {
     }, [callsign, icao24]);
 
     useEffect(() => {
+        // Leer nur beim Mount: Die Auswahl wird nie wieder geleert, und der State ist dann noch null.
         if (!callsign) {
-            setFlightInfo(null);
-            setDeparture(null);
-            setArrival(null);
             return;
         }
 

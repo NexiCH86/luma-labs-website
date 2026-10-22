@@ -1,5 +1,6 @@
 "use client";
 
+import type { LatLngBounds, LayerGroup, Map as LeafletMap } from "leaflet";
 import { useEffect } from "react";
 
 type MapAirport = {
@@ -16,14 +17,14 @@ type MapAirport = {
 
 declare global {
     interface Window {
-        __lumaRadarMap?: any;
+        __lumaRadarMap?: LeafletMap;
     }
 }
 
 export default function DynamicAirportLayer() {
     useEffect(() => {
         let active = true;
-        let layerGroup: any = null;
+        let layerGroup: LayerGroup | null = null;
         let refreshTimer: ReturnType<typeof setTimeout> | null = null;
         const cache = new Map<string, MapAirport[]>();
         let cleanupMapListeners: (() => void) | null = null;
@@ -74,7 +75,7 @@ export default function DynamicAirportLayer() {
             }
         }
 
-        async function refresh(map: any, L: typeof import("leaflet")) {
+        async function refresh(map: LeafletMap, L: typeof import("leaflet")) {
             if (!active || !layerGroup) return;
 
             const zoom = map.getZoom();
@@ -163,7 +164,7 @@ export default function DynamicAirportLayer() {
     return null;
 }
 
-function tileUrls(bounds: any, size: number, folder: string) {
+function tileUrls(bounds: LatLngBounds, size: number, folder: string) {
     const south = Math.max(-90, bounds.getSouth());
     const north = Math.min(89.999999, bounds.getNorth());
     const west = normalizeLongitude(bounds.getWest());

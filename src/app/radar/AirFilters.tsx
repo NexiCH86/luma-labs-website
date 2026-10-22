@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { Layer, Map as LeafletMap, Marker } from "leaflet";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 type Aircraft = {
     icao24: string;
@@ -39,10 +40,15 @@ type AirframeMeta = {
     icaoAircraftType?: string | null;
 };
 
-declare global { interface Window { __lumaRadarMap?: any; } }
+// Flugzeug-Icons sind Marker; andere Layer haben diese Methoden nicht.
+type MarkerLikeLayer = Layer & Partial<Pick<Marker, "getElement" | "getLatLng">>;
+
+declare global { interface Window { __lumaRadarMap?: LeafletMap; } }
 
 const DEFAULT_FILTERS: FilterState = { airline: "", status: "ALL", phase: "ALL", altitude: "ALL", category: "ALL", airport: null, radiusKm: 25 };
 const metaCache = new Map<string, AirframeMeta | null>();
+// Die Zahl sichtbarer Marker stammt aus dem Leaflet-DOM, also von ausserhalb von React.
+const visibleCountStore = createCountStore();
 
 export default function AirFilters() {
     const [open, setOpen] = useState(false);
@@ -55,7 +61,7 @@ export default function AirFilters() {
     const [airport, setAirport] = useState<AirportFilter | null>(null);
     const [airportLookup, setAirportLookup] = useState<AirportLookup>("IDLE");
     const [radiusKm, setRadiusKm] = useState(25);
-    const [visibleCount, setVisibleCount] = useState(0);
+    const visibleCount = useSyncExternalStore(visibleCountStore.subscribe, visibleCountStore.get, visibleCountStore.get);
     const [totalCount, setTotalCount] = useState(0);
     const aircraftRef = useRef<Aircraft[]>([]);
     const filtersRef = useRef<FilterState>(DEFAULT_FILTERS);
@@ -64,11 +70,35 @@ export default function AirFilters() {
 
     const filtersActive = useMemo(() => airline.trim() !== "" || status !== "ALL" || phase !== "ALL" || altitude !== "ALL" || category !== "ALL" || airport !== null, [airline, status, phase, altitude, category, airport]);
 
+    // Liest nur Refs, daher stabil; muss vor den Effekten stehen, die es aufrufen.
+    const applyFilters = useCallback(() => {
+        const map = window.__lumaRadarMap;
+        if (!map) return;
+        // Inklusive weltweiter Flugzeuge aus /api/radar/area (NEX-8).
+        const snapshot = [...aircraftRef.current, ...(window.__lumaRadarAreaAircraft ?? [])];
+        const current = filtersRef.current;
+        const activeFilters = current.airline.trim() !== "" || current.status !== "ALL" || current.phase !== "ALL" || current.altitude !== "ALL" || current.category !== "ALL" || current.airport !== null;
+        let shown = 0;
+
+        map.eachLayer((layer: MarkerLikeLayer) => {
+            const element = layer?.getElement?.() as HTMLElement | undefined;
+            if (!element?.classList?.contains("plane-icon-wrapper")) return;
+            const latLng = layer?.getLatLng?.();
+            if (!latLng) return;
+            const aircraft = nearestAircraft(snapshot, latLng.lat, latLng.lng);
+            if (!aircraft) { element.style.display = activeFilters ? "none" : ""; return; }
+            const visible = matchesAircraft(aircraft, current);
+            element.style.display = visible ? "" : "none";
+            if (visible) shown++;
+        });
+        visibleCountStore.set(shown);
+    }, []);
+
     useEffect(() => {
         filtersRef.current = { airline, status, phase, altitude, category, airport, radiusKm };
         if (category !== "ALL") void warmCategoryMetadata(aircraftRef.current).then(applyFilters);
         applyFilters();
-    }, [airline, status, phase, altitude, category, airport, radiusKm]);
+    }, [airline, status, phase, altitude, category, airport, radiusKm, applyFilters]);
 
     function changeAirportCode(value: string) {
         const code = value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
@@ -107,8 +137,8 @@ export default function AirFilters() {
         load();
         const timer = window.setInterval(load, 5000);
         const repaint = window.setInterval(applyFilters, 1200);
-        return () => { active = false; window.clearInterval(timer); window.clearInterval(repaint); showAllMarkers(); };
-    }, []);
+        return () => { active = false; window.clearInterval(timer); window.clearInterval(repaint); showAllMarkers(); visibleCountStore.set(0); };
+    }, [applyFilters]);
 
     useEffect(() => {
         const footer = document.querySelector(".radar-footer");
@@ -117,29 +147,6 @@ export default function AirFilters() {
         if (spans[0]) spans[0].textContent = "LuMa Labs · Worldwide Airspace";
         if (spans[1]) spans[1].textContent = "GLOBAL AIR · AIRPORTS · LIVE TRACKING";
     }, []);
-
-    function applyFilters() {
-        const map = window.__lumaRadarMap;
-        if (!map) return;
-        // Inklusive weltweiter Flugzeuge aus /api/radar/area (NEX-8).
-        const snapshot = [...aircraftRef.current, ...(window.__lumaRadarAreaAircraft ?? [])];
-        const current = filtersRef.current;
-        const activeFilters = current.airline.trim() !== "" || current.status !== "ALL" || current.phase !== "ALL" || current.altitude !== "ALL" || current.category !== "ALL" || current.airport !== null;
-        let shown = 0;
-
-        map.eachLayer((layer: any) => {
-            const element = layer?.getElement?.() as HTMLElement | undefined;
-            if (!element?.classList?.contains("plane-icon-wrapper")) return;
-            const latLng = layer?.getLatLng?.();
-            if (!latLng) return;
-            const aircraft = nearestAircraft(snapshot, latLng.lat, latLng.lng);
-            if (!aircraft) { element.style.display = activeFilters ? "none" : ""; return; }
-            const visible = matchesAircraft(aircraft, current);
-            element.style.display = visible ? "" : "none";
-            if (visible) shown++;
-        });
-        setVisibleCount(shown);
-    }
 
     function resetFilters() {
         filtersRef.current = DEFAULT_FILTERS;
@@ -193,6 +200,16 @@ async function warmCategoryMetadata(aircraft: Aircraft[]) {
             metaCache.set(key, data.found ? data as AirframeMeta : null);
         } catch { metaCache.set(key, null); }
     }));
+}
+
+function createCountStore() {
+    let value = 0;
+    const listeners = new Set<() => void>();
+    return {
+        get: () => value,
+        set(next: number) { if (next === value) return; value = next; listeners.forEach((listener) => listener()); },
+        subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
+    };
 }
 
 function nearestAircraft(aircraft: Aircraft[], latitude: number, longitude: number) {

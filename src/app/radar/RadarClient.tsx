@@ -1,5 +1,6 @@
 "use client";
 
+import type { Map as LeafletMap, Marker, Polyline } from "leaflet";
 import Link from "next/link";
 import {
     useEffect,
@@ -566,11 +567,11 @@ export default function RadarClient() {
         );
 
     const mapRef =
-        useRef<any>(null);
+        useRef<LeafletMap | null>(null);
 
     const markers =
         useRef<
-            Record<string, any>
+            Record<string, Marker>
         >({});
 
     const trails =
@@ -583,12 +584,12 @@ export default function RadarClient() {
 
     const trailLayers =
         useRef<
-            Record<string, any>
+            Record<string, Polyline>
         >({});
 
     const trackFadeLayers =
         useRef<
-            Record<string, any[]>
+            Record<string, Polyline[]>
         >({});
 
     const aircraftData =
@@ -612,13 +613,13 @@ export default function RadarClient() {
         >({});
 
     const plannedRouteLayer =
-        useRef<any>(null);
+        useRef<Polyline | null>(null);
 
     const departureMarker =
-        useRef<any>(null);
+        useRef<Marker | null>(null);
 
     const arrivalMarker =
-        useRef<any>(null);
+        useRef<Marker | null>(null);
 
     const flightCache =
         useRef<
@@ -1065,7 +1066,7 @@ export default function RadarClient() {
     }
 
     function renderTrack(
-        L: any,
+        L: typeof import("leaflet"),
         icao: string,
         selectedNow: boolean
     ) {
@@ -1107,7 +1108,7 @@ export default function RadarClient() {
             );
 
             const segmentLayers:
-                any[] = [];
+                Polyline[] = [];
 
             const segmentCount =
                 points.length -
@@ -1161,7 +1162,7 @@ export default function RadarClient() {
                                 "round",
                         }
                     ).addTo(
-                        mapRef.current
+                        mapRef.current!
                     );
 
                 segmentLayers.push(
@@ -1217,13 +1218,13 @@ export default function RadarClient() {
                             0.12,
                     }
                 ).addTo(
-                    mapRef.current
+                    mapRef.current!
                 );
         }
     }
 
     function updateTrail(
-        L: any,
+        L: typeof import("leaflet"),
         aircraft: Aircraft,
         position: [number, number],
         selectedNow: boolean
@@ -1870,7 +1871,7 @@ export default function RadarClient() {
                         "10 12",
                 }
             ).addTo(
-                mapRef.current
+                mapRef.current!
             );
 
         const airportIcon = (
@@ -1916,7 +1917,7 @@ export default function RadarClient() {
                         ),
                 }
             ).addTo(
-                mapRef.current
+                mapRef.current!
             );
 
         arrivalMarker.current =
@@ -1934,7 +1935,7 @@ export default function RadarClient() {
                         ),
                 }
             ).addTo(
-                mapRef.current
+                mapRef.current!
             );
     }
 
@@ -2042,7 +2043,7 @@ export default function RadarClient() {
             ];
 
         if (marker) {
-            mapRef.current.flyTo(
+            mapRef.current!.flyTo(
                 marker.getLatLng(),
                 10,
                 {

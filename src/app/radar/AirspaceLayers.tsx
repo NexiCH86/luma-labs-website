@@ -1,22 +1,15 @@
 "use client";
 
+import type { FeatureCollection } from "geojson";
+import type { GeoJSON, Map as LeafletMap } from "leaflet";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { COUNTRY_BORDER_STYLE, countryBorderStyleForZoom } from "@/lib/basemap";
 
-type GeoJsonFeature = {
-    type: "Feature";
-    properties?: Record<string, unknown>;
-    geometry: unknown;
-};
-
-type GeoJsonCollection = {
-    type: "FeatureCollection";
-    features: GeoJsonFeature[];
-};
+type GeoJsonCollection = FeatureCollection;
 
 declare global {
     interface Window {
-        __lumaRadarMap?: any;
+        __lumaRadarMap?: LeafletMap;
     }
 }
 
@@ -26,8 +19,8 @@ export default function AirspaceLayers() {
     const [firOn, setFirOn] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const countryLayer = useRef<any>(null);
-    const firLayer = useRef<any>(null);
+    const countryLayer = useRef<GeoJSON | null>(null);
+    const firLayer = useRef<GeoJSON | null>(null);
     const dataRef = useRef<{ borders?: GeoJsonCollection; fir?: GeoJsonCollection }>({});
 
     // Stabile Referenz, damit map.off() den Listener wieder entfernt.
@@ -41,19 +34,7 @@ export default function AirspaceLayers() {
         [countriesOn, firOn]
     );
 
-    useEffect(() => {
-        void renderLayers();
-    }, [countriesOn, firOn]);
-
-    useEffect(() => {
-        return () => {
-            window.__lumaRadarMap?.off("zoomend", syncBorderStyle);
-            countryLayer.current?.remove();
-            firLayer.current?.remove();
-        };
-    }, [syncBorderStyle]);
-
-    async function ensureData(kind: "borders" | "fir") {
+    const ensureData = useCallback(async (kind: "borders" | "fir") => {
         if (dataRef.current[kind]) return dataRef.current[kind];
 
         setLoading(true);
@@ -79,15 +60,10 @@ export default function AirspaceLayers() {
         } finally {
             setLoading(false);
         }
-    }
+    }, []);
 
-    async function renderLayers() {
-        const map = window.__lumaRadarMap;
-        if (!map) {
-            window.setTimeout(renderLayers, 150);
-            return;
-        }
-
+    // Die Karte kommt vom Effekt unten, der bei Bedarf auf sie wartet.
+    const renderLayers = useCallback(async (map: LeafletMap) => {
         const L = await import("leaflet");
 
         if (!countriesOn) {
@@ -97,7 +73,7 @@ export default function AirspaceLayers() {
         } else if (!countryLayer.current) {
             const data = await ensureData("borders");
             if (data && !countryLayer.current) {
-                countryLayer.current = L.geoJSON(data as any, {
+                countryLayer.current = L.geoJSON(data, {
                     style: countryBorderStyleForZoom(map.getZoom()),
                     interactive: false,
                 }).addTo(map);
@@ -111,7 +87,7 @@ export default function AirspaceLayers() {
         } else if (!firLayer.current) {
             const data = await ensureData("fir");
             if (data) {
-                firLayer.current = L.geoJSON(data as any, {
+                firLayer.current = L.geoJSON(data, {
                     style: {
                         color: "#b88cff",
                         weight: 1.3,
@@ -120,7 +96,7 @@ export default function AirspaceLayers() {
                         fillOpacity: 0.025,
                         dashArray: "8 6",
                     },
-                    onEachFeature(feature: any, layer: any) {
+                    onEachFeature(feature, layer) {
                         const label = firLabel(feature?.properties ?? {});
                         if (label) {
                             layer.bindTooltip(label, {
@@ -133,7 +109,31 @@ export default function AirspaceLayers() {
                 }).addTo(map);
             }
         }
-    }
+    }, [countriesOn, firOn, ensureData, syncBorderStyle]);
+
+    useEffect(() => {
+        let retry: number | undefined;
+
+        function render() {
+            const map = window.__lumaRadarMap;
+            if (!map) {
+                retry = window.setTimeout(render, 150);
+                return;
+            }
+            void renderLayers(map);
+        }
+
+        render();
+        return () => window.clearTimeout(retry);
+    }, [renderLayers]);
+
+    useEffect(() => {
+        return () => {
+            window.__lumaRadarMap?.off("zoomend", syncBorderStyle);
+            countryLayer.current?.remove();
+            firLayer.current?.remove();
+        };
+    }, [syncBorderStyle]);
 
     return (
         <div style={{ position: "fixed", left: 138, bottom: 56, zIndex: 1495, fontFamily: "inherit" }}>
