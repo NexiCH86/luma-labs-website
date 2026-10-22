@@ -100,6 +100,9 @@ export const SOURCE_DEFINITIONS: Record<string, SourceDefinition> = {
 /* CelesTrak erlaubt dieselbe Datei hoechstens alle 2 Stunden. */
 export const FRESH_MS = 2 * 60 * 60 * 1000;
 
+/* Pause nach einem fehlgeschlagenen Abruf, bevor dieselbe Gruppe wieder versucht wird. */
+export const RETRY_AFTER_MS = 30 * 60 * 1000;
+
 /* Aelter gilt als veraltet und wird in der Oberflaeche angezeigt. */
 export const STALE_AFTER_MS = 6 * 60 * 60 * 1000;
 
@@ -312,8 +315,39 @@ export function createRedisSatelliteStore(): SatelliteStore | null {
 }
 
 /*
- * Fehler des Speichers duerfen den Abruf nie verhindern: ohne
- * Redis wird einfach live geladen.
+ * Prozess-Cache fuer Umgebungen ohne Redis (lokale Entwicklung):
+ * dieselben Regeln (2 h pro Gruppe, Sperre, Pause nach Fehlern),
+ * aber nur innerhalb dieses Prozesses. Ohne ihn fragte ein lokaler
+ * Dev-Server CelesTrak bei jedem Seitenaufruf ab.
+ */
+export function createMemorySatelliteStore(): SatelliteStore {
+    const entries = new Map<string, GroupCacheEntry>();
+    const statuses = new Map<string, GroupStatus>();
+    const locks = new Map<string, number>();
+    return {
+        read: async (group) => entries.get(group) ?? null,
+        write: async (entry) => void entries.set(entry.group, entry),
+        lock: async (group) => {
+            if ((locks.get(group) ?? 0) > Date.now()) return false;
+            locks.set(group, Date.now() + LOCK_TTL_SECONDS * 1000);
+            return true;
+        },
+        readStatus: async (group) => statuses.get(group) ?? null,
+        writeStatus: async (group, status) => void statuses.set(group, status),
+    };
+}
+
+/* Ueber Hot Reloads hinweg behalten (next dev laedt Module neu). */
+const processStore = ((globalThis as { __lumaSatStore?: SatelliteStore }).__lumaSatStore ??= createMemorySatelliteStore());
+
+/* Redis, wenn konfiguriert, sonst der Prozess-Cache. */
+export function getSatelliteStore(): SatelliteStore {
+    return createRedisSatelliteStore() ?? processStore;
+}
+
+/*
+ * Fehler des Speichers duerfen den Abruf nie verhindern: ist Redis
+ * gestoert, wird live geladen.
  */
 async function quietly<T>(task: Promise<T> | undefined, fallback: T) {
     try {
@@ -336,7 +370,18 @@ export async function saveGroup(store: SatelliteStore, group: string, records: O
 
 export type LoadOptions = { store: SatelliteStore | null; fetcher?: typeof fetch; now?: number };
 
-export async function loadGroup(source: SourceDefinition, { store, fetcher = fetch, now = Date.now() }: LoadOptions): Promise<GroupResult> {
+/* Gleichzeitige Anfragen derselben Gruppe im selben Prozess teilen sich einen Abruf. */
+const inflight = new Map<string, Promise<GroupResult>>();
+
+export function loadGroup(source: SourceDefinition, options: LoadOptions): Promise<GroupResult> {
+    const running = inflight.get(source.group);
+    if (running) return running;
+    const task = loadGroupOnce(source, options).finally(() => inflight.delete(source.group));
+    inflight.set(source.group, task);
+    return task;
+}
+
+async function loadGroupOnce(source: SourceDefinition, { store, fetcher = fetch, now = Date.now() }: LoadOptions): Promise<GroupResult> {
     const cached = await quietly(store?.read(source.group), null);
     const fromCache = (entry: GroupCacheEntry, warning?: string): GroupResult => ({
         group: source.group,
@@ -349,6 +394,16 @@ export async function loadGroup(source: SourceDefinition, { store, fetcher = fet
     });
 
     if (cached && now - cached.fetchedAt < FRESH_MS) return fromCache(cached);
+
+    /*
+     * Nach einem Fehlschlag eine Pause einhalten, statt CelesTrak bei
+     * jeder Anfrage erneut (mit allen Ersatzquellen) anzufragen.
+     */
+    const status = await quietly(store?.readStatus(source.group), null);
+    if (status?.lastError && now - status.lastAttemptAt < RETRY_AFTER_MS) {
+        if (cached) return fromCache(cached, status.lastError);
+        throw new Error(status.lastError);
+    }
 
     /*
      * Laedt gerade eine andere Instanz, reichen die alten Daten.

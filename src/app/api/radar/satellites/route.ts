@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildSatelliteResponse, createRedisSatelliteStore, loadGroup, SOURCE_DEFINITIONS } from "@/lib/satellite-source";
+import { buildSatelliteResponse, getSatelliteStore, loadGroup, SOURCE_DEFINITIONS } from "@/lib/satellite-source";
 
 /*
  * Satelliten-Bahndaten fuer SAT und STARS: /api/radar/satellites?groups=STATIONS,GPS-OPS
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    const store = createRedisSatelliteStore();
+    const store = getSatelliteStore();
     const settled = await Promise.allSettled(groups.map((group) => loadGroup(SOURCE_DEFINITIONS[group], { store })));
     const body = buildSatelliteResponse(groups, settled);
 
