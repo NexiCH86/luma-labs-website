@@ -84,13 +84,15 @@ try {
         download("constellations.lines.json"),
         download("messier.json"),
         download("dsos.bright.json"),
+        download("mw.json"),
+        download("constellations.bounds.json"),
     ]);
 } catch (error) {
     await keepExistingCatalog(error);
     process.exit(0);
 }
 
-const [stars, starNames, constellations, lines, messier, brightDsos] = sources;
+const [stars, starNames, constellations, lines, messier, brightDsos, milkyWay, bounds] = sources;
 
 /*
  * [hip, ra (h), dec (deg), magnitude, B-V-Farbindex]
@@ -168,6 +170,82 @@ for (const feature of [...messier.features, ...brightDsos.features]) {
     });
 }
 
+/*
+ * Milchstrasse: d3-celestial liefert fuenf Helligkeitsstufen als
+ * Polygone. Gerastert auf ein flaechentreues 1,5°-Raster, damit die
+ * Karte sie in jeder Projektion als weiche Punkte zeichnen kann.
+ * Flach gespeichert: [ra (h), dec, Stufe 1..5, ra, dec, Stufe, ...]
+ */
+const MILKY_WAY_STEP = 1.5;
+
+function insideRing(x, y, ring) {
+    let inside = false;
+
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [xi, yi] = ring[i];
+        const [xj, yj] = ring[j];
+
+        if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+            inside = !inside;
+        }
+    }
+
+    return inside;
+}
+
+function insideMultiPolygon(x, y, geometry) {
+    return geometry.coordinates.some((polygon) =>
+        polygon.reduce((inside, ring) => (insideRing(x, y, ring) ? !inside : inside), false)
+    );
+}
+
+const milkyWayPoints = [];
+
+for (let lat = -90 + MILKY_WAY_STEP / 2; lat < 90; lat += MILKY_WAY_STEP) {
+    const lonStep = MILKY_WAY_STEP / Math.max(0.25, Math.cos((lat * Math.PI) / 180));
+
+    for (let lon = -180 + lonStep / 2; lon < 180; lon += lonStep) {
+        const level = milkyWay.features.filter((feature) => insideMultiPolygon(lon, lat, feature.geometry)).length;
+
+        if (level > 0) {
+            milkyWayPoints.push(raHours(lon), round(lat, 2), level);
+        }
+    }
+}
+
+/*
+ * Sternbildgrenzen: Kanten laufen entlang konstanter Rektaszension
+ * oder Deklination. Lange Kanten werden unterteilt, damit sie in der
+ * Himmelsansicht als Bogen erscheinen. Flach: [ra, dec, ra, dec, ...]
+ */
+const BOUNDARY_STEP = 1.5;
+
+function densifyRing(ring) {
+    const points = [];
+
+    for (let i = 0; i < ring.length; i++) {
+        const [lon1, lat1] = ring[i];
+        const [lon2Raw, lat2] = ring[(i + 1) % ring.length];
+        let lon2 = lon2Raw;
+        if (lon2 - lon1 > 180) lon2 -= 360;
+        if (lon1 - lon2 > 180) lon2 += 360;
+        const steps = Math.max(1, Math.ceil(Math.max(Math.abs(lon2 - lon1), Math.abs(lat2 - lat1)) / BOUNDARY_STEP));
+
+        for (let s = 0; s < steps; s++) {
+            const t = s / steps;
+            points.push(raHours(lon1 + (lon2 - lon1) * t), round(lat1 + (lat2 - lat1) * t, 2));
+        }
+    }
+
+    points.push(points[0], points[1]);
+    return points;
+}
+
+const boundaryRows = bounds.features.map((feature) => ({
+    id: feature.id,
+    rings: (feature.geometry.type === "MultiPolygon" ? feature.geometry.coordinates.flat() : feature.geometry.coordinates).map(densifyRing),
+}));
+
 await mkdir(path.dirname(OUTPUT_FILE), { recursive: true });
 await writeFile(
     OUTPUT_FILE,
@@ -178,6 +256,8 @@ await writeFile(
         names,
         constellations: constellationRows,
         dsos: dsoRows,
+        milkyWay: milkyWayPoints,
+        bounds: boundaryRows,
     }),
     "utf8"
 );
@@ -185,5 +265,6 @@ await writeFile(
 console.log(
     `Sky catalog ready: ${starRows.length.toLocaleString("en-US")} stars, ` +
         `${Object.keys(names).length.toLocaleString("en-US")} named, ` +
-        `${constellationRows.length} constellations, ${dsoRows.length} deep-sky objects.`
+        `${constellationRows.length} constellations, ${dsoRows.length} deep-sky objects, ` +
+        `${milkyWayPoints.length / 3} Milky Way points, ${boundaryRows.length} boundaries.`
 );
