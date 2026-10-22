@@ -13,6 +13,9 @@ ENDPOINT = os.environ.get(
 )
 SECRET = os.environ.get("LUMA_CONTROL_SECRET", "")
 INTERVAL = max(30, int(os.environ.get("LUMA_CONTROL_INTERVAL", "90")))
+# Raspberry-Pi-Agent: "server-pi" fuer den Keller-Pi (luma-server-pi5),
+# "luisserver" fuer den Buero-Pi (luma-pi5).
+DEVICE = os.environ.get("LUMA_CONTROL_DEVICE", "luisserver")
 
 
 def read_cpu_percent():
@@ -117,7 +120,7 @@ def build_payload():
     disk_percent = (disk.used / disk.total * 100) if disk.total else 0
 
     return {
-        "device": "luisserver",
+        "device": DEVICE,
         "hostname": socket.gethostname(),
         "ip": read_ip(),
         "timestamp": int(time.time() * 1000),
@@ -164,6 +167,7 @@ def main():
     print("LuMa Control Center Agent starting...")
     print(f"Endpoint: {ENDPOINT}")
     print(f"Interval: {INTERVAL}s")
+    print(f"Device: {DEVICE}")
 
     while True:
         try:

@@ -1,5 +1,3 @@
-import { Redis } from "@upstash/redis";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { LumaSignet } from "@/components/brand/LumaSignet";
 import {
@@ -21,48 +19,22 @@ import {
   TerminalSquare,
   Thermometer,
   TimerReset,
-  Wifi,
   Zap,
 } from "lucide-react";
+import { DEVICES, readControlTelemetry, type DeviceInfo, type DeviceReading, type ServiceState } from "@/lib/control-center";
+import { hasRadarStore, readSnapshot } from "@/lib/radar-store";
+import { readSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-type Status = "online" | "offline" | "standby";
-type ServiceState = "online" | "offline" | "unknown";
+type Status = "online" | "offline" | "never";
 
-type DeviceTelemetry = {
-  device: string;
-  hostname: string;
-  ip?: string | null;
-  receivedAt: number;
-  uptimeSeconds: number;
-  cpuPercent: number;
-  memoryPercent: number;
-  memoryUsedGb?: number | null;
-  memoryTotalGb?: number | null;
-  temperatureC?: number | null;
-  diskPercent: number;
-  diskUsedGb?: number | null;
-  diskTotalGb?: number | null;
-  gpu?: {
-    name?: string | null;
-    utilizationPercent?: number | null;
-    temperatureC?: number | null;
-    memoryUsedMb?: number | null;
-    memoryTotalMb?: number | null;
-    powerDrawW?: number | null;
-    powerLimitW?: number | null;
-  } | null;
-  services?: Record<string, ServiceState>;
-};
-
-type DeviceCard = {
-  name: string;
-  role: string;
-  os: string;
-  detail: string;
-  status: Status;
-  icon: typeof Laptop;
+const DEVICE_ICONS: Record<string, typeof Laptop> = {
+  "master-intel": Cpu,
+  "master-mac": Laptop,
+  "kali-mac": TerminalSquare,
+  "server-pi": Server,
+  luisserver: Server,
 };
 
 const infrastructure = [
@@ -73,26 +45,23 @@ const infrastructure = [
   { name: "File Browser", key: "fileBrowser", icon: HardDrive },
 ];
 
-function getRedis() {
-  const url = process.env.CONTROL_REDIS_REST_URL;
-  const token = process.env.CONTROL_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
-  return new Redis({ url, token });
-}
+/* Wie /api/radar/health: Collector gilt als online, wenn der Snapshot juenger als 3 Minuten ist. */
+const RADAR_MAX_AGE_MS = 3 * 60 * 1000;
 
-async function getTelemetry(device: string) {
+async function readRadarState(): Promise<ServiceState> {
+  if (!hasRadarStore()) return "unknown";
   try {
-    const redis = getRedis();
-    if (!redis) return null;
-    return await redis.get<DeviceTelemetry>(`control:device:${device}`);
+    const snapshot = await readSnapshot();
+    return snapshot && Date.now() - snapshot.receivedAt < RADAR_MAX_AGE_MS && snapshot.count > 0 ? "online" : "offline";
   } catch (error) {
-    console.error(`Control Center telemetry read failed for ${device}:`, error);
-    return null;
+    console.error("Control Center radar check failed:", error);
+    return "unknown";
   }
 }
 
-function isOnline(telemetry: DeviceTelemetry | null) {
-  return telemetry ? Date.now() - telemetry.receivedAt < 240_000 : false;
+function deviceStatus(reading: DeviceReading): Status {
+  if (reading.online) return "online";
+  return reading.lastSeen ? "offline" : "never";
 }
 
 function formatUptime(seconds: number) {
@@ -104,16 +73,29 @@ function formatUptime(seconds: number) {
   return `${minutes}m`;
 }
 
+function formatAgo(timestamp: number, now: number) {
+  const minutes = Math.max(0, Math.round((now - timestamp) / 60_000));
+  if (minutes < 1) return "gerade eben";
+  if (minutes < 60) return `vor ${minutes} Min.`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `vor ${hours} Std.`;
+  return `vor ${Math.round(hours / 24)} Tagen`;
+}
+
+function formatClock(timestamp: number) {
+  return new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", hour: "2-digit", minute: "2-digit" }).format(timestamp);
+}
+
 function StatusPill({ status }: { status: Status }) {
   const styles: Record<Status, string> = {
     online: "border-emerald-400/20 bg-emerald-400/5 text-emerald-300",
     offline: "border-red-400/20 bg-red-400/5 text-red-300",
-    standby: "border-amber-300/20 bg-amber-300/5 text-amber-200",
+    never: "border-amber-300/20 bg-amber-300/5 text-amber-200",
   };
   const labels: Record<Status, string> = {
     online: "ONLINE",
     offline: "OFFLINE",
-    standby: "TELEMETRY PENDING",
+    never: "KEIN AGENT",
   };
   return <span className={`rounded-full border px-2.5 py-1 text-[10px] font-medium tracking-[0.14em] ${styles[status]}`}>{labels[status]}</span>;
 }
@@ -136,18 +118,20 @@ function MetricCard({ label, value, detail, icon: Icon }: { label: string; value
   );
 }
 
-function TelemetrySection({ title, telemetry, online, showGpu = false }: { title: string; telemetry: DeviceTelemetry | null; online: boolean; showGpu?: boolean }) {
+function TelemetrySection({ device, reading, now }: { device: DeviceInfo; reading: DeviceReading; now: number }) {
+  const telemetry = reading.telemetry;
   const gpu = telemetry?.gpu;
+  const status = deviceStatus(reading);
   return (
     <section className="mb-10">
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
           <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-cyan-300/50">Live Telemetry</p>
-          <h2 className="mt-2 text-xl font-medium">{title}</h2>
+          <h2 className="mt-2 text-xl font-medium">{device.name}</h2>
         </div>
         <div className="flex items-center gap-2 text-xs text-white/30">
-          <span className={`h-2 w-2 rounded-full ${online ? "bg-emerald-300" : "bg-red-300"}`} />
-          {online ? "Live" : "No heartbeat"}
+          <span className={`h-2 w-2 rounded-full ${status === "online" ? "bg-emerald-300" : "bg-red-300"}`} />
+          {status === "online" ? "Live" : reading.lastSeen ? `Letzter Messwert ${formatAgo(reading.lastSeen, now)}` : "Kein Heartbeat"}
         </div>
       </div>
 
@@ -161,7 +145,7 @@ function TelemetrySection({ title, telemetry, online, showGpu = false }: { title
             <MetricCard label="Uptime" value={formatUptime(telemetry.uptimeSeconds)} icon={TimerReset} />
           </div>
 
-          {showGpu && gpu && (
+          {device.gpu && gpu && (
             <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <MetricCard label="GPU Load" value={gpu.utilizationPercent != null ? `${gpu.utilizationPercent.toFixed(1)}%` : "—"} detail={gpu.name ?? undefined} icon={Gauge} />
               <MetricCard label="GPU Temp" value={gpu.temperatureC != null ? `${gpu.temperatureC.toFixed(1)} °C` : "—"} icon={Thermometer} />
@@ -171,63 +155,43 @@ function TelemetrySection({ title, telemetry, online, showGpu = false }: { title
           )}
         </>
       ) : (
-        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.015] px-6 py-8 text-sm text-white/35">Noch keine Telemetrie empfangen.</div>
+        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.015] px-6 py-8 text-sm text-white/35">
+          {reading.lastSeen
+            ? `Offline. Letzter Messwert ${formatAgo(reading.lastSeen, now)}.`
+            : "Noch keine Telemetrie empfangen. Agent auf dem Gerät einrichten (scripts/control-center-agent*)."}
+        </div>
       )}
     </section>
   );
 }
 
 export default async function ControlCenterPage() {
-  const cookieStore = await cookies();
-  const session = cookieStore.get("luma_control_center_session");
-  if (session?.value !== "authenticated") redirect("/control-center/login");
+  const session = await readSession("control-center");
+  if (!session) redirect("/control-center/login");
 
-  const [luisServer, masterIntel, masterMac, kaliMac] = await Promise.all([
-    getTelemetry("luisserver"),
-    getTelemetry("master-intel"),
-    getTelemetry("master-mac"),
-    getTelemetry("kali-mac"),
-  ]);
+  const [readings, radarState] = await Promise.all([readControlTelemetry(), readRadarState()]);
+  const now = readings.readAt;
 
-  const luisServerOnline = isOnline(luisServer);
-  const masterIntelOnline = isOnline(masterIntel);
-  const masterMacOnline = isOnline(masterMac);
-  const kaliMacOnline = isOnline(kaliMac);
-  const onlineCount = [luisServerOnline, masterIntelOnline, masterMacOnline, kaliMacOnline].filter(Boolean).length;
+  const onlineCount = DEVICES.filter((device) => readings.devices[device.id].online).length;
+  const overall =
+    !readings.storeOk
+      ? { label: "TELEMETRIE-SPEICHER NICHT ERREICHBAR", style: "border-red-400/20 bg-red-400/5 text-red-300", dot: "bg-red-300" }
+      : onlineCount === DEVICES.length
+        ? { label: "ALLE SYSTEME ONLINE", style: "border-emerald-400/20 bg-emerald-400/5 text-emerald-300", dot: "bg-emerald-300" }
+        : onlineCount > 0
+          ? { label: `${DEVICES.length - onlineCount} SYSTEM${DEVICES.length - onlineCount === 1 ? "" : "E"} OFFLINE`, style: "border-amber-300/20 bg-amber-300/5 text-amber-200", dot: "bg-amber-200" }
+          : { label: "KEINE LIVE-TELEMETRIE", style: "border-red-400/20 bg-red-400/5 text-red-300", dot: "bg-red-300" };
 
-  const devices: DeviceCard[] = [
-    {
-      name: "Master-Intel",
-      role: "Primary Workstation",
-      os: "Windows 11 Pro",
-      detail: masterIntel ? `${masterIntel.hostname}${masterIntel.ip ? ` · ${masterIntel.ip}` : ""}` : "i9-13900K · 128 GB RAM · RTX 4090",
-      status: masterIntel ? (masterIntelOnline ? "online" : "offline") : "standby",
-      icon: Cpu,
-    },
-    {
-      name: "Master-Mac",
-      role: "Mobile Development",
-      os: "macOS",
-      detail: masterMac ? `${masterMac.hostname}${masterMac.ip ? ` · ${masterMac.ip}` : ""}` : "MacBook Pro · M1 Pro · 16 GB RAM",
-      status: masterMac ? (masterMacOnline ? "online" : "offline") : "standby",
-      icon: Laptop,
-    },
-    {
-      name: "Kali-Mac",
-      role: "Cyber Lab",
-      os: "Kali Linux",
-      detail: kaliMac ? `${kaliMac.hostname}${kaliMac.ip ? ` · ${kaliMac.ip}` : ""}` : "MacBook Pro Intel · 32 GB RAM",
-      status: kaliMac ? (kaliMacOnline ? "online" : "offline") : "standby",
-      icon: TerminalSquare,
-    },
-    {
-      name: "LuisServer",
-      role: "24/7 Infrastructure",
-      os: "Raspberry Pi OS",
-      detail: luisServer ? `${luisServer.hostname}${luisServer.ip ? ` · ${luisServer.ip}` : ""}` : "Raspberry Pi 5 · 16 GB RAM",
-      status: luisServer ? (luisServerOnline ? "online" : "offline") : "standby",
-      icon: Server,
-    },
+  /* Server-Stack vom ersten Infrastruktur-Geraet, das gerade liefert (Keller-Pi vor Buero-Pi). */
+  const stackDevice = DEVICES.find((device) => device.infrastructure && readings.devices[device.id].online);
+  const stackServices = stackDevice ? readings.devices[stackDevice.id].telemetry?.services : undefined;
+
+  const controlApiState: ServiceState = !readings.storeOk ? "offline" : onlineCount > 0 ? "online" : "unknown";
+  const services: { name: string; description: string; icon: typeof Radio; state: ServiceState }[] = [
+    { name: "LuMa RADAR", description: "AIR tracking platform", icon: Radio, state: radarState },
+    { name: "RADAR Collector", description: "OpenSky ingest · Server-Pi", icon: Activity, state: radarState },
+    { name: "lumalabs.ch", description: "Next.js · Vercel", icon: Globe2, state: "online" },
+    { name: "Control API", description: "Device telemetry layer", icon: Network, state: controlApiState },
   ];
 
   return (
@@ -257,49 +221,56 @@ export default async function ControlCenterPage() {
           <div className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.035] p-5 md:col-span-2">
             <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-cyan-300/60">System Overview</p>
             <div className="mt-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-              <div><h2 className="text-2xl font-medium tracking-tight">LuMa Operations Network</h2><p className="mt-2 text-sm text-white/40">{onlineCount} von 4 registrierten Systemen liefern aktuell Live-Telemetrie.</p></div>
-              <div className="flex w-fit items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-[10px] font-medium tracking-[0.14em] text-emerald-300"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />CONTROL CENTER ONLINE</div>
+              <div><h2 className="text-2xl font-medium tracking-tight">LuMa Operations Network</h2><p className="mt-2 text-sm text-white/40">{onlineCount} von {DEVICES.length} registrierten Systemen liefern aktuell Live-Telemetrie.</p></div>
+              <div className={`flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-medium tracking-[0.14em] ${overall.style}`}><span className={`h-1.5 w-1.5 rounded-full ${overall.dot}`} />{overall.label}</div>
             </div>
           </div>
           <div className="rounded-2xl border border-white/8 bg-white/[0.025] p-5">
             <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-white/35">Security</p>
-            <div className="mt-5 flex items-center gap-4"><div className="flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-400/15 bg-emerald-400/5"><ShieldCheck className="h-5 w-5 text-emerald-300" /></div><div><p className="font-medium">Authenticated</p><p className="mt-1 text-xs text-white/35">Dedicated Control Center session</p></div></div>
+            <div className="mt-5 flex items-center gap-4"><div className="flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-400/15 bg-emerald-400/5"><ShieldCheck className="h-5 w-5 text-emerald-300" /></div><div><p className="font-medium">Signierte Sitzung</p><p className="mt-1 text-xs text-white/35">Gültig bis {formatClock(session.expiresAt)} Uhr</p></div></div>
           </div>
         </section>
 
         <section className="mb-10">
-          <div className="mb-4 flex items-end justify-between"><div><p className="text-[10px] font-medium uppercase tracking-[0.25em] text-cyan-300/50">Devices</p><h2 className="mt-2 text-xl font-medium">LuMa Systems</h2></div><p className="text-xs text-white/25">4 registered devices</p></div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {devices.map((device) => { const Icon = device.icon; return (
-              <article key={device.name} className="rounded-2xl border border-white/8 bg-white/[0.025] p-5">
-                <div className="flex items-start justify-between gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-300/10 bg-cyan-300/[0.04]"><Icon className="h-4.5 w-4.5 text-cyan-200" /></div><StatusPill status={device.status} /></div>
-                <h3 className="mt-5 font-medium">{device.name}</h3><p className="mt-1 text-xs text-cyan-200/45">{device.role}</p>
-                <div className="mt-5 border-t border-white/5 pt-4"><p className="text-xs text-white/55">{device.os}</p><p className="mt-1.5 text-[11px] leading-5 text-white/25">{device.detail}</p></div>
-              </article>
-            ); })}
+          <div className="mb-4 flex items-end justify-between"><div><p className="text-[10px] font-medium uppercase tracking-[0.25em] text-cyan-300/50">Devices</p><h2 className="mt-2 text-xl font-medium">LuMa Systems</h2></div><p className="text-xs text-white/25">{DEVICES.length} registered devices</p></div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            {DEVICES.map((device) => {
+              const Icon = DEVICE_ICONS[device.id] ?? Server;
+              const reading = readings.devices[device.id];
+              const telemetry = reading.telemetry;
+              const detail = telemetry ? `${telemetry.hostname}${telemetry.ip ? ` · ${telemetry.ip}` : ""}` : device.hardware;
+              return (
+                <article key={device.id} className="rounded-2xl border border-white/8 bg-white/[0.025] p-5">
+                  <div className="flex items-start justify-between gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-300/10 bg-cyan-300/[0.04]"><Icon className="h-4.5 w-4.5 text-cyan-200" /></div><StatusPill status={deviceStatus(reading)} /></div>
+                  <h3 className="mt-5 font-medium">{device.name}</h3><p className="mt-1 text-xs text-cyan-200/45">{device.role}</p>
+                  <div className="mt-5 border-t border-white/5 pt-4">
+                    <p className="text-xs text-white/55">{device.os}</p>
+                    <p className="mt-1.5 text-[11px] leading-5 text-white/25">{detail}</p>
+                    {!reading.online && reading.lastSeen && <p className="mt-1 text-[11px] leading-5 text-red-300/60">Zuletzt gesehen {formatAgo(reading.lastSeen, now)}</p>}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
 
-        <TelemetrySection title="Master-Intel" telemetry={masterIntel} online={masterIntelOnline} showGpu />
-        <TelemetrySection title="Master-Mac" telemetry={masterMac} online={masterMacOnline} />
-        <TelemetrySection title="Kali-Mac" telemetry={kaliMac} online={kaliMacOnline} />
-        <TelemetrySection title="LuisServer" telemetry={luisServer} online={luisServerOnline} />
+        {DEVICES.map((device) => <TelemetrySection key={device.id} device={device} reading={readings.devices[device.id]} now={now} />)}
 
         <div className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
           <section>
             <div className="mb-4"><p className="text-[10px] font-medium uppercase tracking-[0.25em] text-cyan-300/50">Services</p><h2 className="mt-2 text-xl font-medium">LuMa Services</h2></div>
             <div className="grid gap-3 sm:grid-cols-2">
-              {[{ name: "LuMa RADAR", description: "AIR tracking platform", icon: Radio }, { name: "Collector", description: "OpenSky ingest service", icon: Activity }, { name: "lumalabs.ch", description: "Next.js · Vercel", icon: Globe2 }, { name: "Control API", description: "Device telemetry layer", icon: Network }].map((service) => {
-                const Icon = service.icon; const collectorState = service.name === "Collector" ? luisServer?.services?.radarCollector : undefined;
-                return <div key={service.name} className="flex items-center gap-4 rounded-2xl border border-white/8 bg-white/[0.02] p-4"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.035]"><Icon className="h-4 w-4 text-cyan-200/70" /></div><div><p className="text-sm font-medium">{service.name}</p><p className="mt-1 text-xs text-white/30">{service.description}</p></div>{collectorState ? <div className="ml-auto"><ServiceStateLabel state={collectorState} /></div> : <Wifi className="ml-auto h-3.5 w-3.5 text-white/15" />}</div>;
+              {services.map((service) => {
+                const Icon = service.icon;
+                return <div key={service.name} className="flex items-center gap-4 rounded-2xl border border-white/8 bg-white/[0.02] p-4"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.035]"><Icon className="h-4 w-4 text-cyan-200/70" /></div><div><p className="text-sm font-medium">{service.name}</p><p className="mt-1 text-xs text-white/30">{service.description}</p></div><div className="ml-auto"><ServiceStateLabel state={service.state} /></div></div>;
               })}
             </div>
           </section>
 
           <section>
-            <div className="mb-4"><p className="text-[10px] font-medium uppercase tracking-[0.25em] text-cyan-300/50">Infrastructure</p><h2 className="mt-2 text-xl font-medium">LuisServer Stack</h2></div>
+            <div className="mb-4"><p className="text-[10px] font-medium uppercase tracking-[0.25em] text-cyan-300/50">Infrastructure</p><h2 className="mt-2 text-xl font-medium">Server Stack</h2><p className="mt-1 text-xs text-white/30">{stackDevice ? `Gemeldet von ${stackDevice.name}` : "Kein Server-Pi liefert gerade Daten"}</p></div>
             <div className="overflow-hidden rounded-2xl border border-white/8 bg-white/[0.02]">
-              {infrastructure.map((item, index) => { const Icon = item.icon; const state = luisServer?.services?.[item.key] ?? "unknown"; return <div key={item.name} className={`flex items-center gap-3 px-4 py-3.5 ${index !== infrastructure.length - 1 ? "border-b border-white/5" : ""}`}><Icon className="h-4 w-4 text-cyan-200/55" /><span className="text-sm text-white/65">{item.name}</span><div className="ml-auto"><ServiceStateLabel state={state} /></div></div>; })}
+              {infrastructure.map((item, index) => { const Icon = item.icon; const state = stackServices?.[item.key] ?? "unknown"; return <div key={item.name} className={`flex items-center gap-3 px-4 py-3.5 ${index !== infrastructure.length - 1 ? "border-b border-white/5" : ""}`}><Icon className="h-4 w-4 text-cyan-200/55" /><span className="text-sm text-white/65">{item.name}</span><div className="ml-auto"><ServiceStateLabel state={state} /></div></div>; })}
             </div>
           </section>
         </div>

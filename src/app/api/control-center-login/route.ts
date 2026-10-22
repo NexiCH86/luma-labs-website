@@ -1,32 +1,40 @@
 import { NextResponse } from "next/server";
+import { clearLoginFailures, clientIp, isLoginBlocked, recordLoginFailure } from "@/lib/login-throttle";
+import {
+    SESSION_MAX_AGE_SECONDS,
+    checkCredentials,
+    createSessionToken,
+    hasCredentials,
+    sessionCookieName,
+    sessionCookieOptions,
+} from "@/lib/session";
 
 export async function POST(request: Request) {
-    const formData = await request.formData();
-    const username = formData.get("username");
-    const password = formData.get("password");
-
-    const controlUsername = process.env.CONTROL_CENTER_USERNAME;
-    const controlPassword = process.env.CONTROL_CENTER_PASSWORD;
-
-    if (!controlUsername || !controlPassword) {
+    if (!hasCredentials("control-center")) {
         return NextResponse.json(
             { error: "CONTROL_CENTER_USERNAME oder CONTROL_CENTER_PASSWORD ist nicht konfiguriert." },
             { status: 500 }
         );
     }
 
-    if (username !== controlUsername || password !== controlPassword) {
+    const ip = clientIp(request);
+    if (await isLoginBlocked("control-center", ip)) {
+        return NextResponse.redirect(new URL("/control-center/login?error=locked", request.url), 303);
+    }
+
+    const formData = await request.formData();
+    if (!checkCredentials("control-center", formData.get("username"), formData.get("password"))) {
+        await recordLoginFailure("control-center", ip);
         return NextResponse.redirect(new URL("/control-center/login?error=1", request.url), 303);
     }
 
+    await clearLoginFailures("control-center", ip);
     const response = NextResponse.redirect(new URL("/control-center", request.url), 303);
-    response.cookies.set("luma_control_center_session", "authenticated", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 8,
-    });
+    response.cookies.set(
+        sessionCookieName("control-center"),
+        createSessionToken("control-center")!,
+        sessionCookieOptions(SESSION_MAX_AGE_SECONDS)
+    );
 
     return response;
 }

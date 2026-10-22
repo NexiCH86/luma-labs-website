@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sessionCookieName, sessionCookieOptions } from "@/lib/session";
 
 export async function POST(request: Request) {
     const response = NextResponse.redirect(
@@ -6,13 +7,7 @@ export async function POST(request: Request) {
         303
     );
 
-    response.cookies.set("luma_portal_session", "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 0,
-    });
+    response.cookies.set(sessionCookieName("portal"), "", sessionCookieOptions(0));
 
     return response;
 }

@@ -10,6 +10,7 @@ import {
     ShieldCheck,
     MonitorCog,
 } from "lucide-react";
+import { sessionCookieName, verifySessionToken } from "@/lib/session";
 
 const reports = [
     {
@@ -102,9 +103,9 @@ const scripts = [
 
 export default async function BenchmarkPage() {
     const cookieStore = await cookies();
-    const session = cookieStore.get("luma_portal_session");
+    const session = verifySessionToken("portal", cookieStore.get(sessionCookieName("portal"))?.value);
 
-    if (session?.value !== "authenticated") {
+    if (!session) {
         redirect("/portal/login");
     }
 
