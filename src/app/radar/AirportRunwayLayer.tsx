@@ -1,5 +1,6 @@
 "use client";
 
+import type { LayerGroup, Map as LeafletMap } from "leaflet";
 import { useEffect } from "react";
 
 type Runway = {
@@ -37,14 +38,14 @@ type FocusDetail = {
 
 declare global {
     interface Window {
-        __lumaRadarMap?: any;
+        __lumaRadarMap?: LeafletMap;
     }
 }
 
 export default function AirportRunwayLayer() {
     useEffect(() => {
         let active = true;
-        let group: any = null;
+        let group: LayerGroup | null = null;
 
         async function onFocus(event: Event) {
             const detail = (event as CustomEvent<FocusDetail>).detail;
@@ -142,7 +143,7 @@ function runwayWeight(widthFt?: number | null) {
     return 4;
 }
 
-function addThresholdLabel(L: any, group: any, latitude: number, longitude: number, ident?: string | null) {
+function addThresholdLabel(L: typeof import("leaflet"), group: LayerGroup, latitude: number, longitude: number, ident?: string | null) {
     if (!ident) return;
 
     const marker = L.marker([latitude, longitude], {

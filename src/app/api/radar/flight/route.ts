@@ -694,6 +694,21 @@ function applyAircraftMetadata(
     };
 }
 
+// Gelesene Felder eines Eintrags aus der Aviationstack-Antwort.
+type AviationstackCodes = {
+    iata?: string | null;
+    icao?: string | null;
+};
+
+type AviationstackFlight = {
+    airline?: (AviationstackCodes & { name?: string | null }) | null;
+    flight?: (AviationstackCodes & { number?: string | null }) | null;
+    departure?: (AviationstackCodes & { airport?: string | null }) | null;
+    arrival?: (AviationstackCodes & { airport?: string | null }) | null;
+    aircraft?: (AviationstackCodes & { registration?: string | null }) | null;
+    flight_status?: string | null;
+};
+
 async function lookupAviationstack(
     callsign: string
 ): Promise<FlightResult | null> {
@@ -730,7 +745,7 @@ async function lookupAviationstack(
         const json =
             await response.json();
 
-        const flights =
+        const flights: AviationstackFlight[] =
             Array.isArray(
                 json.data
             )
@@ -739,7 +754,7 @@ async function lookupAviationstack(
 
         const candidate =
             flights.find(
-                (flight: any) =>
+                (flight) =>
                     flight.flight
                         ?.icao
                         ?.trim()

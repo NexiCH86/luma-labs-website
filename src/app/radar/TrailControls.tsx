@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import type { LatLng, Layer, Map as LeafletMap, Polyline } from "leaflet";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type Aircraft = {
     icao24: string;
@@ -17,7 +18,7 @@ type TrailLength = "SHORT" | "MEDIUM" | "LONG" | "FULL";
 
 declare global {
     interface Window {
-        __lumaRadarMap?: any;
+        __lumaRadarMap?: LeafletMap;
     }
 }
 
@@ -37,45 +38,15 @@ export default function TrailControls() {
     const aircraftRef = useRef<Aircraft[]>([]);
     const originalsRef = useRef(new WeakMap<object, [number, number][]>());
 
-    useEffect(() => {
-        settingsRef.current = { length, phaseColors, showTrails };
-        applyTrails();
-    }, [length, phaseColors, showTrails]);
-
-    useEffect(() => {
-        let active = true;
-
-        async function loadAircraft() {
-            try {
-                const response = await fetch("/api/radar", { cache: "no-store" });
-                if (!response.ok) return;
-                const data = (await response.json()) as RadarResponse;
-                if (!active) return;
-                aircraftRef.current = [...(Array.isArray(data.aircraft) ? data.aircraft : []), ...((window.__lumaRadarAreaAircraft ?? []) as unknown as NonNullable<RadarResponse["aircraft"]>)];
-                applyTrails();
-            } catch {}
-        }
-
-        loadAircraft();
-        const snapshotTimer = window.setInterval(loadAircraft, 5000);
-        const repaintTimer = window.setInterval(applyTrails, 1000);
-
-        return () => {
-            active = false;
-            window.clearInterval(snapshotTimer);
-            window.clearInterval(repaintTimer);
-            restoreTrails();
-        };
-    }, []);
-
-    function applyTrails() {
+    // Lesen nur Refs, daher stabil; müssen vor den Effekten stehen, die sie aufrufen.
+    const applyTrails = useCallback(() => {
         const map = window.__lumaRadarMap;
         if (!map) return;
 
         const settings = settingsRef.current;
         const maxPoints = LENGTH_POINTS[settings.length];
 
-        map.eachLayer((layer: any) => {
+        map.eachLayer((layer) => {
             if (!isAircraftTrail(layer)) return;
 
             const current = normalizeLatLngs(layer.getLatLngs?.());
@@ -118,19 +89,50 @@ export default function TrailControls() {
                 });
             }
         });
-    }
+    }, []);
 
-    function restoreTrails() {
+    const restoreTrails = useCallback(() => {
         const map = window.__lumaRadarMap;
         if (!map) return;
 
-        map.eachLayer((layer: any) => {
+        map.eachLayer((layer) => {
             if (!isAircraftTrail(layer)) return;
             const full = originalsRef.current.get(layer);
             if (full) layer.setLatLngs?.(full);
             layer.setStyle?.({ opacity: isSelectedTrail(layer) ? 0.72 : 0.12 });
         });
-    }
+    }, []);
+
+    useEffect(() => {
+        settingsRef.current = { length, phaseColors, showTrails };
+        applyTrails();
+    }, [length, phaseColors, showTrails, applyTrails]);
+
+    useEffect(() => {
+        let active = true;
+
+        async function loadAircraft() {
+            try {
+                const response = await fetch("/api/radar", { cache: "no-store" });
+                if (!response.ok) return;
+                const data = (await response.json()) as RadarResponse;
+                if (!active) return;
+                aircraftRef.current = [...(Array.isArray(data.aircraft) ? data.aircraft : []), ...((window.__lumaRadarAreaAircraft ?? []) as unknown as NonNullable<RadarResponse["aircraft"]>)];
+                applyTrails();
+            } catch {}
+        }
+
+        loadAircraft();
+        const snapshotTimer = window.setInterval(loadAircraft, 5000);
+        const repaintTimer = window.setInterval(applyTrails, 1000);
+
+        return () => {
+            active = false;
+            window.clearInterval(snapshotTimer);
+            window.clearInterval(repaintTimer);
+            restoreTrails();
+        };
+    }, [applyTrails, restoreTrails]);
 
     return (
         <div style={{ position: "fixed", left: 18, bottom: 148, zIndex: 1485, fontFamily: "inherit" }}>
@@ -183,26 +185,33 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
     );
 }
 
-function isAircraftTrail(layer: any) {
-    if (!layer?.getLatLngs || !layer?.setLatLngs || !layer?.setStyle) return false;
+function isAircraftTrail(layer: Layer): layer is Polyline {
+    const candidate = layer as Layer & Partial<Pick<Polyline, "getLatLngs" | "setLatLngs" | "setStyle" | "feature" | "options">>;
+    if (!candidate?.getLatLngs || !candidate?.setLatLngs || !candidate?.setStyle) return false;
     // GeoJSON-Linien (Ländergrenzen, FIR) sind keine Flugzeugspuren.
-    if (layer.feature) return false;
-    const options = layer.options ?? {};
+    if (candidate.feature) return false;
+    const options = candidate.options ?? {};
     if (options.dashArray) return false;
     const color = String(options.color ?? "").toLowerCase();
     return color === "#238bd2" || color === "#63ffe3" || color === "#4ebbff" || color === "#ff8fd8";
 }
 
-function isSelectedTrail(layer: any) {
+function isSelectedTrail(layer: Polyline) {
     const options = layer.options ?? {};
     return Number(options.weight ?? 0) > 1.5 || String(options.color ?? "").toLowerCase() === "#63ffe3";
 }
 
-function normalizeLatLngs(value: any): [number, number][] {
+function normalizeLatLngs(value: ReturnType<Polyline["getLatLngs"]> | undefined): [number, number][] {
     if (!Array.isArray(value)) return [];
-    return value
-        .filter((item) => item && Number.isFinite(item.lat) && Number.isFinite(item.lng))
+    return (value as unknown[])
+        .filter(isLatLng)
         .map((item) => [Number(item.lat), Number(item.lng)] as [number, number]);
+}
+
+// Nur flache Linien zählen; verschachtelte Arrays (Multi-Polylines) fallen weg.
+function isLatLng(item: unknown): item is LatLng {
+    const candidate = item as Partial<LatLng> | null;
+    return Boolean(candidate) && Number.isFinite(candidate?.lat) && Number.isFinite(candidate?.lng);
 }
 
 function nearestAircraft(aircraft: Aircraft[], latitude: number, longitude: number) {

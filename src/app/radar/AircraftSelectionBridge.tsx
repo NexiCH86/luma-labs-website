@@ -1,6 +1,10 @@
 "use client";
 
+import type { Layer, Map as LeafletMap, Marker } from "leaflet";
 import { useEffect } from "react";
+
+// Flugzeug-Icons sind Marker; andere Layer haben diese Methoden nicht.
+type MarkerLikeLayer = Layer & Partial<Pick<Marker, "getElement" | "getLatLng">>;
 
 type SelectAircraftDetail = {
     icao24?: string;
@@ -10,7 +14,7 @@ type SelectAircraftDetail = {
 
 declare global {
     interface Window {
-        __lumaRadarMap?: any;
+        __lumaRadarMap?: LeafletMap;
     }
 }
 
@@ -24,10 +28,10 @@ export default function AircraftSelectionBridge() {
                 return;
             }
 
-            let bestLayer: any = null;
+            let bestLayer = null as MarkerLikeLayer | null;
             let bestScore = 0.02 * 0.02;
 
-            map.eachLayer((layer: any) => {
+            map.eachLayer((layer: MarkerLikeLayer) => {
                 const element = layer?.getElement?.() as HTMLElement | undefined;
                 if (!element?.classList?.contains("plane-icon-wrapper")) return;
 
@@ -49,9 +53,10 @@ export default function AircraftSelectionBridge() {
                 duration: 0.65,
             });
 
-            if (bestLayer) {
+            const target = bestLayer;
+            if (target) {
                 window.setTimeout(() => {
-                    bestLayer.fire?.("click");
+                    target.fire?.("click");
                 }, 180);
             }
         };

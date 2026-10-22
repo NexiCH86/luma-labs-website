@@ -1,5 +1,6 @@
 "use client";
 
+import type { LayerGroup, Map as LeafletMap } from "leaflet";
 import { useEffect, useMemo, useState } from "react";
 
 type Aircraft = {
@@ -13,7 +14,7 @@ type RadarResponse = {
 
 declare global {
     interface Window {
-        __lumaRadarMap?: any;
+        __lumaRadarMap?: LeafletMap;
     }
 }
 
@@ -36,8 +37,8 @@ export default function TrafficDensity() {
 
     useEffect(() => {
         let active = true;
-        let currentMap: any = null;
-        let layerGroup: any = null;
+        let currentMap: LeafletMap | null = null;
+        let layerGroup: LayerGroup | null = null;
         let timer: number | null = null;
 
         async function setup() {

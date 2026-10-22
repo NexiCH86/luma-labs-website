@@ -159,8 +159,8 @@ export default function OpenSkyAirframeDetails() {
     }, [icao24]);
 
     useEffect(() => {
+        // Leer nur beim Mount: Die Auswahl wird nie wieder geleert, und der State ist dann noch null.
         if (!icao24) {
-            setInfo(null);
             return;
         }
 

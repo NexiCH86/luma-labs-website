@@ -1,5 +1,6 @@
 "use client";
 
+import type { LayerGroup, Map as LeafletMap } from "leaflet";
 import { useEffect, useMemo, useState } from "react";
 
 type Aircraft = {
@@ -23,7 +24,7 @@ type Alert = Aircraft & {
 
 declare global {
     interface Window {
-        __lumaRadarMap?: any;
+        __lumaRadarMap?: LeafletMap;
     }
 }
 
@@ -44,8 +45,8 @@ export default function SquawkAlerts() {
 
     useEffect(() => {
         let active = true;
-        let layerGroup: any = null;
-        let currentMap: any = null;
+        let layerGroup: LayerGroup | null = null;
+        let currentMap: LeafletMap | null = null;
 
         async function setup() {
             const L = await import("leaflet");
@@ -84,6 +85,7 @@ export default function SquawkAlerts() {
                     setAlerts(nextAlerts);
 
                     if (!layerGroup || !currentMap) return;
+                    const map = currentMap;
                     layerGroup.clearLayers();
 
                     for (const alert of nextAlerts) {
@@ -112,7 +114,7 @@ export default function SquawkAlerts() {
                         );
 
                         marker.on("click", () => {
-                            currentMap.flyTo([alert.latitude, alert.longitude], Math.max(currentMap.getZoom(), 10), {
+                            map.flyTo([alert.latitude, alert.longitude], Math.max(map.getZoom(), 10), {
                                 duration: 1.1,
                             });
                         });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type FocusDetail = { code?: string; name?: string };
 type RunwayRecord = { id?: string | null; leIdent?: string | null; leHeading?: number | null; heIdent?: string | null; heHeading?: number | null };
@@ -19,23 +19,8 @@ export default function AirportWeather() {
     const [error, setError] = useState("");
     const [, setClock] = useState(0);
 
-    useEffect(() => {
-        const onFocus = (event: Event) => {
-            const detail = (event as CustomEvent<FocusDetail>).detail;
-            if (!detail?.code) return;
-            setAirport(detail);
-            void resolveAndLoad(detail.code);
-        };
-        window.addEventListener("luma:airport-focus", onFocus);
-        return () => window.removeEventListener("luma:airport-focus", onFocus);
-    }, []);
-
-    useEffect(() => {
-        const timer = window.setInterval(() => setClock((value) => value + 1), 30_000);
-        return () => window.clearInterval(timer);
-    }, []);
-
-    async function resolveAndLoad(code: string) {
+    // Nutzt nur State-Setter, daher stabil; muss vor dem Effekt stehen, der es aufruft.
+    const resolveAndLoad = useCallback(async (code: string) => {
         setLoading(true); setError(""); setWeather(null); setRunways([]);
         try {
             let airportIcao = code.trim().toUpperCase();
@@ -51,7 +36,23 @@ export default function AirportWeather() {
             if (!data.found) { setError("No current METAR available for this airport."); return; }
             setWeather(data);
         } catch { setError("Weather lookup failed."); } finally { setLoading(false); }
-    }
+    }, []);
+
+    useEffect(() => {
+        const onFocus = (event: Event) => {
+            const detail = (event as CustomEvent<FocusDetail>).detail;
+            if (!detail?.code) return;
+            setAirport(detail);
+            void resolveAndLoad(detail.code);
+        };
+        window.addEventListener("luma:airport-focus", onFocus);
+        return () => window.removeEventListener("luma:airport-focus", onFocus);
+    }, [resolveAndLoad]);
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setClock((value) => value + 1), 30_000);
+        return () => window.clearInterval(timer);
+    }, []);
 
     const runwayWind = useMemo(() => calculateRunwayWind(runways, weather), [runways, weather]);
     const alerts = useMemo(() => buildWeatherAlerts(weather, runwayWind), [weather, runwayWind]);

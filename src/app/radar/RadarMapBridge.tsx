@@ -1,10 +1,11 @@
 "use client";
 
+import type { Map as LeafletMap, Marker } from "leaflet";
 import { useLayoutEffect } from "react";
 
 declare global {
     interface Window {
-        __lumaRadarMap?: any;
+        __lumaRadarMap?: LeafletMap;
     }
 }
 
@@ -18,7 +19,7 @@ type AirportFocusDetail = {
 export default function RadarMapBridge() {
     useLayoutEffect(() => {
         let active = true;
-        let focusMarker: any = null;
+        let focusMarker: Marker | null = null;
         let cleanupListener:
             | (() => void)
             | null = null;

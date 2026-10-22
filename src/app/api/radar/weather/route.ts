@@ -14,6 +14,44 @@ globalForWeather.lumaMetarCache = cache;
 
 const CACHE_MS = 60_000;
 
+// Gelesene Felder der AviationWeather.gov-JSON-Antworten (aktuelle und ältere Feldnamen).
+type TimeValue = string | number | null;
+
+type MetarRow = {
+    rawOb?: string | null;
+    raw_text?: string | null;
+    obsTime?: TimeValue;
+    observation_time?: TimeValue;
+    temp?: unknown;
+    dewp?: unknown;
+    wdir?: unknown;
+    wspd?: unknown;
+    wgst?: unknown;
+    visib?: unknown;
+    altim?: unknown;
+    fltCat?: string | null;
+    clouds?: unknown;
+    wxString?: string | null;
+};
+
+type TafRow = {
+    rawTAF?: string | null;
+    raw_text?: string | null;
+    rawText?: string | null;
+    rawOb?: string | null;
+    issueTime?: TimeValue;
+    issue_time?: TimeValue;
+    bulletinTime?: TimeValue;
+    validTimeFrom?: TimeValue;
+    valid_time_from?: TimeValue;
+    validFrom?: TimeValue;
+    validTimeTo?: TimeValue;
+    valid_time_to?: TimeValue;
+    validTo?: TimeValue;
+    fcsts?: unknown;
+    forecast?: unknown;
+};
+
 export async function GET(request: NextRequest) {
     const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase();
 
@@ -50,7 +88,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const metar = Array.isArray(metarResult.data) ? metarResult.data[0] : null;
+        const metar = (Array.isArray(metarResult.data) ? metarResult.data[0] : null) as MetarRow | null;
 
         if (!metar) {
             const value = {
@@ -107,7 +145,7 @@ async function fetchAviationWeather(product: "metar" | "taf", icao: string) {
         return { ok: true, status: response.status, data: null };
     }
 
-    let data: any = null;
+    let data: unknown = null;
     try {
         data = await response.json();
     } catch {
@@ -117,8 +155,8 @@ async function fetchAviationWeather(product: "metar" | "taf", icao: string) {
     return { ok: response.ok, status: response.status, data };
 }
 
-function normalizeTaf(rows: any) {
-    const taf = Array.isArray(rows) ? rows[0] : null;
+function normalizeTaf(rows: unknown) {
+    const taf = (Array.isArray(rows) ? rows[0] : null) as TafRow | null;
     if (!taf) return null;
 
     return {
