@@ -1,264 +1,1420 @@
-.sat-shell {
+/* ============================================================
+   LuMa RADAR SAT
+   Desktop: Panels links und rechts ueber der Karte.
+   Handy (.is-mobile): Karte im Vollbild, Leiste von unten.
+   ============================================================ */
+
+.sat-app {
     --sat-accent: #8fa7ff;
+    --sat-cyan: #5be7e0;
+    --sat-gold: #ffd166;
+    --sat-pink: #ff74d4;
+    --sat-green: #7cff6b;
+    --sat-panel: rgba(4, 12, 16, 0.92);
+    --sat-line: rgba(255, 255, 255, 0.08);
+    --sat-muted: rgba(255, 255, 255, 0.45);
+    --sat-faint: rgba(255, 255, 255, 0.04);
+
+    height: 100dvh;
 }
 
-.sat-main {
-    position: relative;
+/* :where() ohne Gewicht, damit die Schriftgroessen der Klassen gelten. */
+:where(.sat-app) button {
+    font: inherit;
+    cursor: pointer;
 }
 
-.sat-panel {
-    width: 360px;
+.sat-app button:focus-visible,
+.sat-app input:focus-visible,
+.sat-app summary:focus-visible {
+    outline: 2px solid var(--sat-accent);
+    outline-offset: 2px;
 }
 
-.sat-network-stats {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin: 14px 0 18px;
-}
+/* ---------- Header ---------- */
 
-.sat-network-stats > div,
-.sat-grid > div,
-.sat-meta > div {
-    padding: 11px 12px;
-    border: 1px solid rgba(143, 167, 255, 0.12);
-    border-radius: 8px;
-    background: rgba(143, 167, 255, 0.035);
-}
-
-.sat-network-stats small,
-.sat-grid small,
-.sat-meta small {
-    display: block;
-    color: rgba(255, 255, 255, 0.36);
-    font-size: 8px;
-    letter-spacing: 0.16em;
-}
-
-.sat-network-stats strong {
-    display: block;
-    margin-top: 5px;
-    color: #d9e0ff;
-    font-size: 18px;
-}
-
-.sat-details {
-    overflow-y: auto;
-    padding-right: 3px;
-}
-
-.sat-selected-header {
+.sat-location-button {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 15px;
-    border: 1px solid rgba(91, 231, 224, 0.13);
-    border-radius: 10px;
-    background: linear-gradient(135deg, rgba(91, 231, 224, 0.055), rgba(143, 167, 255, 0.04));
-}
-
-.sat-selected-header small {
-    color: #8fa7ff;
-    font-size: 8px;
-    letter-spacing: 0.18em;
-}
-
-.sat-selected-header h2 {
-    margin: 6px 0 4px;
-    font-size: 18px;
-    line-height: 1.2;
-}
-
-.sat-selected-header p {
-    margin: 0;
-    color: rgba(255, 255, 255, 0.42);
-    font-size: 10px;
-}
-
-.sat-selected-header b {
-    color: #5be7e0;
-    font-size: 28px;
-    text-shadow: 0 0 18px rgba(91, 231, 224, 0.45);
-}
-
-.sat-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    align-items: center;
     gap: 8px;
-    margin-top: 10px;
+    height: 38px;
+    max-width: 230px;
+    padding: 0 14px;
+    border: 1px solid rgba(143, 167, 255, 0.25);
+    border-radius: 8px;
+    background: rgba(143, 167, 255, 0.06);
+    color: var(--sat-accent);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
 }
 
-.sat-grid strong {
-    display: block;
-    margin-top: 5px;
-    color: #ffffff;
-    font-size: 12px;
+.sat-location-button b {
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-weight: 600;
 }
 
-.sat-meta {
+.sat-location-button.is-set span {
+    color: var(--sat-green);
+    text-shadow: 0 0 10px rgba(124, 255, 107, 0.6);
+}
+
+.sat-location-button:hover {
+    background: rgba(143, 167, 255, 0.12);
+}
+
+/* ---------- Karte ---------- */
+
+.sat-main {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+}
+
+.sat-map,
+.sat-map-leaflet {
+    position: absolute;
+    inset: 0;
+}
+
+.sat-map-leaflet {
+    background: #050b0d;
+}
+
+.sat-map-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 450;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+}
+
+.sat-map-tooltip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 900;
+    translate: -50% -100%;
     display: grid;
-    gap: 8px;
-    margin-top: 10px;
+    gap: 2px;
+    padding: 6px 9px;
+    border: 1px solid var(--sat-line);
+    border-radius: 6px;
+    background: rgba(4, 12, 16, 0.95);
+    pointer-events: none;
+    white-space: nowrap;
 }
 
-.sat-meta span {
-    display: block;
-    margin-top: 5px;
-    color: rgba(255, 255, 255, 0.72);
-    font-size: 10px;
-}
-
-.sat-orbit-note {
-    margin: 12px 2px 0;
-    color: rgba(255, 255, 255, 0.34);
-    font-size: 9px;
-    line-height: 1.6;
-}
-
-.sat-empty-state {
-    margin-top: 20px;
-    padding: 28px 18px;
-    text-align: center;
-    border: 1px dashed rgba(143, 167, 255, 0.18);
-    border-radius: 10px;
-    background: rgba(143, 167, 255, 0.025);
-}
-
-.sat-empty-state b {
-    color: #8fa7ff;
-    font-size: 34px;
-}
-
-.sat-empty-state h3 {
-    margin: 12px 0 6px;
+.sat-map-tooltip strong {
     font-size: 11px;
-    letter-spacing: 0.16em;
 }
 
-.sat-empty-state p {
-    margin: 0;
-    color: rgba(255, 255, 255, 0.35);
+.sat-map-tooltip span {
+    color: var(--sat-muted);
     font-size: 9px;
-    line-height: 1.6;
+    letter-spacing: 0.06em;
 }
 
-.sat-status-line {
-    margin-top: auto;
-    padding-top: 14px;
+.sat-observer-wrapper {
+    background: transparent;
+    border: 0;
+}
+
+.sat-observer {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.sat-observer span {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--sat-green);
+    border-radius: 50%;
+    background: rgba(124, 255, 107, 0.25);
+    box-shadow: 0 0 14px rgba(124, 255, 107, 0.7);
+}
+
+.sat-observer b {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(4, 12, 16, 0.85);
+    color: var(--sat-green);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+}
+
+.sat-main:has(.sat-panel-left) .leaflet-top.leaflet-left {
+    margin-left: 312px;
+}
+
+/* ---------- Panels (Desktop) ---------- */
+
+.sat-panel {
+    position: absolute;
+    top: 12px;
+    bottom: 12px;
+    z-index: 1001;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    color: rgba(255, 255, 255, 0.32);
-    font-size: 8px;
-    letter-spacing: 0.1em;
+    min-height: 0;
+    border: 1px solid var(--sat-line);
+    border-radius: 12px;
+    background: var(--sat-panel);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
 }
 
-.sat-status-line small {
-    color: rgba(91, 231, 224, 0.55);
+.sat-panel-left {
+    left: 12px;
+    bottom: 78px;
+    width: 300px;
+    padding: 14px;
+    gap: 14px;
 }
 
-.sat-error {
-    margin-top: 8px;
-    padding: 8px 10px;
-    border: 1px solid rgba(255, 116, 212, 0.2);
+.sat-panel-right {
+    right: 12px;
+    width: 370px;
+}
+
+.sat-panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 14px;
+}
+
+.sat-panel-close {
+    margin-left: auto;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border: 1px solid var(--sat-line);
     border-radius: 6px;
-    background: rgba(255, 116, 212, 0.04);
-    color: #ff74d4;
-    font-size: 9px;
-}
-
-.sat-marker-wrapper {
     background: transparent;
-    border: none;
-}
-
-.sat-marker {
-    width: 22px;
-    height: 22px;
-    display: grid;
-    place-items: center;
-    border-radius: 50%;
-    transition: transform 0.16s ease, filter 0.16s ease;
-}
-
-.sat-marker span {
-    display: block;
+    color: var(--sat-muted);
+    font-size: 16px;
     line-height: 1;
 }
 
-.sat-marker-station {
-    color: #5be7e0;
-    background: rgba(91, 231, 224, 0.10);
-    border: 1px solid rgba(91, 231, 224, 0.32);
-    box-shadow: 0 0 14px rgba(91, 231, 224, 0.18);
+.sat-panel-left > .sat-panel-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1;
 }
 
-.sat-marker-navigation {
-    color: #8fa7ff;
-    background: rgba(143, 167, 255, 0.09);
-    border: 1px solid rgba(143, 167, 255, 0.28);
-    box-shadow: 0 0 12px rgba(143, 167, 255, 0.14);
+.sat-panel-close:hover {
+    color: #ffffff;
 }
 
-.sat-marker.is-selected {
-    transform: scale(1.45);
-    filter: brightness(1.4);
-    box-shadow: 0 0 22px currentColor;
-}
-
-.radar-mode-switch {
-    position: fixed;
-    z-index: 2100;
-    left: 24px;
-    bottom: 22px;
-    display: flex;
-    gap: 5px;
-    padding: 5px;
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    border-radius: 9px;
-    background: rgba(4, 12, 16, 0.88);
-    backdrop-filter: blur(12px);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
-}
-
-.radar-mode-switch a {
-    min-width: 58px;
-    padding: 8px 12px;
-    border-radius: 6px;
-    color: rgba(255, 255, 255, 0.42);
-    text-align: center;
-    text-decoration: none;
-    font-size: 9px;
+.sat-panel-reopen {
+    position: absolute;
+    top: 12px;
+    z-index: 1001;
+    padding: 9px 14px;
+    border: 1px solid var(--sat-line);
+    border-radius: 8px;
+    background: var(--sat-panel);
+    color: var(--sat-accent);
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.14em;
 }
 
-.radar-mode-switch a:hover {
+.sat-panel-reopen-left {
+    left: 60px;
+}
+
+.sat-panel-reopen-right {
+    right: 12px;
+}
+
+.sat-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px;
+    border-bottom: 1px solid var(--sat-line);
+}
+
+.sat-list .sat-tabs {
+    padding: 0 0 8px;
+}
+
+.sat-tabs button[role="tab"] {
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--sat-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.sat-tabs button[role="tab"] em {
+    margin-left: 4px;
+    color: var(--sat-accent);
+    font-style: normal;
+}
+
+.sat-tabs button.is-active {
+    border-color: rgba(143, 167, 255, 0.3);
+    background: rgba(143, 167, 255, 0.1);
     color: #ffffff;
-    background: rgba(255, 255, 255, 0.05);
 }
 
-.radar-mode-switch a.is-active {
+.sat-section-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding-right: 34px;
+}
+
+.sat-section-title strong {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+}
+
+.sat-section-title span {
+    color: var(--sat-muted);
+    font-size: 10px;
+}
+
+.sat-note,
+.sat-footnote {
+    margin: 8px 0 0;
+    color: var(--sat-muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.sat-footnote {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.32);
+}
+
+.sat-link-button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--sat-accent);
+    text-decoration: underline;
+}
+
+.sat-primary,
+.sat-secondary {
+    width: 100%;
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid rgba(143, 167, 255, 0.35);
+    border-radius: 8px;
+    background: rgba(143, 167, 255, 0.14);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+}
+
+.sat-secondary {
+    background: transparent;
+    color: var(--sat-accent);
+}
+
+.sat-primary:disabled,
+.sat-secondary:disabled {
+    opacity: 0.6;
+}
+
+/* ---------- Netzwerke ---------- */
+
+.sat-network-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.sat-network {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--sat-line);
+    border-radius: 7px;
+    background: var(--sat-faint);
+    color: var(--sat-muted);
+    text-align: left;
+}
+
+.sat-network b {
+    flex: 1;
+    overflow: hidden;
+    font-size: 11px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sat-network small {
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+}
+
+.sat-network-dot {
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    opacity: 0.45;
+}
+
+.sat-network.is-on {
+    border-color: rgba(143, 167, 255, 0.35);
+    background: rgba(143, 167, 255, 0.08);
+    color: #ffffff;
+}
+
+.sat-network.is-on .sat-network-dot {
+    opacity: 1;
+    box-shadow: 0 0 8px currentColor;
+}
+
+.sat-network.is-failed small {
+    color: var(--sat-pink);
+    font-weight: 700;
+}
+
+/* ---------- Liste ---------- */
+
+.sat-list {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.sat-list-filter,
+.sat-dialog input {
+    width: 100%;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--sat-line);
+    border-radius: 7px;
+    outline: none;
+    background: var(--sat-faint);
+    color: #ffffff;
+    font-size: 12px;
+}
+
+.sat-list-rows {
+    flex: 1;
+    min-height: 0;
+    margin-top: 8px;
+    overflow-y: auto;
+}
+
+.sat-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--sat-line);
+}
+
+.sat-row.is-selected {
+    background: rgba(255, 116, 212, 0.08);
+}
+
+.sat-row-main {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    gap: 2px;
+    padding: 8px 6px;
+    border: 0;
+    background: none;
+    color: #ffffff;
+    text-align: left;
+}
+
+.sat-row-main strong {
+    overflow: hidden;
+    font-size: 12px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sat-row-main small {
+    color: var(--sat-muted);
+    font-size: 10px;
+}
+
+.sat-row-main:hover strong {
+    color: var(--sat-accent);
+}
+
+.sat-star {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border: 0;
+    background: none;
+    color: var(--sat-muted);
+    font-size: 16px;
+}
+
+.sat-star.is-on {
+    color: var(--sat-gold);
+}
+
+/* ---------- Details ---------- */
+
+.sat-empty {
+    padding: 40px 18px;
+    color: var(--sat-muted);
+    text-align: center;
+}
+
+.sat-empty b {
+    color: var(--sat-accent);
+    font-size: 34px;
+}
+
+.sat-empty h3 {
+    margin: 10px 0;
+    color: #ffffff;
+    font-size: 13px;
+    letter-spacing: 0.18em;
+}
+
+.sat-empty p {
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.sat-hint {
+    color: var(--sat-gold);
+}
+
+.sat-details {
+    display: grid;
+    gap: 12px;
+}
+
+.sat-details-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.sat-details-head span {
+    color: var(--sat-accent);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.sat-details-head h2 {
+    margin: 4px 0;
+    font-size: 19px;
+    line-height: 1.2;
+}
+
+.sat-details-head p {
+    margin: 0;
+    color: var(--sat-muted);
+    font-size: 11px;
+}
+
+.sat-iss-badge {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--sat-gold);
     color: #061012;
-    background: #5be7e0;
-    box-shadow: 0 0 18px rgba(91, 231, 224, 0.2);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
 }
 
-.radar-mode-switch a.sat-active {
-    color: #060811;
-    background: #8fa7ff;
-    box-shadow: 0 0 18px rgba(143, 167, 255, 0.22);
+.sat-score {
+    display: grid;
+    min-width: 76px;
+    padding: 6px 8px;
+    border: 1px solid var(--sat-line);
+    border-radius: 8px;
+    text-align: center;
 }
 
-@media (max-width: 900px) {
-    .sat-panel {
-        width: 320px;
+.sat-score b {
+    font-size: 20px;
+}
+
+.sat-score span {
+    color: var(--sat-muted);
+    font-size: 8px;
+    letter-spacing: 0.12em;
+}
+
+.sat-score-excellent b,
+.sat-score-good b {
+    color: var(--sat-green);
+}
+
+.sat-score-fair b {
+    color: var(--sat-gold);
+}
+
+.sat-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.sat-actions button {
+    min-height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--sat-line);
+    border-radius: 7px;
+    background: var(--sat-faint);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.sat-actions button.is-on {
+    border-color: rgba(255, 209, 102, 0.4);
+    color: var(--sat-gold);
+}
+
+.sat-actions small {
+    color: var(--sat-green);
+    font-size: 11px;
+}
+
+.sat-metrics,
+.sat-look-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.sat-look-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.sat-metrics div,
+.sat-look-grid div {
+    display: grid;
+    gap: 3px;
+    padding: 8px 10px;
+    border: 1px solid var(--sat-line);
+    border-radius: 7px;
+    background: var(--sat-faint);
+}
+
+.sat-metrics small,
+.sat-look-grid small,
+.sat-pass small {
+    color: var(--sat-muted);
+    font-size: 8px;
+    letter-spacing: 0.14em;
+}
+
+.sat-metrics strong {
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+}
+
+.sat-look-grid b {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.sat-globe-card {
+    overflow: hidden;
+    border: 1px solid var(--sat-line);
+    border-radius: 10px;
+    background: radial-gradient(circle at 50% 45%, rgba(40, 90, 140, 0.25), rgba(1, 5, 10, 0.95) 70%);
+}
+
+.sat-globe {
+    display: block;
+    width: 100%;
+}
+
+.sat-globe-stars circle {
+    fill: rgba(255, 255, 255, 0.7);
+}
+
+.sat-globe-atmo-ring {
+    fill: none;
+    stroke: rgba(115, 220, 255, 0.18);
+    stroke-width: 1;
+}
+
+.sat-globe-edge {
+    fill: none;
+    stroke: rgba(150, 225, 255, 0.45);
+    stroke-width: 0.8;
+}
+
+.sat-globe-grid {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.07);
+    stroke-width: 0.6;
+}
+
+.sat-globe-orbit-rear {
+    fill: none;
+    stroke: rgba(91, 231, 224, 0.25);
+    stroke-width: 1.2;
+    stroke-dasharray: 3 4;
+}
+
+.sat-globe-orbit-front {
+    fill: none;
+    stroke: var(--sat-cyan);
+    stroke-width: 1.6;
+}
+
+.sat-globe-sat-glow {
+    fill: rgba(255, 116, 212, 0.25);
+}
+
+.sat-globe-sat-dot {
+    fill: var(--sat-pink);
+}
+
+.sat-globe-sat-label {
+    fill: #ffffff;
+    font-size: 9px;
+    font-weight: 600;
+}
+
+.sat-globe-caption {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px 10px;
+    font-size: 10px;
+}
+
+.sat-globe-caption strong {
+    letter-spacing: 0.14em;
+}
+
+.sat-globe-caption span {
+    color: var(--sat-muted);
+}
+
+.sat-orbit-data {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 14px;
+}
+
+.sat-orbit-data div {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--sat-line);
+    font-size: 11px;
+}
+
+.sat-orbit-data span {
+    color: var(--sat-muted);
+}
+
+.sat-orbit-data .is-warning b {
+    color: var(--sat-gold);
+}
+
+.sat-visibility {
+    padding: 12px;
+    border: 1px solid var(--sat-line);
+    border-radius: 10px;
+    background: var(--sat-faint);
+}
+
+.sat-visibility.is-visible {
+    border-color: rgba(124, 255, 107, 0.3);
+}
+
+.sat-visibility-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+}
+
+.sat-visibility-head span {
+    color: var(--sat-muted);
+}
+
+.sat-visibility.is-visible .sat-visibility-head span {
+    color: var(--sat-green);
+}
+
+.sat-meter {
+    height: 4px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.sat-meter i {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, var(--sat-accent), var(--sat-green));
+}
+
+.sat-pass-list {
+    margin-top: 12px;
+}
+
+.sat-pass-list-head {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+}
+
+.sat-pass-list-head small {
+    color: var(--sat-muted);
+    letter-spacing: 0;
+}
+
+.sat-pass {
+    display: grid;
+    grid-template-columns: 70px repeat(3, minmax(0, 1fr)) 56px;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 0;
+    border-top: 1px solid var(--sat-line);
+    font-size: 11px;
+}
+
+.sat-pass > span {
+    color: var(--sat-muted);
+    font-size: 10px;
+}
+
+.sat-pass div {
+    display: grid;
+}
+
+.sat-pass em {
+    color: var(--sat-muted);
+    font-size: 9px;
+    font-style: normal;
+    letter-spacing: 0.1em;
+    text-align: right;
+}
+
+.sat-pass.is-optical em {
+    color: var(--sat-green);
+    font-weight: 700;
+}
+
+.sat-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.sat-links a {
+    color: var(--sat-accent);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-decoration: none;
+}
+
+/* ---------- Ueberfluege ---------- */
+
+.sat-alerts {
+    width: 100%;
+    min-height: 34px;
+    margin-bottom: 6px;
+    border: 1px solid var(--sat-line);
+    border-radius: 7px;
+    background: var(--sat-faint);
+    color: var(--sat-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+}
+
+.sat-alerts.is-on {
+    border-color: rgba(124, 255, 107, 0.4);
+    color: var(--sat-green);
+}
+
+.sat-pass-rows {
+    margin-top: 8px;
+}
+
+.sat-pass-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 34px;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 9px 4px;
+    border: 0;
+    border-bottom: 1px solid var(--sat-line);
+    background: none;
+    color: #ffffff;
+    text-align: left;
+}
+
+.sat-pass-row span {
+    display: grid;
+    min-width: 0;
+}
+
+.sat-pass-row strong {
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sat-pass-row span small,
+.sat-pass-row > small {
+    color: var(--sat-muted);
+    font-size: 10px;
+}
+
+.sat-pass-row > small {
+    grid-column: 2 / 4;
+    margin-top: -6px;
+    text-align: right;
+}
+
+.sat-pass-row span {
+    grid-row: span 2;
+}
+
+.sat-pass-row em {
+    color: var(--sat-accent);
+    font-size: 11px;
+    font-style: normal;
+}
+
+.sat-pass-row .sat-pass-none {
+    grid-column: 2 / 4;
+    color: var(--sat-muted);
+}
+
+.sat-pass-row.is-optical > small {
+    color: var(--sat-green);
+    font-weight: 700;
+}
+
+/* ---------- Status ---------- */
+
+.sat-status-rows {
+    display: grid;
+    gap: 4px;
+}
+
+.sat-status-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border: 1px solid var(--sat-line);
+    border-radius: 7px;
+    font-size: 11px;
+}
+
+.sat-status-row b {
+    color: var(--sat-green);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+}
+
+.sat-status-row.is-stale b {
+    color: var(--sat-gold);
+}
+
+.sat-status-row.is-error b {
+    color: var(--sat-pink);
+}
+
+.sat-status-row small {
+    grid-column: 1 / -1;
+    color: var(--sat-muted);
+    font-size: 10px;
+    word-break: break-word;
+}
+
+.sat-status-row button {
+    padding: 4px 8px;
+    border: 1px solid var(--sat-line);
+    border-radius: 5px;
+    background: none;
+    color: var(--sat-accent);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+}
+
+.sat-status .sat-section-title + .sat-daylight,
+.sat-status .sat-footnote + .sat-section-title {
+    margin-top: 18px;
+}
+
+.sat-daylight {
+    display: block;
+    width: 100%;
+    border-radius: 8px;
+}
+
+.sat-daylight-day {
+    fill: rgba(255, 209, 102, 0.22);
+}
+
+.sat-daylight-twilight {
+    fill: rgba(143, 167, 255, 0.16);
+}
+
+.sat-daylight-night {
+    fill: rgba(5, 10, 25, 0.9);
+}
+
+.sat-daylight-line {
+    stroke: rgba(255, 255, 255, 0.12);
+    stroke-width: 0.5;
+}
+
+.sat-daylight-sun {
+    fill: var(--sat-gold);
+}
+
+.sat-daylight-observer {
+    fill: var(--sat-green);
+}
+
+/* ---------- Leiste unten (Desktop) ---------- */
+
+.sat-bar {
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    z-index: 1000;
+    translate: -50% 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    max-width: calc(100% - 720px);
+    padding: 6px;
+    border: 1px solid var(--sat-line);
+    border-radius: 10px;
+    background: var(--sat-panel);
+    backdrop-filter: blur(12px);
+}
+
+.sat-clock {
+    display: grid;
+    padding: 2px 8px;
+}
+
+.sat-clock small {
+    color: var(--sat-muted);
+    font-size: 8px;
+    letter-spacing: 0.14em;
+}
+
+.sat-clock b {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.sat-view-toggles {
+    display: flex;
+    gap: 6px;
+}
+
+.sat-view-toggles button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--sat-line);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--sat-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.sat-view-toggles span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.sat-view-toggles .is-on {
+    color: #ffffff;
+}
+
+.sat-view-toggles .is-on span {
+    background: var(--sat-cyan);
+    box-shadow: 0 0 8px var(--sat-cyan);
+}
+
+.sat-bar-count {
+    padding: 0 8px;
+    color: var(--sat-gold);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+}
+
+.sat-bar-warning {
+    min-height: 32px;
+    padding: 0 10px;
+    border: 1px solid rgba(255, 116, 212, 0.35);
+    border-radius: 7px;
+    background: rgba(255, 116, 212, 0.08);
+    color: var(--sat-pink);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+}
+
+/* ---------- Standort-Dialog ---------- */
+
+.sat-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.sat-dialog {
+    display: grid;
+    gap: 12px;
+    width: min(420px, 100%);
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    padding: 18px;
+    border: 1px solid var(--sat-line);
+    border-radius: 14px;
+    background: #061015;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.sat-dialog p {
+    margin: 0;
+    color: var(--sat-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.sat-dialog-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.sat-dialog-head div {
+    display: grid;
+    gap: 2px;
+}
+
+.sat-dialog-head small {
+    color: var(--sat-muted);
+    font-size: 9px;
+    letter-spacing: 0.16em;
+}
+
+.sat-dialog-head strong {
+    font-size: 14px;
+    letter-spacing: 0.14em;
+}
+
+.sat-dialog-head button {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--sat-line);
+    border-radius: 7px;
+    background: none;
+    color: #ffffff;
+    font-size: 18px;
+}
+
+.sat-dialog-search {
+    display: flex;
+    gap: 6px;
+}
+
+.sat-dialog-search button {
+    padding: 0 14px;
+    border: 1px solid rgba(143, 167, 255, 0.35);
+    border-radius: 7px;
+    background: rgba(143, 167, 255, 0.1);
+    color: var(--sat-accent);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.sat-dialog-results {
+    display: grid;
+    gap: 4px;
+}
+
+.sat-dialog-results button {
+    display: grid;
+    gap: 2px;
+    padding: 9px 10px;
+    border: 1px solid var(--sat-line);
+    border-radius: 7px;
+    background: var(--sat-faint);
+    color: #ffffff;
+    text-align: left;
+}
+
+.sat-dialog-results button:hover {
+    border-color: rgba(143, 167, 255, 0.4);
+}
+
+.sat-dialog-results strong {
+    font-size: 12px;
+}
+
+.sat-dialog-results small {
+    color: var(--sat-muted);
+    font-size: 10px;
+}
+
+.sat-dialog-advanced summary {
+    color: var(--sat-accent);
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.sat-dialog-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin: 10px 0;
+}
+
+.sat-dialog-grid label {
+    display: grid;
+    gap: 4px;
+}
+
+.sat-dialog-grid span {
+    color: var(--sat-muted);
+    font-size: 8px;
+    letter-spacing: 0.12em;
+}
+
+.sat-dialog-message {
+    padding: 9px 10px;
+    border-radius: 7px;
+    background: rgba(124, 255, 107, 0.08);
+    color: var(--sat-green);
+    font-size: 11px;
+}
+
+/* ---------- Mittlere Bildschirme ---------- */
+
+@media (max-width: 1280px) {
+    .sat-clock {
+        display: none;
     }
 
-    .radar-mode-switch {
-        left: 12px;
-        bottom: 12px;
+    .sat-panel-right {
+        width: 330px;
+    }
+
+    .sat-bar {
+        max-width: calc(100% - 680px);
+    }
+}
+
+/* ---------- Handy (.is-mobile, bis 820 px) ---------- */
+
+.sat-app.is-mobile .radar-header {
+    height: 58px;
+    gap: 8px;
+    padding: 0 10px;
+}
+
+.sat-app.is-mobile .radar-brand div {
+    font-size: 15px;
+}
+
+.sat-app.is-mobile .radar-brand small,
+.sat-app.is-mobile .back-button,
+.sat-app.is-mobile .fullscreen-button,
+.sat-app.is-mobile .sat-location-button b {
+    display: none;
+}
+
+.sat-app.is-mobile .radar-search input {
+    min-width: 0;
+    font-size: 14px;
+}
+
+.sat-app.is-mobile .radar-search button {
+    padding: 0 10px;
+}
+
+.sat-app.is-mobile .sat-location-button {
+    width: 42px;
+    justify-content: center;
+    padding: 0;
+    font-size: 16px;
+}
+
+.sat-app.is-mobile .leaflet-control-zoom {
+    display: none;
+}
+
+/* Quellenangabe der Karte ueber der Leiste halten (CARTO verlangt sie sichtbar). */
+.sat-app.is-mobile .leaflet-bottom {
+    bottom: 52px;
+}
+
+.sat-app.is-mobile ~ .radar-mode-switch {
+    top: 66px;
+    right: 10px;
+    bottom: auto;
+    left: auto;
+}
+
+.sat-sheet {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--sat-line);
+    border-radius: 14px 14px 0 0;
+    background: var(--sat-panel);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.4);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.sat-sheet-tabs {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.sat-sheet-tabs button {
+    position: relative;
+    flex: 1 0 auto;
+    min-height: 48px;
+    padding: 0 12px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--sat-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.sat-sheet-tabs button.is-active {
+    border-bottom-color: var(--sat-accent);
+    color: #ffffff;
+}
+
+.sat-dot-warning {
+    position: absolute;
+    top: 12px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--sat-pink);
+}
+
+.sat-sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: 48dvh;
+    overflow-y: auto;
+    padding: 14px;
+    border-top: 1px solid var(--sat-line);
+    overscroll-behavior: contain;
+}
+
+.sat-sheet-body .sat-list {
+    min-height: 42dvh;
+}
+
+.sat-sheet-body .sat-view-toggles button {
+    flex: 1;
+    justify-content: center;
+    min-height: 40px;
+}
+
+.sat-sheet-body .sat-section-title {
+    padding-right: 0;
+}
+
+.sat-sheet-body .sat-network,
+.sat-sheet-body .sat-row-main,
+.sat-sheet-body .sat-pass-row {
+    min-height: 44px;
+}
+
+.sat-sheet-body .sat-star {
+    width: 44px;
+    height: 44px;
+}
+
+@media (max-width: 420px) {
+    .sat-look-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sat-pass {
+        grid-template-columns: 60px repeat(3, minmax(0, 1fr));
+    }
+
+    .sat-pass em {
+        grid-column: 1 / -1;
+        text-align: left;
+    }
+
+    .sat-dialog-grid {
+        grid-template-columns: 1fr 1fr;
     }
 }
