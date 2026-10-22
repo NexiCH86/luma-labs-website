@@ -17,7 +17,7 @@ const RAD = Math.PI / 180;
 let earthMapPromise: Promise<EarthMap> | null = null;
 
 export function loadEarthMap(): Promise<EarthMap> {
-    earthMapPromise ??= fetch("/data/sky/earth.json", { cache: "force-cache" }).then((response) => {
+    earthMapPromise ??= fetch("/data/sky/earth.json", { cache: "no-cache" }).then((response) => {
         if (!response.ok) throw new Error(`Earth map unavailable (${response.status})`);
         return response.json() as Promise<EarthMap>;
     });
