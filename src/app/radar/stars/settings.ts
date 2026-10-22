@@ -109,6 +109,7 @@ export type UrlState = {
     observer?: Observer;
     observerLabel?: string;
     earthKind?: EarthKind;
+    space3d?: "earth" | "solar" | "stars" | "galaxy";
 };
 
 export function readUrlState(search: string): UrlState {
@@ -132,6 +133,8 @@ export function readUrlState(search: string): UrlState {
     }
     const earthKind = params.get("e");
     if (earthKind === "map" || earthKind === "globe") state.earthKind = earthKind;
+    const space = params.get("3d");
+    if (space === "earth" || space === "solar" || space === "stars" || space === "galaxy") state.space3d = space;
     return state;
 }
 
@@ -147,5 +150,6 @@ export function buildShareQuery(state: Required<Pick<UrlState, "mode">> & UrlSta
         if (state.observerLabel) params.set("place", state.observerLabel);
     }
     if (state.mode === "earth" && state.earthKind) params.set("e", state.earthKind);
+    if (state.space3d) params.set("3d", state.space3d);
     return params.toString();
 }
