@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { type DeepSkyObject, type SkyObject, type StarObject } from "./stars-data";
 import { fallbackCatalog, loadDeepStars, loadSkyCatalog, solarSystemObjects, type Constellation, type Observer, type SkyCatalog } from "./sky-catalog";
 import { clamp, createSkyFrame, moonInfo, nightFor, riseTransitSet } from "./astro";
@@ -28,6 +29,19 @@ import { AircraftDetails, SatelliteDetails } from "./MovingDetails";
 import { gridTexture, loadSatellitePhoto, loadWeatherGrid, timeIndex as weatherTimeIndex, type Texture, type WeatherGrid, type WeatherLayer } from "./weather-layers";
 import WindLayer from "./WindLayer";
 import { WeatherDetails, WeatherLegend } from "./WeatherPanel";
+import { type SatelliteTrack, type SpaceScale } from "./Space3D";
+
+// three.js erst laden, wenn der 3D-Modus eingeschaltet wird.
+const Space3D = dynamic(() => import("./Space3D"), { ssr: false, loading: () => <div className="stars-space-loading">Loading 3D…</div> });
+
+const SPACE_HINTS: Record<SpaceScale, string> = {
+    earth: "Earth to scale: satellites at their real height, the Moon at its real distance (about 60 Earth radii).",
+    solar: "Solar system in AU: planets enlarged so you can see them, distances and orbits are real.",
+    stars: "Stars around the Sun at their measured distances. Rings mark 10 to 1000 light-years.",
+    galaxy: "The Milky Way (model) in thousands of light-years. The Sun sits 26,700 ly from the centre.",
+};
+
+const SPACE_SCALES: [SpaceScale, string][] = [["earth", "Earth"], ["solar", "Solar system"], ["stars", "Stars"], ["galaxy", "Galaxy"]];
 import NavigatorPanel from "./NavigatorPanel";
 import ObjectDetails from "./ObjectDetails";
 import TimeAndTonight from "./TimeAndTonight";
@@ -75,6 +89,7 @@ function readInitialState() {
         objectId: url.objectId ?? null,
         constellationId: url.constellationId ?? null,
         time: url.time ?? null,
+        space3d: url.space3d ?? null,
     };
 }
 
@@ -113,6 +128,9 @@ export default function StarsClient() {
     const [globeCenter, setGlobeCenter] = useState<GeoPoint>({ lat: initial.settings.observer.lat, lon: initial.settings.observer.lon });
     const [earthMap, setEarthMap] = useState<EarthMap | null>(null);
     const [pickingLocation, setPickingLocation] = useState(false);
+    const [space3d, setSpace3d] = useState(initial.space3d !== null);
+    const [spaceScale, setSpaceScale] = useState<SpaceScale>(initial.space3d ?? "solar");
+    const [spaceInfo, setSpaceInfo] = useState("");
     const [deepStars, setDeepStars] = useState<StarObject[]>([]);
     // Wikipedia-Infos je Objekt- bzw. Sternbild-ID; null = kein Artikel gefunden.
     const [skyInfos, setSkyInfos] = useState<Record<string, SkyInfo | null>>({});
@@ -181,13 +199,13 @@ export default function StarsClient() {
 
     // Weltkarte erst laden, wenn die Erdansicht geoeffnet wird.
     useEffect(() => {
-        if (mode !== "earth" || earthMap) return;
+        if ((mode !== "earth" && !space3d) || earthMap) return;
         let active = true;
         loadEarthMap()
             .then((loaded) => { if (active) setEarthMap(loaded); })
             .catch(() => { /* Ohne Karte bleiben Gitter, Tag/Nacht und Marker. */ });
         return () => { active = false; };
-    }, [mode, earthMap]);
+    }, [mode, earthMap, space3d]);
 
     // Zeitzone des Standorts holen (auf 0,1° gerundet, wie die Route).
     const observerKey = `${observer.lat.toFixed(1)},${observer.lon.toFixed(1)}`;
@@ -251,13 +269,14 @@ export default function StarsClient() {
     }, [needsGrid]);
 
     useEffect(() => {
-        if (mode !== "earth" || weatherLayer !== "satellite" || weatherPhoto) return;
+        const wanted = (mode === "earth" && weatherLayer === "satellite") || (space3d && spaceScale === "earth");
+        if (!wanted || weatherPhoto) return;
         let active = true;
         loadSatellitePhoto()
             .then((photo) => { if (active) setWeatherPhoto(photo); })
             .catch(() => { if (active) setWeatherStatus("Satellite image unavailable right now."); });
         return () => { active = false; };
-    }, [mode, weatherLayer, weatherPhoto]);
+    }, [mode, weatherLayer, weatherPhoto, space3d, spaceScale]);
 
     // Satelliten (Raumstationen + 100 hellste), Starlink nur auf Wunsch.
     useEffect(() => {
@@ -311,8 +330,9 @@ export default function StarsClient() {
             observer,
             observerLabel,
             earthKind,
+            space3d: space3d ? spaceScale : undefined,
         }),
-        [mode, selectedId, selectedConstellationId, liveTime, minuteKey, observer, observerLabel, earthKind]
+        [mode, selectedId, selectedConstellationId, liveTime, minuteKey, observer, observerLabel, earthKind, space3d, spaceScale]
     );
     useEffect(() => {
         const url = `${window.location.pathname}?${shareQuery}`;
@@ -502,6 +522,19 @@ export default function StarsClient() {
         [layers.starlink, starlinkSatellites, starlinkKey, observer, mode]
     );
     const satelliteStates = useMemo(() => [...brightStates, ...starlinkStates], [brightStates, starlinkStates]);
+
+    // 3D-Erde: Bahnspuren der wichtigen und der gewaehlten Satelliten (jede Minute neu)
+    const spaceTracks = useMemo<SatelliteTrack[]>(() => {
+        if (!space3d || spaceScale !== "earth") return [];
+        return brightStates
+            .filter((state) => isHighlighted(state.norad) || state.id === selectedId)
+            .flatMap((state) => {
+                const entry = satelliteById.get(state.id);
+                return entry ? [{ id: state.id, color: state.id === selectedId ? "#f7c768" : "#63ffe3", points: groundTrack(entry, new Date(minuteKey * MINUTE), 50, 50, 1), heightKm: state.heightKm }] : [];
+            });
+        // Spuren aendern sich kaum: pro Minute statt pro Sekunde
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [space3d, spaceScale, selectedId, satelliteById, minuteKey, brightStates.length]);
 
     const planesInSky = useMemo(
         () => (layers.aircraft && aircraftRaw?.key === observerKey ? aircraftInSky(aircraftRaw.list, observer) : []),
@@ -1199,12 +1232,22 @@ export default function StarsClient() {
                             <button onClick={() => switchMode("horizon")} className={mode === "horizon" ? "is-active" : undefined}>Look</button>
                             <button onClick={() => switchMode("earth")} className={mode === "earth" ? "is-active" : undefined}>Earth</button>
                         </div>
-                        {mode === "horizon" && (
+                        <button className={`stars-pick-button stars-3d-button${space3d ? " is-active" : ""}`} onClick={() => setSpace3d((current) => !current)} aria-pressed={space3d}>
+                            3D {space3d ? "on" : "off"}
+                        </button>
+                        {space3d && (
+                            <div className="stars-segmented" role="group" aria-label="3D scale">
+                                {SPACE_SCALES.map(([value, label]) => (
+                                    <button key={value} onClick={() => setSpaceScale(value)} className={spaceScale === value ? "is-active" : undefined}>{label}</button>
+                                ))}
+                            </div>
+                        )}
+                        {!space3d && mode === "horizon" && (
                             <button className={`stars-pick-button${arActive ? " is-active" : ""}`} onClick={() => void toggleAr()} aria-pressed={arActive}>
                                 {arActive ? "Stop AR" : "AR (phone)"}
                             </button>
                         )}
-                        {mode === "earth" && (
+                        {!space3d && mode === "earth" && (
                             <>
                                 <div className="stars-segmented" role="group" aria-label="Earth projection">
                                     <button onClick={() => switchEarthKind("map")} className={earthKind === "map" ? "is-active" : undefined}>Map</button>
@@ -1228,7 +1271,7 @@ export default function StarsClient() {
                             </>
                         )}
                     </div>
-                    {mode === "earth" && windAnimation && weatherGrid && weatherHour >= 0 && (
+                    {!space3d && mode === "earth" && windAnimation && weatherGrid && weatherHour >= 0 && (
                         <WindLayer
                             grid={weatherGrid}
                             timeIndex={weatherHour}
@@ -1238,7 +1281,7 @@ export default function StarsClient() {
                             height={size.height}
                         />
                     )}
-                    {mode === "earth" && (weatherLayer !== "none" || windAnimation) && (
+                    {!space3d && mode === "earth" && (weatherLayer !== "none" || windAnimation) && (
                         <WeatherLegend
                             layer={weatherLayer}
                             wind={windAnimation}
@@ -1248,11 +1291,34 @@ export default function StarsClient() {
                             timeZone={timeZone}
                         />
                     )}
+                    {space3d && (
+                        <div className="stars-space-overlay">
+                            <Space3D
+                                scale={spaceScale}
+                                date={skyTime}
+                                observer={observer}
+                                observerLabel={shortPlaceLabel(observerLabel)}
+                                stars={catalog.stars}
+                                smallBodies={smallBodiesFile}
+                                satellites={brightStates}
+                                tracks={spaceTracks}
+                                earthPhoto={weatherPhoto?.canvas ?? null}
+                                earthMap={earthMap}
+                                selectedId={selectedId}
+                                onSelect={(id) => { setSelectedId(id); if (id) setSelectedConstellationId(null); }}
+                                onInfo={setSpaceInfo}
+                            />
+                            <div className="stars-space-info">
+                                {spaceInfo ? <strong>{spaceInfo}</strong> : <span>{SPACE_HINTS[spaceScale]}</span>}
+                                <small>Drag to orbit · scroll to zoom · right-drag to pan · W/A/S/D/Q/E to fly · click an object</small>
+                            </div>
+                        </div>
+                    )}
                     <div className="stars-mobile-tabs">
                         <button className={mobilePanel === "navigator" ? "is-active" : undefined} onClick={() => toggleMobilePanel("navigator")}>Navigator</button>
                         <button className={mobilePanel === "object" ? "is-active" : undefined} onClick={() => toggleMobilePanel("object")}>{selected ? objectName(selected, names) : selectedSatellite ? selectedSatellite.name : selectedAircraft ? selectedAircraft.callsign : "Details"}</button>
                     </div>
-                    <div className="stars-canvas-controls">
+                    <div className="stars-canvas-controls" hidden={space3d}>
                         <button onClick={() => zoomBy(1.25)} aria-label="Zoom in">+</button>
                         <button onClick={() => zoomBy(1 / 1.25)} aria-label="Zoom out">−</button>
                         <button onClick={() => setView(DEFAULT_VIEW)} aria-label="Reset view">⌂</button>
