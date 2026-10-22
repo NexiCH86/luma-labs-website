@@ -25,6 +25,9 @@ export const CATEGORY_COLORS: Record<SatCategory, string> = {
     geo: "#e2e8f0",
 };
 
+/* Quelle der Bahndaten, neben CARTO/OSM in der Kartenecke (auch auf dem Handy sichtbar). */
+const CELESTRAK_ATTRIBUTION = 'Orbit data: <a href="https://celestrak.org" target="_blank" rel="noreferrer">CelesTrak</a>';
+
 const SELECTED_COLOR = "#ff74d4";
 const HIT_RADIUS_PX = 12;
 
@@ -94,6 +97,7 @@ export default function SatMap(props: Props) {
 
         const map = L.map(element, { zoomControl: true, minZoom: 2, maxZoom: 13, worldCopyJump: true }).setView([24, 8], 3);
         mapRef.current = map;
+        map.attributionControl.addAttribution(CELESTRAK_ATTRIBUTION);
 
         const primary = L.tileLayer(CARTO_DARK_TILES, { maxZoom: 20, attribution: CARTO_ATTRIBUTION });
         let fallback = false;
