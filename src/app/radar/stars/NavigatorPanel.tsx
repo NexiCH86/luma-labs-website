@@ -107,8 +107,9 @@ export default function NavigatorPanel({ searchInputRef, ...props }: NavigatorPa
 
             <div className="stars-section-label">View</div>
             <div className="stars-mode-controls">
-                <button onClick={() => props.onMode("sky")} className={mode === "sky" ? "is-active" : undefined}>Sky now</button>
+                <button onClick={() => props.onMode("sky")} className={mode === "sky" ? "is-active" : undefined}>Sky</button>
                 <button onClick={() => props.onMode("catalog")} className={mode === "catalog" ? "is-active" : undefined}>Catalog</button>
+                <button onClick={() => props.onMode("horizon")} className={mode === "horizon" ? "is-active" : undefined}>Look</button>
                 <button onClick={() => props.onMode("earth")} className={mode === "earth" ? "is-active" : undefined}>Earth</button>
             </div>
 

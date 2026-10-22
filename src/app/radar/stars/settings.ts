@@ -31,7 +31,7 @@ export function validObserver(value: unknown): Observer | null {
     return normalizeObserver(Number(candidate.lat), Number(candidate.lon));
 }
 
-const VIEW_MODES: ViewMode[] = ["sky", "catalog", "earth"];
+const VIEW_MODES: ViewMode[] = ["sky", "catalog", "earth", "horizon"];
 
 export const DEFAULT_SETTINGS: StoredSettings = {
     mode: "sky",

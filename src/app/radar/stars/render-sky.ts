@@ -1,6 +1,6 @@
 import { clamp, eclipticToEquatorial, type MoonInfo, type SkyFrame } from "./astro";
 import { constellationName, hoursLabel, objectName } from "./format";
-import { applyView, domeRadius, projectCatalog, projectSkyDome } from "./projection";
+import { applyView, domeRadius, projectCatalog, projectSkyDome, type HorizonView } from "./projection";
 import { type SkyCatalog, type Observer } from "./sky-catalog";
 import { drawDso, drawMoon, skyBrightness, skyColors } from "./sky-draw";
 import { type DeepSkyObject, type PlanetObject, type StarObject } from "./stars-data";
@@ -56,8 +56,10 @@ export type SkySceneParams = {
     ctx: CanvasRenderingContext2D;
     width: number;
     height: number;
-    mode: "sky" | "catalog";
+    mode: "sky" | "catalog" | "horizon";
     view: ViewState;
+    // Rundblick: Blickrichtung und Projektion (nur im Modus "horizon")
+    horizon?: { look: HorizonView; project: (altitude: number, azimuth: number, allowBehind?: boolean) => Point | null; pixelsPerDegree: number };
     frame: SkyFrame;
     project: (ra: number, dec: number) => Point | null;
     catalog: SkyCatalog;
@@ -79,12 +81,14 @@ export function drawSkyScene(params: SkySceneParams) {
     const { ctx, width, height, mode, view, frame, project, catalog, layers, planets, moon, sunAltitude, selectedId, selectedConstellationId, names } = params;
     const inView = (p: Point | null, margin = 30): p is Point => !!p && p.x > -margin && p.x < width + margin && p.y > -margin && p.y < height + margin;
     const skyMode = mode === "sky";
+    const horizonMode = mode === "horizon" && !!params.horizon;
     const domeCenter = applyView(width / 2, height / 2, width, height, view);
     const horizonRadius = domeRadius(width, height) * view.zoom;
-    // Aufgehellter Himmel daempft Sterne und Milchstrasse (nur in der Himmelsansicht).
-    const brightness = skyMode ? skyBrightness(sunAltitude) : 0;
-    const pixelsPerDegree = skyMode ? horizonRadius / 90 : ((width / 360 + height / 180) / 2) * view.zoom;
+    // Aufgehellter Himmel daempft Sterne und Milchstrasse (Himmels- und Rundblick-Ansicht).
+    const brightness = skyMode || horizonMode ? skyBrightness(sunAltitude) : 0;
+    const pixelsPerDegree = horizonMode ? params.horizon!.pixelsPerDegree : skyMode ? horizonRadius / 90 : ((width / 360 + height / 180) / 2) * view.zoom;
     const projectHorizontal = (altitude: number, azimuth: number): Point | null => {
+        if (horizonMode) return altitude < -1 ? null : params.horizon!.project(altitude, azimuth);
         if (skyMode) return altitude < -1 ? null : projectSkyDome(altitude, azimuth, width, height, view);
         const { ra, dec } = frame.fromHorizontal(altitude, azimuth);
         return projectCatalog(ra, dec, width, height, view);
@@ -101,7 +105,7 @@ export function drawSkyScene(params: SkySceneParams) {
             const ra = flat ? (points as [number, number][])[i][0] : (points as ArrayLike<number>)[i * stride];
             const dec = flat ? (points as [number, number][])[i][1] : (points as ArrayLike<number>)[i * stride + 1];
             const point = project(ra, dec);
-            const wraps = !skyMode && Math.abs(ra - previousRa) > 12;
+            const wraps = mode === "catalog" && Math.abs(ra - previousRa) > 12;
             if (point && previous && !wraps) ctx.lineTo(point.x, point.y);
             else if (point) ctx.moveTo(point.x, point.y);
             previous = point;
@@ -110,8 +114,33 @@ export function drawSkyScene(params: SkySceneParams) {
         ctx.stroke();
     };
 
+    // Linie konstanter Hoehe bzw. konstanten Azimuts in der Rundblick-Ansicht.
+    const strokeHorizontal = (points: { altitude: number; azimuth: number }[]) => {
+        let drawing = false;
+        ctx.beginPath();
+        for (const { altitude, azimuth } of points) {
+            const p = params.horizon!.project(altitude, azimuth);
+            if (!p) { drawing = false; continue; }
+            if (drawing) ctx.lineTo(p.x, p.y);
+            else ctx.moveTo(p.x, p.y);
+            drawing = true;
+        }
+        ctx.stroke();
+    };
+
     // Hintergrund: in der Himmelsansicht Farbe nach Sonnenstand, ausserhalb des Horizonts dunkel.
-    if (skyMode) {
+    if (horizonMode) {
+        // Himmel oben dunkler, am Horizont heller; darunter der Boden.
+        const [zenith, middle, horizonColor] = skyColors(sunAltitude);
+        const top = params.horizon!.project(90, params.horizon!.look.azimuth, true);
+        const bottom = params.horizon!.project(0, params.horizon!.look.azimuth, true);
+        const gradient = ctx.createLinearGradient(0, Math.min(top?.y ?? -height, 0), 0, bottom?.y ?? height);
+        gradient.addColorStop(0, zenith);
+        gradient.addColorStop(0.65, middle);
+        gradient.addColorStop(1, horizonColor);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+    } else if (skyMode) {
         ctx.fillStyle = "#01030b";
         ctx.fillRect(0, 0, width, height);
         const [zenith, middle, horizon] = skyColors(sunAltitude);
@@ -130,6 +159,38 @@ export function drawSkyScene(params: SkySceneParams) {
         ctx.fillRect(0, 0, width, height);
     }
 
+    if (horizonMode) {
+        // Boden: Flaeche unter der Horizontlinie (Hoehe 0) bis zum Bildrand.
+        const look = params.horizon!.look;
+        const line: Point[] = [];
+        for (let offset = -180; offset <= 180; offset += 2) {
+            const p = params.horizon!.project(0, look.azimuth + offset);
+            if (p) line.push(p);
+        }
+        if (line.length > 1) {
+            ctx.save();
+            const ground = ctx.createLinearGradient(0, Math.min(...line.map((p) => p.y)), 0, height);
+            ground.addColorStop(0, "#0b1a14");
+            ground.addColorStop(1, "#020604");
+            ctx.fillStyle = ground;
+            ctx.beginPath();
+            ctx.moveTo(line[0].x, line[0].y);
+            for (const p of line) ctx.lineTo(p.x, p.y);
+            // Unter dem Bild schliessen; bei starkem Rollen ueber alle Ecken.
+            const last = line[line.length - 1];
+            ctx.lineTo(last.x + (last.x > width / 2 ? 4000 : -4000), last.y + 4000);
+            ctx.lineTo(line[0].x + (line[0].x > width / 2 ? 4000 : -4000), line[0].y + 4000);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = "rgba(99,255,227,.55)";
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            line.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
     if (layers.milkyWay && catalog.milkyWay.length > 0 && brightness < 1) {
         ctx.save();
         if (skyMode) {
@@ -138,8 +199,9 @@ export function drawSkyScene(params: SkySceneParams) {
         }
         const points = catalog.milkyWay;
         // Grosse, blasse Punkte ueberlappen stark und ergeben ein weiches Band ohne Raster.
-        const radius = Math.max(1.5, pixelsPerDegree * 1.75);
-        const fade = 1 - brightness;
+        // Im Rundblick liegen die Rasterpunkte weiter auseinander: groesser und blasser.
+        const radius = Math.max(1.5, pixelsPerDegree * (horizonMode ? 2.3 : 1.75));
+        const fade = (1 - brightness) * (horizonMode ? 0.7 : 1);
         for (let i = 0; i < points.length; i += 3) {
             const p = project(points[i], points[i + 1]);
             if (!inView(p, radius)) continue;
@@ -152,7 +214,34 @@ export function drawSkyScene(params: SkySceneParams) {
     ctx.save();
     ctx.strokeStyle = "rgba(110,160,255,.18)";
     ctx.lineWidth = 1;
-    if (!skyMode) {
+    if (horizonMode) {
+        if (layers.grid) {
+            ctx.strokeStyle = "rgba(110,160,255,.16)";
+            for (let altitude = 15; altitude < 90; altitude += 15) {
+                strokeHorizontal(Array.from({ length: 181 }, (_, i) => ({ altitude, azimuth: i * 2 })));
+            }
+            for (let azimuth = 0; azimuth < 360; azimuth += 30) {
+                strokeHorizontal(Array.from({ length: 46 }, (_, i) => ({ altitude: i * 2, azimuth })));
+            }
+        }
+        if (layers.meridian) {
+            ctx.strokeStyle = "rgba(255,140,160,.45)";
+            ctx.setLineDash([6, 5]);
+            strokeHorizontal([...Array.from({ length: 46 }, (_, i) => ({ altitude: i * 2, azimuth: 0 })), ...Array.from({ length: 46 }, (_, i) => ({ altitude: 90 - i * 2, azimuth: 180 }))]);
+            ctx.setLineDash([]);
+        }
+        // Himmelsrichtungen auf dem Horizont
+        ctx.fillStyle = "rgba(99,255,227,.9)";
+        ctx.font = "600 12px ui-monospace, SFMono-Regular, Menlo, monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        const directions = names === "de" ? ["N", "NO", "O", "SO", "S", "SW", "W", "NW"] : ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+        directions.forEach((label, index) => {
+            const p = params.horizon!.project(0, index * 45);
+            if (p) ctx.fillText(label, p.x, p.y + 6);
+        });
+        ctx.textBaseline = "alphabetic";
+    } else if (!skyMode) {
         if (layers.grid) {
             ctx.globalAlpha = 0.35;
             for (let ra = 0; ra <= 24; ra += 2) {
@@ -331,9 +420,12 @@ export function drawSkyScene(params: SkySceneParams) {
             const radius = planet.id === "sun" || planet.id === "moon" ? 9 : 5;
             if (planet.id === "moon" && sun) {
                 // Helle Seite zur Sonne; deren Bildschirmposition auch unter dem Horizont.
-                const sunPoint = skyMode
-                    ? (() => { const h = frame.toHorizontal(sun.ra, sun.dec); return projectSkyDome(h.altitude, h.azimuth, width, height, view); })()
-                    : projectCatalog(sun.ra, sun.dec, width, height, view);
+                const sunHorizontal = frame.toHorizontal(sun.ra, sun.dec);
+                const sunPoint = horizonMode
+                    ? params.horizon!.project(sunHorizontal.altitude, sunHorizontal.azimuth, true) ?? { x: p.x + 1, y: p.y }
+                    : skyMode
+                        ? projectSkyDome(sunHorizontal.altitude, sunHorizontal.azimuth, width, height, view)
+                        : projectCatalog(sun.ra, sun.dec, width, height, view);
                 drawMoon(ctx, p.x, p.y, radius, moon.illumination, Math.atan2(sunPoint.y - p.y, sunPoint.x - p.x), selectedPlanet);
             } else {
                 const color = planet.id === "sun" ? "#ffd27a" : planet.id === "mars" ? "#ff9b6b" : "#f7e3a3";
@@ -361,12 +453,14 @@ export function drawSkyScene(params: SkySceneParams) {
     }
 
     // Schweifrichtung: auf dem Bildschirm von der Sonne weg, auch wenn sie unter dem Horizont steht.
-    const unclipped = (ra: number, dec: number) => {
-        if (!skyMode) return projectCatalog(ra, dec, width, height, view);
+    const unclipped = (ra: number, dec: number): Point => {
         const h = frame.toHorizontal(ra, dec);
+        if (horizonMode) return params.horizon!.project(h.altitude, h.azimuth, true) ?? { x: width / 2, y: height / 2 };
+        if (!skyMode) return projectCatalog(ra, dec, width, height, view);
         return projectSkyDome(h.altitude, h.azimuth, width, height, view);
     };
-    const unclippedHorizontal = (altitude: number, azimuth: number) => {
+    const unclippedHorizontal = (altitude: number, azimuth: number): Point => {
+        if (horizonMode) return params.horizon!.project(altitude, azimuth, true) ?? { x: width / 2, y: height / 2 };
         if (skyMode) return projectSkyDome(altitude, azimuth, width, height, view);
         const { ra, dec } = frame.fromHorizontal(altitude, azimuth);
         return projectCatalog(ra, dec, width, height, view);
@@ -392,7 +486,11 @@ export function drawSkyScene(params: SkySceneParams) {
 
     ctx.fillStyle = "rgba(255,255,255,.48)";
     ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
-    if (!skyMode) {
+    if (horizonMode) {
+        const look = params.horizon!.look;
+        ctx.textAlign = "left";
+        ctx.fillText(`LOOKING ${Math.round(look.azimuth)}° · ALT ${Math.round(look.altitude)}° · FIELD ${Math.round(look.fov)}° · ${params.observerLabel.toUpperCase()}`, 14, height - 16);
+    } else if (!skyMode) {
         // RA-Beschriftung an den Gitterlinien, wandert beim Verschieben und Zoomen mit.
         ctx.textAlign = "center";
         for (let ra = 0; ra <= 24; ra += 6) {

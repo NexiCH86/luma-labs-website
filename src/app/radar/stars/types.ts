@@ -7,7 +7,8 @@ import { type EarthKind } from "./earth-view";
  */
 
 export type ViewState = { zoom: number; offsetX: number; offsetY: number };
-export type ViewMode = "sky" | "catalog" | "earth";
+// horizon = Rundblick (auch AR auf dem Handy)
+export type ViewMode = "sky" | "catalog" | "earth" | "horizon";
 export type Point = { x: number; y: number };
 export type Size = { width: number; height: number };
 export type NameLanguage = "en" | "de";
