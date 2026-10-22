@@ -23,6 +23,9 @@ export type DeepSkyObject = {
     magnitude: number;
     objectType: string;
     distanceLy?: number;
+    // Kurzcode aus d3-celestial (s, e, oc, gc, pn, en ...) und Ausdehnung in Bogenminuten
+    typeCode?: string;
+    size?: [number, number];
 };
 
 export type PlanetObject = {

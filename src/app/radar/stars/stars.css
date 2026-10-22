@@ -170,6 +170,31 @@
 .stars-place-results span { color: rgba(220, 230, 255, .48); font-family: ui-monospace, monospace; font-size: 9px; }
 .stars-observer-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 
+.stars-chip-row { display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0 4px 26px; }
+.stars-chip-row button { padding: 5px 8px; border: 1px solid rgba(139, 171, 255, .2); border-radius: 999px; color: rgba(236, 243, 255, .55); background: transparent; font-size: 9px; cursor: pointer; }
+.stars-chip-row button.is-active { border-color: rgba(99, 255, 227, .5); color: #63ffe3; background: rgba(99, 255, 227, .07); }
+.stars-chip-row button:disabled { opacity: .35; cursor: default; }
+.stars-hint { margin: 6px 0 0; font-size: 9px; }
+
+.stars-info-card { display: grid; gap: 8px; margin-bottom: 14px; padding: 9px; border: 1px solid rgba(138, 170, 255, .12); border-radius: 8px; background: rgba(255, 255, 255, .025); }
+.stars-info-card img { width: 100%; max-height: 170px; object-fit: cover; border-radius: 6px; background: #071026; }
+.stars-info-card p { margin: 0; color: rgba(228, 236, 255, .78); font-size: 11px; line-height: 1.5; }
+.stars-info-card a { color: #87a7ff; font-family: ui-monospace, monospace; font-size: 9px; text-decoration: none; }
+.stars-info-card a:hover { text-decoration: underline; }
+
+.stars-tonight-list { display: grid; gap: 4px; }
+.stars-tonight-list button { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; padding: 7px 8px; border: 1px solid rgba(138, 170, 255, .1); border-radius: 7px; color: #edf4ff; background: rgba(255, 255, 255, .02); text-align: left; cursor: pointer; }
+.stars-tonight-list button:hover { background: rgba(113, 153, 255, .1); }
+.stars-tonight-list button.is-active { border-color: rgba(247, 199, 104, .55); }
+.stars-tonight-dot { width: 7px; height: 7px; border-radius: 50%; background: #dfe9ff; }
+.stars-tonight-dot.planet { background: #f7e3a3; }
+.stars-tonight-dot.dso { background: transparent; border: 1.5px solid #70e0ff; }
+.stars-tonight-name { display: grid; min-width: 0; }
+.stars-tonight-name strong { overflow: hidden; font-size: 10px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.stars-tonight-name small { color: rgba(204, 218, 250, .45); font-size: 8px; }
+.stars-tonight-time { display: grid; justify-items: end; color: #9db6f7; font-family: ui-monospace, monospace; font-size: 9px; }
+.stars-tonight-time small { color: rgba(204, 218, 250, .45); font-size: 8px; }
+
 .stars-shortcuts { margin-top: 16px; color: rgba(200, 214, 248, .32); font-family: ui-monospace, monospace; font-size: 8px; line-height: 1.6; }
 
 .stars-events { display: grid; gap: 1px; margin-bottom: 12px; overflow: hidden; border: 1px solid rgba(138, 170, 255, .12); border-radius: 8px; }

@@ -17,7 +17,8 @@ import {
  * Format von /data/sky/catalog.json (scripts/sync-sky-catalog.mjs).
  */
 type CatalogFile = {
-    stars: [number, number, number, number, number][];
+    // [hip, ra, dec, mag, B-V, Entfernung (ly), Spektralklasse]; die letzten zwei fehlen in aelteren Katalogen
+    stars: [number, number, number, number, number, number?, string?][];
     names: Record<string, [string, string, string, string]>;
     constellations: {
         id: string;
@@ -33,7 +34,8 @@ type CatalogFile = {
         desig: string;
         type: string;
         mag: number | null;
-        dim: string;
+        // [grosse, kleine Achse] in Bogenminuten; aeltere Kataloge: "190x60"
+        dim: [number, number] | string;
         ra: number;
         dec: number;
     }[];
@@ -70,7 +72,10 @@ const DSO_TYPES: Record<string, string> = {
     e: "Elliptical galaxy",
     i: "Irregular galaxy",
     sd: "Dwarf spheroidal galaxy",
+    s0: "Lenticular galaxy",
+    g: "Galaxy",
     gc: "Globular cluster",
+    bn: "Bright nebula",
     oc: "Open cluster",
     en: "Emission nebula",
     rn: "Reflection nebula",
@@ -119,6 +124,46 @@ export function fallbackCatalog(): SkyCatalog {
     };
 }
 
+function parseDimension(value: [number, number] | string): [number, number] | undefined {
+    const [major, minor] = Array.isArray(value) ? value : String(value || "").split("x").map(Number);
+    if (!Number.isFinite(major) || major <= 0) return undefined;
+    return [major, Number.isFinite(minor) && minor > 0 ? minor : major];
+}
+
+/*
+ * Lichtschwache Sterne (Helligkeit 6 bis 8) aus /data/sky/stars-deep.json,
+ * flach [hip, ra, dec, mag, B-V, ...]. Nur bei Grenzhelligkeit ueber 6 geladen.
+ */
+let deepStarsPromise: Promise<StarObject[]> | null = null;
+
+export function loadDeepStars(): Promise<StarObject[]> {
+    deepStarsPromise ??= fetch("/data/sky/stars-deep.json", { cache: "force-cache" })
+        .then((response) => {
+            if (!response.ok) throw new Error(`Deep stars unavailable (${response.status})`);
+            return response.json() as Promise<number[]>;
+        })
+        .then((rows) => {
+            const stars: StarObject[] = [];
+            for (let i = 0; i < rows.length; i += 5) {
+                const hip = rows[i];
+                stars.push({
+                    id: `hip-${hip}`,
+                    kind: "star",
+                    name: `HIP ${hip}`,
+                    designation: `HIP ${hip}`,
+                    constellation: "",
+                    ra: rows[i + 1],
+                    dec: rows[i + 2],
+                    magnitude: rows[i + 3],
+                    color: colorFromBv(rows[i + 4]),
+                });
+            }
+            return stars;
+        });
+    deepStarsPromise.catch(() => { deepStarsPromise = null; });
+    return deepStarsPromise;
+}
+
 export async function loadSkyCatalog(): Promise<SkyCatalog> {
     const response = await fetch("/data/sky/catalog.json", { cache: "force-cache" });
 
@@ -132,7 +177,7 @@ export async function loadSkyCatalog(): Promise<SkyCatalog> {
     const curatedStars = new Map(STARS.map((star) => [star.name, star]));
     const curatedDsos = new Map(DEEP_SKY.map((dso) => [dso.catalog, dso]));
 
-    const stars: StarObject[] = data.stars.map(([hip, ra, dec, magnitude, bv]) => {
+    const stars: StarObject[] = data.stars.map(([hip, ra, dec, magnitude, bv, distanceLy, spectral]) => {
         const [properName = "", bayer = "", flamsteed = "", abbr = ""] = data.names[String(hip)] ?? [];
         const designation = bayer ? `${bayer} ${abbr}` : flamsteed ? `${flamsteed} ${abbr}` : `HIP ${hip}`;
         const curated = properName ? curatedStars.get(properName) : undefined;
@@ -146,8 +191,8 @@ export async function loadSkyCatalog(): Promise<SkyCatalog> {
             ra,
             dec,
             magnitude,
-            spectral: curated?.spectral,
-            distanceLy: curated?.distanceLy,
+            spectral: curated?.spectral ?? (spectral || undefined),
+            distanceLy: curated?.distanceLy ?? (distanceLy || undefined),
             color: curated?.color ?? colorFromBv(bv),
         };
     });
@@ -163,6 +208,8 @@ export async function loadSkyCatalog(): Promise<SkyCatalog> {
         magnitude: item.mag ?? 99,
         objectType: DSO_TYPES[item.type] ?? (item.type.toUpperCase() || "Deep-sky object"),
         distanceLy: curatedDsos.get(item.id)?.distanceLy,
+        typeCode: item.type,
+        size: parseDimension(item.dim),
     }));
 
     return {

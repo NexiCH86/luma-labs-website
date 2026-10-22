@@ -1,4 +1,4 @@
-import { access, copyFile, mkdir, writeFile } from "node:fs/promises";
+import { access, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 /*
@@ -86,24 +86,39 @@ try {
         download("dsos.bright.json"),
         download("mw.json"),
         download("constellations.bounds.json"),
+        download("dsos.14.json"),
     ]);
 } catch (error) {
     await keepExistingCatalog(error);
     process.exit(0);
 }
 
-const [stars, starNames, constellations, lines, messier, brightDsos, milkyWay, bounds] = sources;
+const [stars, starNames, constellations, lines, messier, brightDsos, milkyWay, bounds, dsos14] = sources;
 
 /*
- * [hip, ra (h), dec (deg), magnitude, B-V-Farbindex]
+ * Entfernung und Spektralklasse aus der HYG-Datenbank, vorbereitet von
+ * scripts/build-star-details.mjs (liegt im Repo, kein Download im Build).
  */
-const starRows = stars.features.map((feature) => [
-    Number(feature.id),
-    raHours(feature.geometry.coordinates[0]),
-    round(feature.geometry.coordinates[1], 4),
-    round(Number(feature.properties.mag), 2),
-    round(Number(feature.properties.bv) || 0, 2),
-]);
+const starDetails = JSON.parse(
+    await readFile(path.join(process.cwd(), "scripts", "data", "star-details.json"), "utf8")
+);
+
+/*
+ * [hip, ra (h), dec (deg), magnitude, B-V-Farbindex, Entfernung (ly), Spektralklasse]
+ */
+const starRows = stars.features.map((feature) => {
+    const [distanceLy = 0, spectral = ""] = starDetails[String(feature.id)] ?? [];
+
+    return [
+        Number(feature.id),
+        raHours(feature.geometry.coordinates[0]),
+        round(feature.geometry.coordinates[1], 4),
+        round(Number(feature.properties.mag), 2),
+        round(Number(feature.properties.bv) || 0, 2),
+        distanceLy,
+        spectral,
+    ];
+});
 
 const starIds = new Set(starRows.map((row) => String(row[0])));
 
@@ -144,27 +159,59 @@ const constellationRows = constellations.features.map((feature) => ({
     lines: linesById.get(feature.id) ?? [],
 }));
 
+/*
+ * Deep-Sky: Messier zuerst, dann die hellen Objekte und eine Auswahl
+ * aus dsos.14 (NGC/IC bis Helligkeit 14):
+ *   - Galaxien und Sternhaufen bis Helligkeit 11
+ *   - Planetarische Nebel bis Helligkeit 12
+ *   - grosse Nebel (ab 20' Ausdehnung), sie haben oft keine Helligkeit
+ * Dunkelnebel und Galaxiengruppen bleiben weg.
+ * dim: [grosse, kleine Achse] in Bogenminuten
+ */
+const NEBULA_TYPES = new Set(["en", "bn", "rn", "snr", "sfr"]);
+const CATALOG_DESIGNATION = /^(NGC|IC|PGC|UGC|ESO|MCG|Cr|Mel|Tr|Sh2|LBN|LDN|vdB|Abell|Ced|Barnard|B\d|St|Be|Do|Ru|Bas|Pal|Hrd|Mrk|Arp)\b/;
+
+function parseDimension(value) {
+    const [major, minor] = String(value || "").split("x").map(Number);
+    return Number.isFinite(major) && major > 0 ? [major, Number.isFinite(minor) && minor > 0 ? minor : major] : [0, 0];
+}
+
+function keepDso(props) {
+    const mag = Number(props.mag);
+    if (props.type === "dn" || props.type === "gg") return false;
+    // Lynds- und Barnard-Eintraege sind Dunkelwolken, auch wenn sie anders typisiert sind.
+    if (/^(LDN|LBN|B)\s?\d/.test(String(props.desig || ""))) return false;
+    if (NEBULA_TYPES.has(props.type)) return parseDimension(props.dim)[0] >= 20 || mag <= 11;
+    if (props.type === "pn") return mag <= 12;
+    return mag <= 11;
+}
+
 const dsoRows = [];
 const seenDso = new Set();
 
-for (const feature of [...messier.features, ...brightDsos.features]) {
-    const id = String(feature.id);
+// Dieselben Objekte stehen in den Quellen unterschiedlich ("M 45", "M45", "NGC 224" = M31).
+const normalizeDesignation = (value) => String(value || "").replace(/\s+/g, "").toUpperCase();
 
-    if (seenDso.has(id)) {
+for (const feature of [...messier.features, ...brightDsos.features, ...dsos14.features.filter((item) => keepDso(item.properties))]) {
+    const id = String(feature.id);
+    const keys = [normalizeDesignation(id), normalizeDesignation(feature.properties.desig)].filter(Boolean);
+
+    if (keys.some((key) => seenDso.has(key))) {
         continue;
     }
 
-    seenDso.add(id);
+    keys.forEach((key) => seenDso.add(key));
 
     const props = feature.properties;
+    const commonName = props.desig && !CATALOG_DESIGNATION.test(props.desig) ? props.desig : "";
 
     dsoRows.push({
         id,
-        name: props.alt || props.name || id,
+        name: props.alt || commonName || id,
         desig: props.desig || "",
         type: props.type || "",
-        mag: Number.isFinite(Number(props.mag)) ? Number(props.mag) : null,
-        dim: props.dim || "",
+        mag: Number.isFinite(Number(props.mag)) && Number(props.mag) < 90 ? Number(props.mag) : null,
+        dim: parseDimension(props.dim),
         ra: raHours(feature.geometry.coordinates[0]),
         dec: round(feature.geometry.coordinates[1], 3),
     });
@@ -268,3 +315,37 @@ console.log(
         `${constellationRows.length} constellations, ${dsoRows.length} deep-sky objects, ` +
         `${milkyWayPoints.length / 3} Milky Way points, ${boundaryRows.length} boundaries.`
 );
+
+/*
+ * Lichtschwache Sterne (Helligkeit 6 bis 8) als eigene Datei. Die Karte
+ * laedt sie erst, wenn die Grenzhelligkeit ueber 6 steht. Fehlt der
+ * Download, bleibt die Karte bei Helligkeit 6.
+ * Flach: [hip, ra (h), dec, Helligkeit, B-V, ...]
+ */
+const DEEP_STARS_FILE = path.join(path.dirname(OUTPUT_FILE), "stars-deep.json");
+
+try {
+    const deepStars = await download("stars.8.json");
+    const deepRows = [];
+
+    for (const feature of deepStars.features) {
+        const magnitude = Number(feature.properties.mag);
+
+        if (!(magnitude > 6 && magnitude <= 8)) {
+            continue;
+        }
+
+        deepRows.push(
+            Number(feature.id),
+            raHours(feature.geometry.coordinates[0]),
+            round(feature.geometry.coordinates[1], 3),
+            round(magnitude, 2),
+            round(Number(feature.properties.bv) || 0, 2)
+        );
+    }
+
+    await writeFile(DEEP_STARS_FILE, JSON.stringify(deepRows), "utf8");
+    console.log(`Deep stars ready: ${(deepRows.length / 5).toLocaleString("en-US")} stars (mag 6-8).`);
+} catch (error) {
+    console.warn(`Deep stars skipped: ${error.message}`);
+}
