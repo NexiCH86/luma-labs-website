@@ -8,6 +8,7 @@ import {
     loadGroup,
     parseOmmJson,
     parseTle,
+    saveGroup,
     SOURCE_DEFINITIONS,
     STALE_AFTER_MS,
     type GroupCacheEntry,
@@ -150,6 +151,17 @@ describe("loadGroup", () => {
     it("fails only when there is neither live data nor a cache", async () => {
         const { fetcher } = fakeFetch({ json: { status: 200, body: "Invalid query" }, tle: { status: 200, body: "Invalid query" } });
         await expect(loadGroup(stations, { store: memoryStore().store, fetcher, now: NOW })).rejects.toThrow(/not JSON.*no TLE records/);
+    });
+
+    it("serves data delivered by the collector without asking CelesTrak", async () => {
+        const { fetcher, calls } = fakeFetch({ json: { status: 403, body: "GP data has not updated since your last successful download" } });
+        const { store, statuses } = memoryStore();
+        await saveGroup(store, "STARLINK", [issOmm], "OMM", NOW - 60_000);
+        const result = await loadGroup(SOURCE_DEFINITIONS.STARLINK, { store, fetcher, now: NOW });
+        expect(result.origin).toBe("cache");
+        expect(result.records[0].groupLabel).toBe("Starlink");
+        expect(calls).toHaveLength(0);
+        expect(statuses.get("STARLINK")).toMatchObject({ count: 1, lastError: null });
     });
 
     it("keeps working when the store itself is down", async () => {

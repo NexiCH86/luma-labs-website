@@ -22,6 +22,12 @@ import {
  *     dieselbe Gruppe im TLE-Format versucht, bei Starlink
  *     zusaetzlich die Supplemental-Daten.
  *   - Faellt alles aus, liefert der Cache die letzten Daten.
+ *   - Zusaetzlich liefert der Collector auf dem Raspberry Pi alle
+ *     2 h jede Gruppe von seiner eigenen Adresse an
+ *     /api/radar/satellites/ingest. CelesTrak blockiert Starlink
+ *     von Vercel aus praktisch immer ("GP data has not updated
+ *     since your last successful download"), weil andere Projekte
+ *     dieselbe Adresse nutzen.
  */
 
 export type SatCategory =
@@ -322,6 +328,12 @@ function withSource(source: SourceDefinition, records: OmmRecord[]): SatelliteRe
     return records.map((record) => ({ ...record, category: source.category, group: source.group, groupLabel: source.label }));
 }
 
+/* Frisch geladene Gruppe speichern (live geladen oder vom Collector geliefert). */
+export async function saveGroup(store: SatelliteStore, group: string, records: OmmRecord[], format: SourceFormat, now: number) {
+    await store.write({ group, fetchedAt: now, format, records });
+    await store.writeStatus(group, { lastAttemptAt: now, lastSuccessAt: now, count: records.length, format, lastError: null });
+}
+
 export type LoadOptions = { store: SatelliteStore | null; fetcher?: typeof fetch; now?: number };
 
 export async function loadGroup(source: SourceDefinition, { store, fetcher = fetch, now = Date.now() }: LoadOptions): Promise<GroupResult> {
@@ -347,14 +359,7 @@ export async function loadGroup(source: SourceDefinition, { store, fetcher = fet
 
     try {
         const live = await fetchGroupLive(source, fetcher);
-        const entry: GroupCacheEntry = { group: source.group, fetchedAt: now, format: live.format, records: live.records };
-        if (store) {
-            await quietly(store.write(entry), undefined);
-            await quietly(
-                store.writeStatus(source.group, { lastAttemptAt: now, lastSuccessAt: now, count: live.records.length, format: live.format, lastError: null }),
-                undefined
-            );
-        }
+        if (store) await quietly(saveGroup(store, source.group, live.records, live.format, now), undefined);
         return { group: source.group, records: withSource(source, live.records), fetchedAt: now, format: live.format, origin: "live", stale: false };
     } catch (error) {
         const message = errorText(error);
