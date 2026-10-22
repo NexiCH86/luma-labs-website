@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { get } from "@vercel/blob";
+import { sessionCookieName, verifySessionToken } from "@/lib/session";
 
 const benchmarkFiles: Record<
     string,
@@ -106,9 +107,9 @@ export async function GET(
     }
 ) {
     const cookieStore = await cookies();
-    const session = cookieStore.get("luma_portal_session");
+    const session = verifySessionToken("portal", cookieStore.get(sessionCookieName("portal"))?.value);
 
-    if (session?.value !== "authenticated") {
+    if (!session) {
         return NextResponse.json(
             { error: "Nicht autorisiert." },
             { status: 401 }

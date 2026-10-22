@@ -1,22 +1,20 @@
 import { NextResponse } from "next/server";
-
-function getSafeNextPath(value: FormDataEntryValue | null) {
-    if (typeof value !== "string") return "/portal";
-    if (!value.startsWith("/") || value.startsWith("//")) return "/portal";
-    return value;
-}
+import { clearLoginFailures, clientIp, isLoginBlocked, recordLoginFailure } from "@/lib/login-throttle";
+import {
+    SESSION_MAX_AGE_SECONDS,
+    checkCredentials,
+    createSessionToken,
+    getSafeNextPath,
+    hasCredentials,
+    sessionCookieName,
+    sessionCookieOptions,
+} from "@/lib/session";
 
 export async function POST(request: Request) {
     const formData = await request.formData();
-
-    const username = formData.get("username");
-    const password = formData.get("password");
     const nextPath = getSafeNextPath(formData.get("next"));
 
-    const portalUsername = process.env.PORTAL_USERNAME;
-    const portalPassword = process.env.PORTAL_PASSWORD;
-
-    if (!portalUsername || !portalPassword) {
+    if (!hasCredentials("portal")) {
         return NextResponse.json(
             {
                 error:
@@ -26,29 +24,30 @@ export async function POST(request: Request) {
         );
     }
 
-    const usernameIsValid = username === portalUsername;
-    const passwordIsValid = password === portalPassword;
+    const ip = clientIp(request);
+    const blocked = await isLoginBlocked("portal", ip);
 
-    if (!usernameIsValid || !passwordIsValid) {
+    if (blocked || !checkCredentials("portal", formData.get("username"), formData.get("password"))) {
+        if (!blocked) await recordLoginFailure("portal", ip);
+
         const loginUrl = new URL("/portal/login", request.url);
-        loginUrl.searchParams.set("error", "1");
+        loginUrl.searchParams.set("error", blocked ? "locked" : "1");
         loginUrl.searchParams.set("next", nextPath);
 
         return NextResponse.redirect(loginUrl, 303);
     }
 
+    await clearLoginFailures("portal", ip);
     const response = NextResponse.redirect(
         new URL(nextPath, request.url),
         303
     );
 
-    response.cookies.set("luma_portal_session", "authenticated", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 8,
-    });
+    response.cookies.set(
+        sessionCookieName("portal"),
+        createSessionToken("portal")!,
+        sessionCookieOptions(SESSION_MAX_AGE_SECONDS)
+    );
 
     return response;
 }

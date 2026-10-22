@@ -28,17 +28,17 @@ const items = [
     phase: "NEX-27 · Operations",
     progress: 80,
     summary:
-      "Das geschützte Operations-Dashboard ist live und sammelt echte Telemetrie aus dem gesamten LuMa-Geräteverbund.",
+      "Das geschützte Operations-Dashboard ist live und zeigt echte Telemetrie aus dem LuMa-Geräteverbund – inklusive Offline-Erkennung.",
     done: [
-      "4/4 Systeme live: LuisServer, Master-Intel, Master-Mac und Kali-Mac",
+      "Telemetrie-Agents für Windows, macOS, Kali Linux und Raspberry Pi",
       "CPU, RAM, Storage, Uptime, Temperaturen und RTX-4090-GPU-Telemetrie",
-      "Eigener Login, eigene Session und separater Control-Center-Redis",
-      "Reboot-fester Autostart via systemd, launchd und Windows Task Scheduler",
+      "Eigener Login mit signierter Sitzung, Sperre nach Fehlversuchen und separatem Redis",
+      "Live-Status für Geräte, RADAR-Collector und Server-Stack",
     ],
     next: [
+      "Agent auf dem Server-Pi im Keller einrichten",
       "Geräte anklickbar machen und eigene Detailansichten ergänzen",
-      "WORK/GAMING Remote-Aktionen und Wake-on-LAN integrieren",
-      "Sunshine/Moonlight-, Portainer- und Uptime-Kuma-Status einbinden",
+      "WORK/GAMING Remote-Aktionen, Wake-on-LAN und Sunshine-Status integrieren",
       "Server- und Docker-Management nach NEX-28 sicher ausbauen",
     ],
     accent: "emerald",

@@ -8,7 +8,12 @@ type LoginPageProps = {
 
 export default async function ControlCenterLoginPage({ searchParams }: LoginPageProps) {
     const params = await searchParams;
-    const hasError = params.error === "1";
+    const errorText =
+        params.error === "locked"
+            ? "Zu viele Fehlversuche. Bitte in 15 Minuten erneut versuchen."
+            : params.error === "1"
+              ? "Benutzername oder Passwort ist nicht korrekt."
+              : null;
 
     return (
         <main className="flex min-h-screen items-center justify-center bg-[#061113] px-6 text-white">
@@ -35,7 +40,7 @@ export default async function ControlCenterLoginPage({ searchParams }: LoginPage
                         <input id="password" name="password" type="password" required autoComplete="current-password" placeholder="••••••••••••" className="w-full rounded-xl border border-white/10 bg-black/20 py-3 pl-11 pr-4 text-white outline-none transition placeholder:text-white/20 focus:border-cyan-300/50" />
                     </div>
 
-                    {hasError && <p className="mt-3 text-sm text-red-400">Benutzername oder Passwort ist nicht korrekt.</p>}
+                    {errorText && <p className="mt-3 text-sm text-red-400">{errorText}</p>}
 
                     <button type="submit" className="mt-5 w-full rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-[#061113] transition hover:bg-cyan-200">Control Center öffnen</button>
                 </form>

@@ -8,6 +8,7 @@ import {
     Images,
 } from "lucide-react";
 import { LumaSignet } from "@/components/brand/LumaSignet";
+import { sessionCookieName, verifySessionToken } from "@/lib/session";
 
 const presentations = [
     {
@@ -30,9 +31,9 @@ const presentations = [
 
 export default async function PortalPage() {
     const cookieStore = await cookies();
-    const session = cookieStore.get("luma_portal_session");
+    const session = verifySessionToken("portal", cookieStore.get(sessionCookieName("portal"))?.value);
 
-    if (session?.value !== "authenticated") {
+    if (!session) {
         redirect("/portal/login");
     }
 

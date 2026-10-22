@@ -4,12 +4,13 @@ import {
     handleUpload,
     type HandleUploadBody,
 } from "@vercel/blob/client";
+import { sessionCookieName, verifySessionToken } from "@/lib/session";
 
 export async function POST(request: Request): Promise<NextResponse> {
     const cookieStore = await cookies();
-    const session = cookieStore.get("luma_portal_session");
+    const session = verifySessionToken("portal", cookieStore.get(sessionCookieName("portal"))?.value);
 
-    if (session?.value !== "authenticated") {
+    if (!session) {
         return NextResponse.json(
             { error: "Nicht autorisiert." },
             { status: 401 }

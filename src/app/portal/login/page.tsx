@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LockKeyhole, UserRound } from "lucide-react";
 import { LumaSignet } from "@/components/brand/LumaSignet";
+import { getSafeNextPath } from "@/lib/session";
 
 type LoginPageProps = {
     searchParams: Promise<{
@@ -13,11 +14,13 @@ export default async function LoginPage({
     searchParams,
 }: LoginPageProps) {
     const params = await searchParams;
-    const hasError = params.error === "1";
-    const nextPath =
-        params.next?.startsWith("/") && !params.next.startsWith("//")
-            ? params.next
-            : "/portal";
+    const errorText =
+        params.error === "locked"
+            ? "Zu viele Fehlversuche. Bitte in 15 Minuten erneut versuchen."
+            : params.error === "1"
+              ? "Benutzername oder Passwort ist nicht korrekt."
+              : null;
+    const nextPath = getSafeNextPath(params.next);
 
     return (
         <main className="flex min-h-screen items-center justify-center bg-[#071315] px-6">
@@ -87,9 +90,9 @@ export default async function LoginPage({
                         className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition placeholder:text-white/20 focus:border-cyan-300/50"
                     />
 
-                    {hasError && (
+                    {errorText && (
                         <p className="mt-3 text-sm text-red-400">
-                            Benutzername oder Passwort ist nicht korrekt.
+                            {errorText}
                         </p>
                     )}
 
