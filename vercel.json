@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/radar/satellites/refresh",
+      "schedule": "17 3 * * *"
+    }
+  ]
+}

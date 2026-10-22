@@ -1,94 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
+import { buildSatelliteResponse, createRedisSatelliteStore, loadGroup, SOURCE_DEFINITIONS } from "@/lib/satellite-source";
 
-type CelesTrakRecord = {
-    OBJECT_NAME?: string;
-    OBJECT_ID?: string;
-    EPOCH?: string;
-    MEAN_MOTION?: number;
-    ECCENTRICITY?: number;
-    INCLINATION?: number;
-    RA_OF_ASC_NODE?: number;
-    ARG_OF_PERICENTER?: number;
-    MEAN_ANOMALY?: number;
-    EPHEMERIS_TYPE?: number;
-    CLASSIFICATION_TYPE?: string;
-    NORAD_CAT_ID?: number;
-    ELEMENT_SET_NO?: number;
-    REV_AT_EPOCH?: number;
-    BSTAR?: number;
-    MEAN_MOTION_DOT?: number;
-    MEAN_MOTION_DDOT?: number;
-};
-
-type SatCategory =
-    | "station"
-    | "navigation"
-    | "constellation"
-    | "weather"
-    | "earth"
-    | "science"
-    | "amateur"
-    | "geo";
-
-type SourceDefinition = { group: string; category: SatCategory; label: string };
-type SatelliteRecord = CelesTrakRecord & { category: SatCategory; group: string; groupLabel: string };
-
-const SOURCE_DEFINITIONS: Record<string, SourceDefinition> = {
-    STATIONS: { group: "STATIONS", category: "station", label: "Space Stations" },
-    VISUAL: { group: "VISUAL", category: "science", label: "100 brightest" },
-    "GPS-OPS": { group: "GPS-OPS", category: "navigation", label: "GPS" },
-    "GLO-OPS": { group: "GLO-OPS", category: "navigation", label: "GLONASS" },
-    GALILEO: { group: "GALILEO", category: "navigation", label: "Galileo" },
-    BEIDOU: { group: "BEIDOU", category: "navigation", label: "BeiDou" },
-    STARLINK: { group: "STARLINK", category: "constellation", label: "Starlink" },
-    WEATHER: { group: "WEATHER", category: "weather", label: "Weather" },
-    NOAA: { group: "NOAA", category: "weather", label: "NOAA" },
-    RESOURCE: { group: "RESOURCE", category: "earth", label: "Earth Resources" },
-    SCIENCE: { group: "SCIENCE", category: "science", label: "Science" },
-    AMATEUR: { group: "AMATEUR", category: "amateur", label: "Amateur Radio" },
-    GEO: { group: "GEO", category: "geo", label: "Geostationary" },
-};
+/*
+ * Satelliten-Bahndaten fuer SAT und STARS: /api/radar/satellites?groups=STATIONS,GPS-OPS
+ *
+ * Jede Gruppe wird einzeln geladen. Faellt eine aus, kommen die
+ * anderen trotzdem (failedGroups nennt die fehlenden). 503 nur,
+ * wenn gar keine Gruppe Daten liefert.
+ */
+export const maxDuration = 30;
 
 const DEFAULT_GROUPS = ["STATIONS", "GPS-OPS"];
 const MAX_GROUPS_PER_REQUEST = 4;
 
-async function loadGroup(source: SourceDefinition): Promise<SatelliteRecord[]> {
-    const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${encodeURIComponent(source.group)}&FORMAT=JSON`;
-    const response = await fetch(url, {
-        next: { revalidate: 7200 },
-        headers: { Accept: "application/json", "User-Agent": "LuMa-RADAR/2.0 (lumalabs.ch)" },
-    });
-    if (!response.ok) throw new Error(`CelesTrak ${source.group} returned ${response.status}`);
-    const data = (await response.json()) as CelesTrakRecord[];
-    return data
-        .filter((record) => record.NORAD_CAT_ID != null && record.OBJECT_NAME && record.EPOCH && record.MEAN_MOTION != null && record.ECCENTRICITY != null && record.INCLINATION != null && record.RA_OF_ASC_NODE != null && record.ARG_OF_PERICENTER != null && record.MEAN_ANOMALY != null)
-        .map((record) => ({ ...record, category: source.category, group: source.group, groupLabel: source.label }));
-}
+class BadRequest extends Error {}
 
 function parseGroups(request: NextRequest) {
     const raw = request.nextUrl.searchParams.get("groups");
     const requested = (raw ? raw.split(",") : DEFAULT_GROUPS).map((value) => value.trim().toUpperCase()).filter(Boolean);
     const unique = Array.from(new Set(requested));
     if (unique.length === 0) return DEFAULT_GROUPS;
-    if (unique.length > MAX_GROUPS_PER_REQUEST) throw new Error(`Maximum ${MAX_GROUPS_PER_REQUEST} satellite groups per request`);
-    for (const group of unique) if (!SOURCE_DEFINITIONS[group]) throw new Error(`Unsupported satellite group: ${group}`);
+    if (unique.length > MAX_GROUPS_PER_REQUEST) throw new BadRequest(`Maximum ${MAX_GROUPS_PER_REQUEST} satellite groups per request`);
+    for (const group of unique) if (!SOURCE_DEFINITIONS[group]) throw new BadRequest(`Unsupported satellite group: ${group}`);
     return unique;
 }
 
 export async function GET(request: NextRequest) {
+    let groups: string[];
     try {
-        const groups = parseGroups(request);
-        const loadedGroups = await Promise.all(groups.map((group) => loadGroup(SOURCE_DEFINITIONS[group])));
-        const byNorad = new Map<number, SatelliteRecord>();
-        for (const record of loadedGroups.flat()) {
-            if (record.NORAD_CAT_ID == null) continue;
-            const existing = byNorad.get(record.NORAD_CAT_ID);
-            if (!existing || record.category === "station") byNorad.set(record.NORAD_CAT_ID, record);
-        }
-        const satellites = Array.from(byNorad.values()).sort((a, b) => (a.OBJECT_NAME ?? "").localeCompare(b.OBJECT_NAME ?? ""));
-        return NextResponse.json({ ok: true, source: "CelesTrak GP / OMM", groups, availableGroups: Object.values(SOURCE_DEFINITIONS), cacheSeconds: 7200, generatedAt: new Date().toISOString(), count: satellites.length, satellites }, { headers: { "Cache-Control": "public, s-maxage=7200, stale-while-revalidate=86400" } });
+        groups = parseGroups(request);
     } catch (error) {
-        console.error("SAT data error:", error);
-        return NextResponse.json({ ok: false, source: "CelesTrak GP / OMM", generatedAt: new Date().toISOString(), count: 0, satellites: [], error: error instanceof Error ? error.message : "Satellite data unavailable" }, { status: 400 });
+        return NextResponse.json(
+            { ok: false, source: "CelesTrak GP / OMM", generatedAt: new Date().toISOString(), count: 0, satellites: [], error: error instanceof Error ? error.message : "Bad request" },
+            { status: 400, headers: { "Cache-Control": "no-store" } }
+        );
     }
+
+    const store = createRedisSatelliteStore();
+    const settled = await Promise.allSettled(groups.map((group) => loadGroup(SOURCE_DEFINITIONS[group], { store })));
+    const body = buildSatelliteResponse(groups, settled);
+
+    /*
+     * Vollstaendige, aktuelle Antworten darf das CDN 30 min halten,
+     * Teilausfaelle nur kurz, damit sie sich schnell erholen.
+     */
+    const complete = body.ok && body.failedGroups.length === 0 && !body.stale;
+    const cacheControl = complete
+        ? "public, s-maxage=1800, stale-while-revalidate=86400"
+        : body.ok
+          ? "public, s-maxage=120"
+          : "no-store";
+
+    return NextResponse.json(body, { status: body.ok ? 200 : 503, headers: { "Cache-Control": cacheControl } });
 }
