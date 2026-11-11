@@ -6,6 +6,7 @@ import {
     ExternalLink,
     FileText,
     Images,
+    Calculator,
 } from "lucide-react";
 import { LumaSignet } from "@/components/brand/LumaSignet";
 import { sessionCookieName, verifySessionToken } from "@/lib/session";
@@ -120,6 +121,30 @@ export default async function PortalPage() {
                             </a>
                         ))}
                     </div>
+
+                    <a
+                        href="/portal/nutzenrechner"
+                        className="group mt-6 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-cyan-300/30 hover:bg-white/[0.05]"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/5">
+                                <Calculator className="h-5 w-5 text-cyan-300" />
+                            </div>
+
+                            <div>
+                                <h3 className="font-medium">
+                                    BOG Fusion Nutzenrechner
+                                </h3>
+
+                                <p className="mt-1 text-sm text-white/40">
+                                    Zeit- und Geldgewinn, wenn BOG Fusion Revizto ersetzt.
+                                    Annahmen änderbar.
+                                </p>
+                            </div>
+                        </div>
+
+                        <ExternalLink className="h-4 w-4 text-white/30 transition group-hover:text-cyan-300" />
+                    </a>
                 </section>
 
                 {/* BENCHMARK & TESTS */}
