@@ -23,7 +23,8 @@ export async function GET(request: Request) {
     }
 
     try {
-        const result = await get(BLOB_PATH, { access: "private" });
+        // Direkt aus dem Speicher lesen: nach einem neuen Upload sofort die neue Fassung.
+        const result = await get(BLOB_PATH, { access: "private", useCache: false });
 
         if (!result || result.statusCode !== 200) {
             return new Response("Der Nutzenrechner ist nicht hinterlegt.", {
