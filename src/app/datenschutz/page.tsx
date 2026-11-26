@@ -100,6 +100,16 @@ export default function DatenschutzPage() {
       </section>
 
       <section>
+        <h2>Daten im BOG Kanalnetz</h2>
+        <ul>
+          <li>
+            Projekte und Eingaben werden ausschliesslich lokal im Browser gespeichert (Local
+            Storage) oder als Datei heruntergeladen. Sie werden nicht an diese Website übertragen.
+          </li>
+        </ul>
+      </section>
+
+      <section>
         <h2>Geschützte Bereiche</h2>
         <p>
           Für das private Portal und das Control Center wird nach dem Login ein technisch

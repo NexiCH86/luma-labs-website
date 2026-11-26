@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLink, LockKeyhole, Radar, Boxes, Zap } from "lucide-react";
+import { ExternalLink, LockKeyhole, Radar, Boxes, Wind, Zap } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { MobileMenu } from "./MobileMenu";
 
@@ -13,12 +13,12 @@ const sectionLinks = [
 export function Navbar() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#061019]/80 backdrop-blur-xl">
-      <nav className="mx-auto flex h-20 max-w-[1480px] items-center justify-between px-6 lg:px-10">
+      <nav className="mx-auto flex h-20 max-w-[1600px] items-center justify-between px-6 lg:px-10">
         <Link href="/" aria-label="LuMa Labs Startseite">
           <Logo gradientId="lumaSignetNav" />
         </Link>
 
-        <div className="hidden items-center gap-4 whitespace-nowrap text-[13px] uppercase tracking-[0.1em] text-slate-300 min-[1440px]:flex">
+        <div className="hidden items-center gap-3 whitespace-nowrap text-[13px] uppercase tracking-[0.1em] text-slate-300 min-[1600px]:flex">
           {sectionLinks.map(([label, href]) => (
             <Link key={href} href={href} className="transition hover:text-[#00D7E6]">
               {label}
@@ -47,6 +47,14 @@ export function Navbar() {
           >
             <Zap className="h-4 w-4" />
             ENERGY
+          </Link>
+
+          <Link
+            href="/kanalnetz"
+            className="inline-flex items-center gap-2 rounded-md border border-[#00D7E6]/30 bg-[#00D7E6]/[0.035] px-3 py-2 font-semibold text-cyan-100/80 transition hover:-translate-y-0.5 hover:border-[#00D7E6]/60 hover:bg-[#00D7E6]/[0.09] hover:text-white"
+          >
+            <Wind className="h-4 w-4" />
+            KANALNETZ
           </Link>
 
           <Link

@@ -4,6 +4,7 @@
 const projects = [
   ["LuMa RADAR", "Live · AIR, SAT & STARS", "90%"],
   ["BOG Energy Studio", "Beta V0.2 · /energy", "35%"],
+  ["BOG Kanalnetz", "Beta V0.1 · /kanalnetz", "25%"],
   ["LuMa Control Center", "V1 live", "80%"],
   ["LuMa Air", "In Entwicklung", "20%"],
   ["LuMa Server", "Aktiv", "35%"],
