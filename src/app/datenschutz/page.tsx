@@ -100,7 +100,7 @@ export default function DatenschutzPage() {
       </section>
 
       <section>
-        <h2>Daten im BOG Kanalnetz</h2>
+        <h2>Daten im BOG Kanalnetz und BOG Sanitär</h2>
         <ul>
           <li>
             Projekte und Eingaben werden ausschliesslich lokal im Browser gespeichert (Local
