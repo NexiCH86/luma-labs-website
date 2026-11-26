@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Boxes, ExternalLink, LockKeyhole, Menu, Radar, Wind, X, Zap } from "lucide-react";
+import { Boxes, Droplets, ExternalLink, LockKeyhole, Menu, Radar, Wind, X, Zap } from "lucide-react";
 
 const sectionLinks = [
   ["Lösungen", "/#loesungen"],
@@ -15,12 +15,13 @@ const productLinks = [
   ["RADAR", "/radar", Radar],
   ["Energy", "/energy", Zap],
   ["Kanalnetz", "/kanalnetz", Wind],
+  ["Sanitär", "/sanitaer", Droplets],
   ["Control Center", "/control-center", LockKeyhole],
   ["Fusion", "https://bog-fusion.vercel.app", Boxes],
 ] as const;
 
 /*
- * Navigation fuer Handy, Tablet und kleine Laptops (unter 1600 px). Breiter zeigt die
+ * Navigation fuer Handy, Tablet und kleine Laptops (unter 1760 px). Breiter zeigt die
  * Navbar die Links direkt.
  */
 export function MobileMenu() {
@@ -28,7 +29,7 @@ export function MobileMenu() {
   const close = () => setOpen(false);
 
   return (
-    <div className="min-[1600px]:hidden">
+    <div className="min-[1760px]:hidden">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
