@@ -85,6 +85,21 @@ export default function DatenschutzPage() {
       </section>
 
       <section>
+        <h2>Daten im BOG Energy Studio</h2>
+        <ul>
+          <li>
+            Projekte und Eingaben werden ausschliesslich lokal im Browser gespeichert (Local
+            Storage) oder als Datei heruntergeladen. Sie werden nicht an diese Website übertragen.
+          </li>
+          <li>
+            Beim Laden von Klimadaten werden nur die eingegebenen Koordinaten über den Server
+            dieser Website an PVGIS (Gemeinsame Forschungsstelle der Europäischen Kommission)
+            weitergeleitet.
+          </li>
+        </ul>
+      </section>
+
+      <section>
         <h2>Geschützte Bereiche</h2>
         <p>
           Für das private Portal und das Control Center wird nach dem Login ein technisch

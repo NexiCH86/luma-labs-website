@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Boxes, ExternalLink, LockKeyhole, Menu, Radar, X } from "lucide-react";
+import { Boxes, ExternalLink, LockKeyhole, Menu, Radar, X, Zap } from "lucide-react";
 
 const sectionLinks = [
   ["Lösungen", "/#loesungen"],
@@ -13,6 +13,7 @@ const sectionLinks = [
 
 const productLinks = [
   ["RADAR", "/radar", Radar],
+  ["Energy", "/energy", Zap],
   ["Control Center", "/control-center", LockKeyhole],
   ["Fusion", "https://bog-fusion.vercel.app", Boxes],
 ] as const;
@@ -51,7 +52,7 @@ export function MobileMenu() {
             ))}
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {productLinks.map(([label, href, Icon]) => (
               <Link
                 key={href}
