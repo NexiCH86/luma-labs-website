@@ -9,6 +9,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ["/radar", 0.9],
     ["/radar/sat", 0.8],
     ["/radar/stars", 0.8],
+    ["/energy", 0.8],
     ...products.map((product) => [`/loesungen/${product.slug}`, 0.6] as const),
     ["/impressum", 0.2],
     ["/datenschutz", 0.2],
